@@ -18,23 +18,25 @@ const ITEMS = [
   { href: "/housemates", label: "House", Icon: IconUsers },
 ];
 
-export function BottomNav() {
+export function TopNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-2xl items-stretch justify-around px-2 pb-[env(safe-area-inset-bottom)]">
+    <nav className="border-t border-slate-100">
+      <div className="mx-auto flex max-w-2xl items-stretch justify-around">
         {ITEMS.map(({ href, label, Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link
               key={href}
               href={href}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition-colors ${
-                active ? "text-brand-600" : "text-slate-400 hover:text-slate-600"
+              className={`flex flex-1 flex-col items-center gap-0.5 border-b-2 py-2 text-[11px] font-medium transition-colors ${
+                active
+                  ? "border-brand-600 text-brand-600"
+                  : "border-transparent text-slate-400 hover:text-slate-600"
               }`}
             >
-              <Icon className={`h-6 w-6 ${active ? "stroke-[2]" : ""}`} />
+              <Icon className="h-5 w-5" />
               {label}
             </Link>
           );

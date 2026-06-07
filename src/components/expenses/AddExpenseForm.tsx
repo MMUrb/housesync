@@ -368,7 +368,7 @@ export function AddExpenseForm({
 
       {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-      <div className="sticky bottom-24 z-10">
+      <div className="sticky bottom-4 z-10">
         <button type="submit" disabled={loading} className="btn-primary btn-block shadow-soft">
           {loading ? "Saving…" : "Add expense"}
         </button>

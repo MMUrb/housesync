@@ -14,7 +14,7 @@ export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
  * Each provider must ALSO be enabled + configured in the Supabase dashboard.
  */
 export const OAUTH_PROVIDERS = (
-  process.env.NEXT_PUBLIC_OAUTH_PROVIDERS ?? "google,azure,apple"
+  process.env.NEXT_PUBLIC_OAUTH_PROVIDERS ?? "google"
 )
   .split(",")
   .map((p) => p.trim().toLowerCase())
