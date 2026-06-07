@@ -7,7 +7,7 @@ import { Logo } from "@/components/Logo";
 export const metadata = { title: "Create your house" };
 
 export default async function CreateHousePage() {
-  await requireUser();
+  const user = await requireUser();
   const houses = await getMyHouses();
   const hasHouse = houses.length > 0;
 
@@ -27,6 +27,14 @@ export default async function CreateHousePage() {
         <p className="mt-1.5 text-sm text-slate-600">
           Set it up once, then invite your housemates. You can change these later.
         </p>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
+          <span className="truncate">Signed in as {user.email}.</span>
+          <form action="/auth/signout" method="post">
+            <button type="submit" className="font-medium text-brand-600 hover:underline">
+              Sign out / use another account
+            </button>
+          </form>
+        </div>
       </div>
 
       <div className="mt-6">

@@ -77,6 +77,7 @@ export function LoginForm() {
       provider,
       options: {
         redirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(next)}`,
+        queryParams: { prompt: "select_account" },
         ...(scopes ? { scopes } : {}),
       },
     });
