@@ -12,6 +12,7 @@ import type {
   ExpenseSplit,
   House,
   MemberWithProfile,
+  Message,
   Profile,
   RecurringBill,
 } from "@/lib/types";
@@ -191,4 +192,16 @@ export async function getActivity(houseId: string, limit = 20): Promise<Activity
     .order("created_at", { ascending: false })
     .limit(limit);
   return (data ?? []) as Activity[];
+}
+
+/** Recent house chat messages, oldest first (capped at `limit`). */
+export async function getMessages(houseId: string, limit = 100): Promise<Message[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("house_id", houseId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return ((data ?? []) as Message[]).reverse();
 }

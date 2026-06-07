@@ -123,6 +123,15 @@ export interface Notice {
   created_at: string;
 }
 
+/** A house chat message. */
+export interface Message {
+  id: string;
+  house_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+}
+
 /** Private, account-level settings — only the owner can read these. */
 export interface AccountSettings {
   user_id: string;

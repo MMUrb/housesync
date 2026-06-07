@@ -237,7 +237,7 @@ set search_path = public
 as $$
 declare
   v_house public.houses;
-  v_is_new boolean;
+  v_is_new int;
 begin
   if auth.uid() is null then
     raise exception 'Not authenticated';
@@ -485,5 +485,46 @@ create table if not exists public.phone_verifications (
 
 alter table public.phone_verifications enable row level security;
 -- Intentionally no policies: clients get nothing; only the service role bypasses RLS.
+
+-- ----------------------------------------------------------------------------
+-- HOUSE CHAT (one shared message channel per house)
+-- ----------------------------------------------------------------------------
+create table if not exists public.messages (
+  id         uuid primary key default gen_random_uuid(),
+  house_id   uuid not null references public.houses (id) on delete cascade,
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  body       text not null check (char_length(btrim(body)) between 1 and 4000),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_messages_house_created
+  on public.messages (house_id, created_at);
+
+alter table public.messages enable row level security;
+
+drop policy if exists "messages_select" on public.messages;
+create policy "messages_select" on public.messages for select to authenticated
+  using (house_id in (select public.user_house_ids()));
+
+drop policy if exists "messages_insert" on public.messages;
+create policy "messages_insert" on public.messages for insert to authenticated
+  with check (house_id in (select public.user_house_ids()) and user_id = auth.uid());
+
+drop policy if exists "messages_delete" on public.messages;
+create policy "messages_delete" on public.messages for delete to authenticated
+  using (user_id = auth.uid());
+
+-- Live chat via Supabase Realtime (idempotent).
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'messages'
+  ) then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+end $$;
 
 -- Done.

@@ -31,6 +31,15 @@ export function IconReceipt(p: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function IconChat(p: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.4-4.2A7.5 7.5 0 1 1 20 11.5Z" />
+      <path d="M8.5 10.5h7M8.5 13.5h4" />
+    </svg>
+  );
+}
+
 export function IconRepeat(p: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...p}>

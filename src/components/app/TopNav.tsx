@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   IconBroom,
+  IconChat,
   IconHome,
   IconReceipt,
   IconRepeat,
@@ -16,6 +17,7 @@ const ITEMS = [
   { href: "/bills", label: "Bills", Icon: IconRepeat },
   { href: "/chores", label: "Chores", Icon: IconBroom },
   { href: "/housemates", label: "House", Icon: IconUsers },
+  { href: "/chat", label: "Chat", Icon: IconChat },
 ];
 
 export function TopNav() {

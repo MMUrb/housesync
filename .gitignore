@@ -33,3 +33,7 @@ next-env.d.ts
 
 # mobile test artifacts
 /emulator-screenshot*.png
+/test-*.png
+
+# claude code local config / launch configs
+/.claude/
