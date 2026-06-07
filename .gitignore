@@ -30,3 +30,6 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# mobile test artifacts
+/emulator-screenshot*.png

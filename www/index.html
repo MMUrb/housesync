@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>HouseSync</title>
+    <style>
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #f6f7fb;
+        color: #6f53f5;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .wrap { padding: 24px; }
+      .dot {
+        width: 14px; height: 14px; margin: 16px auto 0;
+        border-radius: 50%; background: #6f53f5;
+        animation: pulse 1s ease-in-out infinite;
+      }
+      @keyframes pulse { 0%,100% { opacity: .3; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
+    </style>
+  </head>
+  <body>
+    <!--
+      This file is only a fallback. The app loads the live site (housesync.co.uk)
+      via Capacitor's server.url. You normally never see this page.
+    -->
+    <div class="wrap">
+      <strong>HouseSync</strong>
+      <div class="dot"></div>
+    </div>
+  </body>
+</html>

@@ -10,6 +10,11 @@ import { setLeaveGuard } from "@/lib/leaveGuard";
 type Mode = "signin" | "signup";
 type OAuthProvider = "google" | "azure" | "apple";
 
+// Custom URL scheme used to return to the native (Capacitor) app after OAuth
+// completes in the system browser. Must match the Android manifest intent-filter
+// AND be allow-listed in Supabase Auth → URL Configuration → Redirect URLs.
+const NATIVE_SCHEME = "uk.co.housesync";
+
 const PROVIDER_CONFIG: Record<
   string,
   { label: string; provider: OAuthProvider; scopes?: string; Icon: ComponentType }
@@ -61,6 +66,56 @@ export function LoginForm() {
     setLeaveGuard(mode === "signup" && hasInput);
     return () => setLeaveGuard(false);
   }, [mode, name, email, password]);
+
+  // Native app only: finish an OAuth sign-in that happened in the system
+  // browser. Google blocks OAuth inside embedded webviews, so in the app we open
+  // the provider in the system browser and return here via a deep link
+  // (uk.co.housesync://auth/callback?code=...). We then hand the code to the
+  // normal server callback route, which exchanges it and sets the session.
+  useEffect(() => {
+    let removeUrlOpen: (() => void) | undefined;
+    let removeFinished: (() => void) | undefined;
+    (async () => {
+      if (typeof window === "undefined") return;
+      const { Capacitor } = await import("@capacitor/core");
+      if (!Capacitor.isNativePlatform()) return;
+      const { App } = await import("@capacitor/app");
+      const { Browser } = await import("@capacitor/browser");
+
+      const urlOpen = await App.addListener("appUrlOpen", async ({ url }) => {
+        if (!url || !url.startsWith(`${NATIVE_SCHEME}://`)) return;
+        const params = new URLSearchParams(url.slice(url.indexOf("?") + 1));
+        const code = params.get("code");
+        const dest = params.get("next") || next;
+        try {
+          await Browser.close();
+        } catch {
+          /* browser already closed — fine */
+        }
+        if (code) {
+          // Reuse the existing server callback to exchange the code → session.
+          window.location.href = `/auth/callback?code=${encodeURIComponent(
+            code,
+          )}&next=${encodeURIComponent(dest)}`;
+        } else {
+          setLoading(false);
+          const err = params.get("error_description") || params.get("error");
+          if (err) setError(decodeURIComponent(err));
+        }
+      });
+      removeUrlOpen = () => urlOpen.remove();
+
+      // If the user just closes the browser without signing in, re-enable the UI.
+      const finished = await Browser.addListener("browserFinished", () => {
+        setLoading(false);
+      });
+      removeFinished = () => finished.remove();
+    })();
+    return () => {
+      removeUrlOpen?.();
+      removeFinished?.();
+    };
+  }, [next]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -116,17 +171,40 @@ export function LoginForm() {
   async function handleOAuth(provider: OAuthProvider, scopes?: string) {
     setError(null);
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
+
+    // In the native app, Google (and others) block OAuth inside the webview, so
+    // open the provider in the system browser and return via a deep link.
+    let isNative = false;
+    if (typeof window !== "undefined") {
+      const { Capacitor } = await import("@capacitor/core");
+      isNative = Capacitor.isNativePlatform();
+    }
+
+    const redirectTo = isNative
+      ? `${NATIVE_SCHEME}://auth/callback?next=${encodeURIComponent(next)}`
+      : `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(next)}`;
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(next)}`,
+        redirectTo,
         queryParams: { prompt: "select_account" },
+        // In the app, get the URL back instead of auto-redirecting the webview.
+        skipBrowserRedirect: isNative,
         ...(scopes ? { scopes } : {}),
       },
     });
+
     if (error) {
       setError(error.message);
       setLoading(false);
+      return;
+    }
+
+    if (isNative && data?.url) {
+      const { Browser } = await import("@capacitor/browser");
+      await Browser.open({ url: data.url });
+      // The appUrlOpen listener above completes sign-in when the user returns.
     }
   }
 
