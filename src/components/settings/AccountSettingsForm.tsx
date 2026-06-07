@@ -10,12 +10,14 @@ export function AccountSettingsForm({
   initialPhone,
   initialNotifyEmail,
   initialNotifySms,
+  emailVerified,
 }: {
   userId: string;
   email: string;
   initialPhone: string;
   initialNotifyEmail: boolean;
   initialNotifySms: boolean;
+  emailVerified: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -25,6 +27,8 @@ export function AccountSettingsForm({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifySent, setVerifySent] = useState(false);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -51,6 +55,20 @@ export function AccountSettingsForm({
     router.refresh();
   }
 
+  async function verifyEmail() {
+    setError(null);
+    setVerifying(true);
+    try {
+      const { error } = await supabase.auth.resend({ type: "signup", email });
+      if (error) throw error;
+      setVerifySent(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not send the verification email.");
+    } finally {
+      setVerifying(false);
+    }
+  }
+
   return (
     <form onSubmit={save} className="card space-y-4 p-5">
       <div>
@@ -63,7 +81,25 @@ export function AccountSettingsForm({
           value={email}
           readOnly
         />
-        <p className="mt-1 text-xs text-slate-400">This is how you sign in.</p>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+          {emailVerified ? (
+            <span className="font-medium text-mint-600">✓ Email verified</span>
+          ) : verifySent ? (
+            <span className="text-mint-600">Verification email sent — check your inbox.</span>
+          ) : (
+            <>
+              <span className="text-amber-600">Email not verified</span>
+              <button
+                type="button"
+                onClick={verifyEmail}
+                disabled={verifying}
+                className="font-medium text-brand-600 hover:underline disabled:opacity-50"
+              >
+                {verifying ? "Sending…" : "Verify email"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div>

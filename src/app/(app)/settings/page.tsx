@@ -39,6 +39,7 @@ export default async function SettingsPage() {
           initialPhone={account?.phone ?? ""}
           initialNotifyEmail={account?.notify_email ?? true}
           initialNotifySms={account?.notify_sms ?? false}
+          emailVerified={Boolean(user.email_confirmed_at)}
         />
 
         <form action="/auth/signout" method="post">

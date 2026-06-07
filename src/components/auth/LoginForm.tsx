@@ -19,6 +19,24 @@ const PROVIDER_CONFIG: Record<
   apple: { label: "Apple", provider: "apple", Icon: AppleIcon },
 };
 
+/**
+ * Ask the browser's own password manager to save the login (secure — the
+ * browser stores it, we never do). Triggers the native "Save password?" prompt
+ * in supporting browsers; others fall back to their built-in autofill via the
+ * autocomplete attributes below.
+ */
+async function offerToSaveCredentials(email: string, password: string) {
+  try {
+    const w = window as unknown as { PasswordCredential?: new (data: object) => Credential };
+    if (w.PasswordCredential && navigator.credentials?.store) {
+      const cred = new w.PasswordCredential({ id: email, password, name: email });
+      await navigator.credentials.store(cred);
+    }
+  } catch {
+    /* unsupported or dismissed — fine */
+  }
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -28,6 +46,7 @@ export function LoginForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -60,15 +79,29 @@ export function LoginForm() {
           },
         });
         if (error) throw error;
+
+        // With email confirmation OFF, sign-up returns a session and we're in.
+        // If there's no session, try to sign in straight away (also works when
+        // confirmation is off); only if that fails do we ask them to confirm.
         if (!data.session) {
-          setNotice("Check your email to confirm your account, then sign in.");
-          setMode("signin");
-          return;
+          const { error: signInErr } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (signInErr) {
+            setNotice("Account created. Please confirm your email, then sign in.");
+            setMode("signin");
+            setLeaveGuard(false);
+            return;
+          }
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
+
+      setLeaveGuard(false);
+      await offerToSaveCredentials(email, password);
       router.push(next);
       router.refresh();
     } catch (err) {
@@ -184,17 +217,27 @@ export function LoginForm() {
           <label className="label" htmlFor="password">
             Password
           </label>
-          <input
-            id="password"
-            type="password"
-            className="input"
-            placeholder="At least 6 characters"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            autoComplete={mode === "signup" ? "new-password" : "current-password"}
-          />
+          <div className="relative">
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              className="input pr-11"
+              placeholder="At least 6 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((s) => !s)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-400 hover:text-slate-600"
+            >
+              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -209,6 +252,44 @@ export function LoginForm() {
         </button>
       </form>
     </div>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2.5 12S6 5 12 5s9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m3 3 18 18" />
+      <path d="M10.6 5.1A9.6 9.6 0 0 1 12 5c6 0 9.5 7 9.5 7a16.2 16.2 0 0 1-3.1 3.8" />
+      <path d="M6.3 6.3A16.3 16.3 0 0 0 2.5 12S6 19 12 19a9.5 9.5 0 0 0 4.2-1" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </svg>
   );
 }
 
