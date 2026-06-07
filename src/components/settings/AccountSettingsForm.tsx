@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getSiteUrl } from "@/lib/env";
+import { PhoneVerification } from "@/components/settings/PhoneVerification";
 
 export function AccountSettingsForm({
   userId,
   email,
   initialPhone,
+  initialPhoneVerified,
   initialNotifyEmail,
   initialNotifySms,
   emailVerified,
@@ -16,13 +18,13 @@ export function AccountSettingsForm({
   userId: string;
   email: string;
   initialPhone: string;
+  initialPhoneVerified: boolean;
   initialNotifyEmail: boolean;
   initialNotifySms: boolean;
   emailVerified: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const [phone, setPhone] = useState(initialPhone);
   const [notifyEmail, setNotifyEmail] = useState(initialNotifyEmail);
   const [notifySms, setNotifySms] = useState(initialNotifySms);
   const [saving, setSaving] = useState(false);
@@ -40,10 +42,11 @@ export function AccountSettingsForm({
     setError(null);
     setSaving(true);
     setSaved(false);
+    // Note: phone + phone_verified are managed by the verification flow on the
+    // server — they're intentionally not written from here.
     const { error } = await supabase.from("account_settings").upsert(
       {
         user_id: userId,
-        phone: phone.trim() || null,
         notify_email: notifyEmail,
         notify_sms: notifySms,
         updated_at: new Date().toISOString(),
@@ -190,20 +193,8 @@ export function AccountSettingsForm({
       </div>
 
       <div>
-        <label className="label" htmlFor="account-phone">
-          Phone number <span className="font-normal text-slate-400">(private)</span>
-        </label>
-        <input
-          id="account-phone"
-          type="tel"
-          className="input"
-          placeholder="e.g. +44 7700 900000"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-        />
-        <p className="mt-1 text-xs text-slate-400">
-          🔒 Never shown to your housemates — used only for reminders you turn on below.
-        </p>
+        <span className="label">Phone number</span>
+        <PhoneVerification initialPhone={initialPhone} initialVerified={initialPhoneVerified} />
       </div>
 
       <div className="space-y-2">
@@ -216,7 +207,7 @@ export function AccountSettingsForm({
         />
         <Toggle
           label="Text (SMS) reminders"
-          desc="Opt in now — we'll text you once SMS reminders go live."
+          desc="Sent to your verified phone number once SMS reminders go live."
           checked={notifySms}
           onChange={setNotifySms}
         />

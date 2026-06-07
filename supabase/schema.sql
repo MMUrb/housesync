@@ -464,4 +464,26 @@ drop policy if exists "account_settings_update" on public.account_settings;
 create policy "account_settings_update" on public.account_settings for update to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
+-- ----------------------------------------------------------------------------
+-- PHONE VERIFICATION (SMS one-time codes)
+-- account_settings.phone_verified marks a confirmed number. The codes live in a
+-- server-only table (RLS on, NO policies) so the browser can never read them —
+-- only the service role (the /api/phone/* routes) can. This is what makes the
+-- code prove the user actually possesses the phone.
+-- ----------------------------------------------------------------------------
+alter table public.account_settings
+  add column if not exists phone_verified boolean not null default false;
+
+create table if not exists public.phone_verifications (
+  user_id    uuid primary key references auth.users (id) on delete cascade,
+  phone      text not null,
+  code       text not null,
+  attempts   int not null default 0,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.phone_verifications enable row level security;
+-- Intentionally no policies: clients get nothing; only the service role bypasses RLS.
+
 -- Done.

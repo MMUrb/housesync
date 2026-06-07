@@ -37,6 +37,7 @@ export default async function SettingsPage() {
           userId={user.id}
           email={user.email ?? ""}
           initialPhone={account?.phone ?? ""}
+          initialPhoneVerified={account?.phone_verified ?? false}
           initialNotifyEmail={account?.notify_email ?? true}
           initialNotifySms={account?.notify_sms ?? false}
           emailVerified={Boolean(user.email_confirmed_at)}

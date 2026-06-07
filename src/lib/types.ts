@@ -127,6 +127,7 @@ export interface Notice {
 export interface AccountSettings {
   user_id: string;
   phone: string | null;
+  phone_verified: boolean;
   notify_email: boolean;
   notify_sms: boolean;
   updated_at: string;
