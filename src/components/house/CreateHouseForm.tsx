@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { setActiveHouse } from "@/lib/activeHouse";
+import { setLeaveGuard } from "@/lib/leaveGuard";
 import { CURRENCIES } from "@/lib/constants";
 import { InviteBox } from "@/components/house/InviteBox";
 import type { House } from "@/lib/types";
@@ -19,6 +20,13 @@ export function CreateHouseForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<House | null>(null);
+
+  // Warn before leaving if the form has been started (and not yet created).
+  useEffect(() => {
+    const hasInput = Boolean(name.trim() || rentDueDay || nickname.trim());
+    setLeaveGuard(!created && hasInput);
+    return () => setLeaveGuard(false);
+  }, [name, rentDueDay, nickname, created]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

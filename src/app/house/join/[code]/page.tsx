@@ -4,7 +4,7 @@ import { getUser } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/env";
 import { NotConfigured } from "@/components/NotConfigured";
 import { JoinHouseButton } from "@/components/house/JoinHouseButton";
-import { Logo } from "@/components/Logo";
+import { HomeLogoLink } from "@/components/HomeLogoLink";
 
 export const metadata = { title: "Join a house" };
 
@@ -25,9 +25,7 @@ export default async function JoinHousePage({
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-10">
-      <Link href="/" className="mx-auto">
-        <Logo className="text-lg" />
-      </Link>
+      <HomeLogoLink className="mx-auto" logoClassName="text-lg" />
 
       <div className="card mt-8 p-6 text-center">
         {!preview ? (

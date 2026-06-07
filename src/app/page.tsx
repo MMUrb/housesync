@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
+import { HomeLogoLink } from "@/components/HomeLogoLink";
 
 export default function LandingPage() {
   return (
@@ -7,7 +8,7 @@ export default function LandingPage() {
       {/* Nav */}
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5">
-          <Logo className="text-lg" />
+          <HomeLogoLink logoClassName="text-lg" />
           <div className="flex items-center gap-2">
             <Link href="/login" className="btn-ghost text-sm">
               Sign in

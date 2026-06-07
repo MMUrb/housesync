@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getSiteUrl, OAUTH_PROVIDERS } from "@/lib/env";
+import { setLeaveGuard } from "@/lib/leaveGuard";
 
 type Mode = "signin" | "signup";
 type OAuthProvider = "google" | "azure" | "apple";
@@ -34,6 +35,13 @@ export function LoginForm() {
   const supabase = createClient();
 
   const providers = OAUTH_PROVIDERS.filter((p) => PROVIDER_CONFIG[p]);
+
+  // Warn before leaving mid sign-up (when fields have been filled in).
+  useEffect(() => {
+    const hasInput = Boolean(name || email || password);
+    setLeaveGuard(mode === "signup" && hasInput);
+    return () => setLeaveGuard(false);
+  }, [mode, name, email, password]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

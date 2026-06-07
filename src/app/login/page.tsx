@@ -1,8 +1,7 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { NotConfigured } from "@/components/NotConfigured";
-import { Logo } from "@/components/Logo";
+import { HomeLogoLink } from "@/components/HomeLogoLink";
 import { isSupabaseConfigured } from "@/lib/env";
 
 export const metadata = { title: "Sign in" };
@@ -12,9 +11,7 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-10">
-      <Link href="/" className="mx-auto">
-        <Logo className="text-xl" />
-      </Link>
+      <HomeLogoLink className="mx-auto" logoClassName="text-xl" />
       <h1 className="mt-8 text-center text-2xl font-bold text-slate-900">
         Welcome to your house
       </h1>
