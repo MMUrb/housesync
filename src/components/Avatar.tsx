@@ -10,17 +10,29 @@ const SIZES = {
 export function Avatar({
   name,
   color = "#6f53f5",
+  avatarUrl = null,
   size = "md",
   className = "",
 }: {
   name?: string | null;
   color?: string;
+  avatarUrl?: string | null;
   size?: keyof typeof SIZES;
   className?: string;
 }) {
+  if (avatarUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={avatarUrl}
+        alt={name ?? "Avatar"}
+        className={`inline-block shrink-0 rounded-full object-cover ${SIZES[size]} ${className}`}
+      />
+    );
+  }
   return (
     <span
-      className={`inline-grid place-items-center rounded-full font-semibold text-white ${SIZES[size]} ${className}`}
+      className={`inline-grid shrink-0 place-items-center rounded-full font-semibold text-white ${SIZES[size]} ${className}`}
       style={{ backgroundColor: color }}
       title={name ?? undefined}
     >

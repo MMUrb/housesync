@@ -293,7 +293,7 @@ export function AddExpenseForm({
                   >
                     {on && "✓"}
                   </span>
-                  <Avatar name={m.profile?.name} color={m.profile?.avatar_color} size="sm" />
+                  <Avatar name={m.profile?.name} color={m.profile?.avatar_color} avatarUrl={m.profile?.avatar_url} size="sm" />
                   <span className="truncate text-sm text-slate-800">
                     {m.user_id === currentUserId ? "You" : m.profile?.name ?? "Housemate"}
                   </span>

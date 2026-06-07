@@ -20,7 +20,7 @@ export function AppHeader({
         aria-label="Your profile and settings"
         className="shrink-0 rounded-full transition hover:opacity-90"
       >
-        <Avatar name={profile?.name} color={profile?.avatar_color} size="md" />
+        <Avatar name={profile?.name} color={profile?.avatar_color} avatarUrl={profile?.avatar_url} size="md" />
       </Link>
     </div>
   );

@@ -95,7 +95,7 @@ export default async function HousematesPage() {
             const net = round2(balances.netByUser[m.user_id] ?? 0);
             return (
               <li key={m.user_id} className="flex items-center gap-3 p-3.5">
-                <Avatar name={m.profile?.name} color={m.profile?.avatar_color} size="md" />
+                <Avatar name={m.profile?.name} color={m.profile?.avatar_color} avatarUrl={m.profile?.avatar_url} size="md" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-slate-900">
                     {nameOf(m.user_id)}

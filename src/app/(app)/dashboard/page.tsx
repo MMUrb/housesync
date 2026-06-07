@@ -75,7 +75,7 @@ export default async function DashboardPage() {
             const m = memberOf(p.userId);
             return (
               <div key={p.userId} className="flex items-center gap-3 p-3.5">
-                <Avatar name={m?.profile?.name} color={m?.profile?.avatar_color} size="md" />
+                <Avatar name={m?.profile?.name} color={m?.profile?.avatar_color} avatarUrl={m?.profile?.avatar_url} size="md" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-slate-800">
                     {m?.profile?.name ?? "Housemate"}
@@ -185,7 +185,7 @@ export default async function DashboardPage() {
               const m = memberOf(a.user_id);
               return (
                 <li key={a.id} className="flex items-center gap-3 p-3.5">
-                  <Avatar name={m?.profile?.name} color={m?.profile?.avatar_color} size="sm" />
+                  <Avatar name={m?.profile?.name} color={m?.profile?.avatar_color} avatarUrl={m?.profile?.avatar_url} size="sm" />
                   <p className="min-w-0 flex-1 text-sm text-slate-700">
                     <span className="font-medium">{m?.profile?.name ?? "Someone"}</span>{" "}
                     {a.message}

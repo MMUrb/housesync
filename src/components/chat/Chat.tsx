@@ -1,9 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/Avatar";
+import { EmojiPicker } from "@/components/chat/EmojiPicker";
 import type { MemberWithProfile, Message } from "@/lib/types";
+
+// Show a centred time separator when messages are this far apart (like iMessage).
+const GROUP_GAP_MS = 5 * 60 * 1000;
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatSeparator(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const time = formatTime(iso);
+  if (d.toDateString() === now.toDateString()) return time;
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return `Yesterday ${time}`;
+  return `${d.toLocaleDateString([], { day: "numeric", month: "short" })} · ${time}`;
+}
 
 export function Chat({
   houseId,
@@ -21,13 +40,17 @@ export function Chat({
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [revealed, setRevealed] = useState<Set<string>>(new Set());
+
   const endRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const emojiBtnRef = useRef<HTMLButtonElement | null>(null);
+  const pickerRef = useRef<HTMLDivElement | null>(null);
 
   const profileOf = (userId: string) =>
     members.find((m) => m.user_id === userId)?.profile ?? null;
 
-  // Add a message only if we don't already have it — dedupes the optimistic
-  // copy against the same row arriving over Realtime.
   function addMessage(m: Message) {
     setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
   }
@@ -58,11 +81,49 @@ export function Chat({
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Close the emoji picker when tapping elsewhere.
+  useEffect(() => {
+    if (!showEmoji) return;
+    function onDown(e: PointerEvent) {
+      const t = e.target as Node;
+      if (emojiBtnRef.current?.contains(t) || pickerRef.current?.contains(t)) return;
+      setShowEmoji(false);
+    }
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [showEmoji]);
+
+  function insertEmoji(emoji: string) {
+    const ta = textareaRef.current;
+    if (!ta) {
+      setText((t) => t + emoji);
+      return;
+    }
+    const start = ta.selectionStart ?? text.length;
+    const end = ta.selectionEnd ?? text.length;
+    setText(text.slice(0, start) + emoji + text.slice(end));
+    requestAnimationFrame(() => {
+      ta.focus();
+      const pos = start + emoji.length;
+      ta.setSelectionRange(pos, pos);
+    });
+  }
+
+  function toggleReveal(id: string) {
+    setRevealed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   async function send() {
     const body = text.trim();
     if (!body || sending) return;
     setSending(true);
     setError(null);
+    setShowEmoji(false);
     try {
       const { data, error } = await supabase
         .from("messages")
@@ -93,18 +154,33 @@ export function Chat({
         ) : (
           messages.map((m, i) => {
             const prev = messages[i - 1];
-            const startGroup = !prev || prev.user_id !== m.user_id;
+            const gap = prev
+              ? new Date(m.created_at).getTime() - new Date(prev.created_at).getTime()
+              : Infinity;
+            const showSep = gap >= GROUP_GAP_MS;
+            const startGroup = showSep || !prev || prev.user_id !== m.user_id;
             const prof = profileOf(m.user_id);
             return (
-              <Bubble
-                key={m.id}
-                mine={m.user_id === currentUserId}
-                name={prof?.name ?? "Housemate"}
-                color={prof?.avatar_color ?? "#6f53f5"}
-                body={m.body}
-                at={m.created_at}
-                startGroup={startGroup}
-              />
+              <Fragment key={m.id}>
+                {showSep && (
+                  <div className="my-3 text-center">
+                    <span className="text-[11px] font-medium text-slate-400">
+                      {formatSeparator(m.created_at)}
+                    </span>
+                  </div>
+                )}
+                <Bubble
+                  mine={m.user_id === currentUserId}
+                  name={prof?.name ?? "Housemate"}
+                  color={prof?.avatar_color ?? "#6f53f5"}
+                  avatarUrl={prof?.avatar_url ?? null}
+                  body={m.body}
+                  time={formatTime(m.created_at)}
+                  startGroup={startGroup}
+                  revealed={revealed.has(m.id)}
+                  onTap={() => toggleReveal(m.id)}
+                />
+              </Fragment>
             );
           })
         )}
@@ -112,8 +188,23 @@ export function Chat({
       </div>
 
       <div className="border-t border-slate-100 pt-3">
-        <div className="flex items-end gap-2">
+        <div className="relative flex items-end gap-2">
+          {showEmoji && (
+            <div ref={pickerRef}>
+              <EmojiPicker onPick={insertEmoji} />
+            </div>
+          )}
+          <button
+            ref={emojiBtnRef}
+            type="button"
+            aria-label="Add emoji"
+            onClick={() => setShowEmoji((v) => !v)}
+            className="grid h-11 w-10 shrink-0 place-items-center rounded-xl text-2xl text-slate-500 transition hover:bg-slate-100"
+          >
+            🙂
+          </button>
           <textarea
+            ref={textareaRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
@@ -145,43 +236,46 @@ function Bubble({
   mine,
   name,
   color,
+  avatarUrl,
   body,
-  at,
+  time,
   startGroup,
+  revealed,
+  onTap,
 }: {
   mine: boolean;
   name: string;
   color: string;
+  avatarUrl: string | null;
   body: string;
-  at: string;
+  time: string;
   startGroup: boolean;
+  revealed: boolean;
+  onTap: () => void;
 }) {
-  const time = new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   return (
-    <div
-      className={`flex gap-2 ${mine ? "justify-end" : "justify-start"} ${
-        startGroup ? "mt-3" : "mt-1"
-      }`}
-    >
+    <div className={`mt-1 flex gap-2 ${mine ? "justify-end" : "justify-start"}`}>
       {!mine && (
         <div className="w-7 shrink-0 self-end">
-          {startGroup && <Avatar name={name} color={color} size="sm" />}
+          {startGroup && <Avatar name={name} color={color} avatarUrl={avatarUrl} size="sm" />}
         </div>
       )}
       <div className={`flex max-w-[78%] flex-col ${mine ? "items-end" : "items-start"}`}>
         {!mine && startGroup && (
           <span className="mb-0.5 px-1 text-[11px] font-medium text-slate-500">{name}</span>
         )}
-        <div
-          className={`rounded-2xl px-3.5 py-2 text-sm leading-snug ${
+        <button
+          type="button"
+          onClick={onTap}
+          className={`max-w-full rounded-2xl px-3.5 py-2 text-left text-sm leading-snug ${
             mine
               ? "rounded-br-md bg-brand-600 text-white"
               : "rounded-bl-md bg-slate-100 text-slate-900"
           }`}
         >
           <span className="whitespace-pre-wrap break-words">{body}</span>
-        </div>
-        <span className="mt-0.5 px-1 text-[10px] text-slate-400">{time}</span>
+        </button>
+        {revealed && <span className="mt-0.5 px-1 text-[10px] text-slate-400">{time}</span>}
       </div>
     </div>
   );

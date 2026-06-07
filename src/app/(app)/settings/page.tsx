@@ -31,6 +31,7 @@ export default async function SettingsPage() {
           userId={user.id}
           initialName={profile?.name ?? ""}
           initialColor={profile?.avatar_color ?? "#6f53f5"}
+          initialAvatarUrl={profile?.avatar_url ?? null}
         />
 
         <AccountSettingsForm

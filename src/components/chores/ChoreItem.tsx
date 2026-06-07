@@ -109,7 +109,7 @@ export function ChoreItem({
       </div>
 
       {assignee ? (
-        <Avatar name={assignee.profile?.name} color={assignee.profile?.avatar_color} size="sm" />
+        <Avatar name={assignee.profile?.name} color={assignee.profile?.avatar_color} avatarUrl={assignee.profile?.avatar_url} size="sm" />
       ) : (
         <span className="chip bg-slate-100 text-slate-500">Anyone</span>
       )}
