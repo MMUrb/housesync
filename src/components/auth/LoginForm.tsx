@@ -1,11 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import type { ComponentType } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { getSiteUrl } from "@/lib/env";
+import { getSiteUrl, OAUTH_PROVIDERS } from "@/lib/env";
 
 type Mode = "signin" | "signup";
+type OAuthProvider = "google" | "azure" | "apple";
+
+const PROVIDER_CONFIG: Record<
+  string,
+  { label: string; provider: OAuthProvider; scopes?: string; Icon: ComponentType }
+> = {
+  google: { label: "Google", provider: "google", Icon: GoogleIcon },
+  azure: { label: "Microsoft", provider: "azure", scopes: "email", Icon: MicrosoftIcon },
+  apple: { label: "Apple", provider: "apple", Icon: AppleIcon },
+};
 
 export function LoginForm() {
   const router = useRouter();
@@ -21,6 +32,8 @@ export function LoginForm() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const supabase = createClient();
+
+  const providers = OAUTH_PROVIDERS.filter((p) => PROVIDER_CONFIG[p]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -57,13 +70,14 @@ export function LoginForm() {
     }
   }
 
-  async function handleGoogle() {
+  async function handleOAuth(provider: OAuthProvider, scopes?: string) {
     setError(null);
     setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
+      provider,
       options: {
         redirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(next)}`,
+        ...(scopes ? { scopes } : {}),
       },
     });
     if (error) {
@@ -96,21 +110,34 @@ export function LoginForm() {
         </button>
       </div>
 
-      <button
-        type="button"
-        onClick={handleGoogle}
-        disabled={loading}
-        className="btn-secondary btn-block"
-      >
-        <GoogleIcon />
-        Continue with Google
-      </button>
+      {providers.length > 0 && (
+        <>
+          <div className="space-y-2">
+            {providers.map((key) => {
+              const cfg = PROVIDER_CONFIG[key];
+              const Icon = cfg.Icon;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handleOAuth(cfg.provider, cfg.scopes)}
+                  disabled={loading}
+                  className="btn-secondary btn-block"
+                >
+                  <Icon />
+                  Continue with {cfg.label}
+                </button>
+              );
+            })}
+          </div>
 
-      <div className="my-4 flex items-center gap-3 text-xs text-slate-400">
-        <span className="h-px flex-1 bg-slate-200" />
-        or use email
-        <span className="h-px flex-1 bg-slate-200" />
-      </div>
+          <div className="my-4 flex items-center gap-3 text-xs text-slate-400">
+            <span className="h-px flex-1 bg-slate-200" />
+            or use email
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+        </>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-3.5">
         {mode === "signup" && (
@@ -195,6 +222,25 @@ function GoogleIcon() {
         fill="#EA4335"
         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38Z"
       />
+    </svg>
+  );
+}
+
+function MicrosoftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+      <path fill="#F25022" d="M3 3h8.5v8.5H3z" />
+      <path fill="#7FBA00" d="M12.5 3H21v8.5h-8.5z" />
+      <path fill="#00A4EF" d="M3 12.5h8.5V21H3z" />
+      <path fill="#FFB900" d="M12.5 12.5H21V21h-8.5z" />
+    </svg>
+  );
+}
+
+function AppleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+      <path d="M16.365 1.43c0 1.14-.42 2.2-1.12 2.98-.78.88-2.05 1.56-3.1 1.48-.13-1.1.45-2.27 1.1-3 .73-.82 2.02-1.43 3.12-1.46zM20.5 17.2c-.55 1.27-.82 1.84-1.53 2.97-.99 1.57-2.39 3.53-4.12 3.55-1.54.02-1.93-1-4.02-.99-2.09.01-2.52.99-4.06.97-1.73-.02-3.05-1.7-4.04-3.27C-.02 16.5-.42 11.36 1.5 8.6c1.21-1.75 3.05-2.78 4.78-2.78 1.76 0 2.87 1.01 4.32 1.01 1.41 0 2.27-1.01 4.31-1.01 1.55 0 3.19.84 4.36 2.3-3.83 2.1-3.2 7.57.73 9.08z" />
     </svg>
   );
 }
