@@ -1,0 +1,21 @@
+// Shared constants safe to import from both server and client code.
+
+export const ACTIVE_HOUSE_COOKIE = "hs_active_house";
+
+export const CURRENCIES = [
+  { value: "GBP", label: "£ GBP — British Pound" },
+  { value: "EUR", label: "€ EUR — Euro" },
+  { value: "USD", label: "$ USD — US Dollar" },
+];
+
+/** Preset avatar colours (matches the palette seeded in schema.sql). */
+export const AVATAR_COLORS = [
+  "#6f53f5",
+  "#1bb27e",
+  "#f5953f",
+  "#e0567f",
+  "#3f9fe0",
+  "#9b5fe0",
+  "#e0b53f",
+  "#3fcdad",
+];

@@ -1,0 +1,163 @@
+import "server-only";
+import { cache } from "react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { ACTIVE_HOUSE_COOKIE } from "@/lib/constants";
+import type {
+  Activity,
+  Chore,
+  Expense,
+  ExpenseSplit,
+  House,
+  MemberWithProfile,
+  Profile,
+  RecurringBill,
+} from "@/lib/types";
+
+/** The currently signed-in auth user (deduped per request). */
+export const getUser = cache(async () => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+});
+
+export const getProfile = cache(async (): Promise<Profile | null> => {
+  const user = await getUser();
+  if (!user) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+  return (data as Profile | null) ?? null;
+});
+
+/** All houses the current user is a member of, oldest first. */
+export const getMyHouses = cache(async (): Promise<House[]> => {
+  const user = await getUser();
+  if (!user) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("house_members")
+    .select("house:houses(*)")
+    .eq("user_id", user.id)
+    .order("joined_at", { ascending: true });
+  const rows = (data ?? []) as Array<{ house: House | House[] | null }>;
+  return rows
+    .map((row) => (Array.isArray(row.house) ? row.house[0] : row.house))
+    .filter((h): h is House => Boolean(h));
+});
+
+/** The user's active house (from cookie, else their first house). */
+export async function getActiveHouse(): Promise<House | null> {
+  const houses = await getMyHouses();
+  if (houses.length === 0) return null;
+  const cookieStore = await cookies();
+  const wanted = cookieStore.get(ACTIVE_HOUSE_COOKIE)?.value;
+  return houses.find((h) => h.id === wanted) ?? houses[0];
+}
+
+/** Members of a house, each with their profile, oldest first. */
+export const getHouseMembers = cache(async (houseId: string): Promise<MemberWithProfile[]> => {
+  const supabase = await createClient();
+  const { data: members } = await supabase
+    .from("house_members")
+    .select("*")
+    .eq("house_id", houseId)
+    .order("joined_at", { ascending: true });
+
+  if (!members || members.length === 0) return [];
+
+  const ids = members.map((m) => m.user_id);
+  const { data: profiles } = await supabase.from("profiles").select("*").in("id", ids);
+  const byId = new Map((profiles ?? []).map((p) => [p.id, p as Profile]));
+
+  return members.map((m) => ({ ...m, profile: byId.get(m.user_id) ?? null })) as MemberWithProfile[];
+});
+
+export async function requireUser() {
+  const user = await getUser();
+  if (!user) redirect("/login");
+  return user;
+}
+
+/**
+ * Guard for app screens: ensures the user is signed in AND has a house.
+ * Redirects to onboarding if they have no house yet.
+ */
+export async function requireHouse() {
+  const user = await requireUser();
+  const house = await getActiveHouse();
+  if (!house) redirect("/house/create");
+  const [profile, members] = await Promise.all([getProfile(), getHouseMembers(house.id)]);
+  return { user, profile, house, members };
+}
+
+/** Look up a profile within a member list (helper for rendering). */
+export function memberName(members: MemberWithProfile[], userId: string | null): string {
+  if (!userId) return "Someone";
+  const m = members.find((x) => x.user_id === userId);
+  return m?.profile?.name ?? "Someone";
+}
+
+// ---------------------------------------------------------------------------
+// House-scoped queries
+// ---------------------------------------------------------------------------
+
+export async function getExpenses(houseId: string): Promise<Expense[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("expenses")
+    .select("*")
+    .eq("house_id", houseId)
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false });
+  return (data ?? []) as Expense[];
+}
+
+export async function getSplitsForExpenses(expenseIds: string[]): Promise<ExpenseSplit[]> {
+  if (expenseIds.length === 0) return [];
+  const supabase = await createClient();
+  const { data } = await supabase.from("expense_splits").select("*").in("expense_id", expenseIds);
+  return (data ?? []) as ExpenseSplit[];
+}
+
+/** Expenses for a house plus all of their splits, in one helper. */
+export async function getExpensesAndSplits(
+  houseId: string,
+): Promise<{ expenses: Expense[]; splits: ExpenseSplit[] }> {
+  const expenses = await getExpenses(houseId);
+  const splits = await getSplitsForExpenses(expenses.map((e) => e.id));
+  return { expenses, splits };
+}
+
+export async function getBills(houseId: string): Promise<RecurringBill[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("recurring_bills")
+    .select("*")
+    .eq("house_id", houseId)
+    .order("next_due_date", { ascending: true, nullsFirst: false });
+  return (data ?? []) as RecurringBill[];
+}
+
+export async function getChores(houseId: string): Promise<Chore[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("chores")
+    .select("*")
+    .eq("house_id", houseId)
+    .order("due_date", { ascending: true, nullsFirst: false });
+  return (data ?? []) as Chore[];
+}
+
+export async function getActivity(houseId: string, limit = 20): Promise<Activity[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("activity")
+    .select("*")
+    .eq("house_id", houseId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as Activity[];
+}

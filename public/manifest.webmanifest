@@ -1,0 +1,19 @@
+{
+  "name": "HouseSync — Bills, chores & rent",
+  "short_name": "HouseSync",
+  "description": "Split rent, bills, groceries and chores with your housemates in one simple place.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f7fb",
+  "theme_color": "#6f53f5",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

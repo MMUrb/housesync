@@ -1,0 +1,147 @@
+// App-level TypeScript types that mirror the database schema (supabase/schema.sql).
+
+export type SplitType = "equal" | "custom" | "percentage";
+export type SplitStatus = "unpaid" | "paid" | "confirmed";
+export type ExpenseCategory =
+  | "rent"
+  | "bills"
+  | "groceries"
+  | "cleaning"
+  | "furniture"
+  | "other";
+export type BillFrequency = "weekly" | "monthly" | "quarterly" | "yearly";
+export type ChoreRepeat = "once" | "weekly" | "fortnightly" | "monthly";
+export type ChoreStatus = "todo" | "done" | "missed";
+export type MemberRole = "admin" | "member";
+
+export interface Profile {
+  id: string;
+  name: string | null;
+  email: string | null;
+  avatar_color: string;
+  created_at: string;
+}
+
+export interface House {
+  id: string;
+  name: string;
+  currency: string;
+  rent_due_day: number | null;
+  address_nickname: string | null;
+  invite_code: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface HouseMember {
+  id: string;
+  house_id: string;
+  user_id: string;
+  role: MemberRole;
+  move_in_date: string | null;
+  move_out_date: string | null;
+  joined_at: string;
+}
+
+/** A house member joined with their profile — handy for lists. */
+export interface MemberWithProfile extends HouseMember {
+  profile: Profile | null;
+}
+
+export interface Expense {
+  id: string;
+  house_id: string;
+  title: string;
+  amount: number;
+  category: ExpenseCategory;
+  paid_by: string | null;
+  split_type: SplitType;
+  date: string;
+  receipt_url: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface ExpenseSplit {
+  id: string;
+  expense_id: string;
+  user_id: string;
+  amount_owed: number;
+  status: SplitStatus;
+  paid_at: string | null;
+  confirmed_at: string | null;
+}
+
+export interface RecurringBill {
+  id: string;
+  house_id: string;
+  title: string;
+  amount: number;
+  category: ExpenseCategory;
+  frequency: BillFrequency;
+  due_day: number | null;
+  next_due_date: string | null;
+  paid_by: string | null;
+  split_type: SplitType;
+  reminder_enabled: boolean;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface Chore {
+  id: string;
+  house_id: string;
+  title: string;
+  assigned_to: string | null;
+  due_date: string | null;
+  repeat: ChoreRepeat;
+  status: ChoreStatus;
+  completed_at: string | null;
+  completed_by: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface Activity {
+  id: string;
+  house_id: string;
+  user_id: string | null;
+  type: string;
+  message: string;
+  created_at: string;
+}
+
+export interface Notice {
+  id: string;
+  house_id: string;
+  title: string;
+  message: string | null;
+  posted_by: string | null;
+  pinned: boolean;
+  created_at: string;
+}
+
+export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string; emoji: string }[] = [
+  { value: "rent", label: "Rent", emoji: "🏠" },
+  { value: "bills", label: "Bills", emoji: "💡" },
+  { value: "groceries", label: "Groceries", emoji: "🛒" },
+  { value: "cleaning", label: "Cleaning", emoji: "🧽" },
+  { value: "furniture", label: "Furniture", emoji: "🛋️" },
+  { value: "other", label: "Other", emoji: "📦" },
+];
+
+export const BILL_FREQUENCIES: { value: BillFrequency; label: string }[] = [
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+  { value: "yearly", label: "Yearly" },
+];
+
+export const CHORE_REPEATS: { value: ChoreRepeat; label: string }[] = [
+  { value: "once", label: "One-off" },
+  { value: "weekly", label: "Weekly" },
+  { value: "fortnightly", label: "Every 2 weeks" },
+  { value: "monthly", label: "Monthly" },
+];
