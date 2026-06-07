@@ -92,7 +92,7 @@ export function AccountSettingsForm({
       );
       if (error) throw error;
       setEmailMsg(
-        `Confirmation sent to ${next}. Your email stays the same until you click the link in that message.`,
+        `Confirmation sent to ${next} — check your inbox and your spam/junk folder. Your email stays the same until you click the link in that message.`,
       );
       setChangingEmail(false);
       setNewEmail("");
@@ -119,7 +119,9 @@ export function AccountSettingsForm({
           {emailVerified ? (
             <span className="font-medium text-mint-600">✓ Email verified</span>
           ) : verifySent ? (
-            <span className="text-mint-600">Verification email sent — check your inbox.</span>
+            <span className="text-mint-600">
+              Verification email sent — check your inbox (and your spam/junk folder).
+            </span>
           ) : (
             <>
               <span className="text-amber-600">Email not verified</span>

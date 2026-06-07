@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { NotConfigured } from "@/components/NotConfigured";
 import { HomeLogoLink } from "@/components/HomeLogoLink";
+import { BackHomeButton } from "@/components/BackHomeButton";
 import { isSupabaseConfigured } from "@/lib/env";
 
 export const metadata = { title: "Sign in" };
@@ -10,7 +11,8 @@ export default function LoginPage() {
   if (!isSupabaseConfigured) return <NotConfigured />;
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-10">
+    <main className="relative mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-10">
+      <BackHomeButton className="absolute left-4 top-4" />
       <HomeLogoLink className="mx-auto" logoClassName="text-xl" />
       <h1 className="mt-8 text-center text-2xl font-bold text-slate-900">
         Welcome to your house

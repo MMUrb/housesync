@@ -89,7 +89,9 @@ export function LoginForm() {
             password,
           });
           if (signInErr) {
-            setNotice("Account created. Please confirm your email, then sign in.");
+            setNotice(
+              "Account created. Check your email — including your spam/junk folder — to confirm, then sign in.",
+            );
             setMode("signin");
             setLeaveGuard(false);
             return;

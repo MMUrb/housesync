@@ -1,25 +1,19 @@
-import Link from "next/link";
-import { requireUser, getMyHouses } from "@/lib/data";
+import { requireUser } from "@/lib/data";
 import { CreateHouseForm } from "@/components/house/CreateHouseForm";
 import { JoinByCode } from "@/components/house/JoinByCode";
 import { HomeLogoLink } from "@/components/HomeLogoLink";
+import { BackHomeButton } from "@/components/BackHomeButton";
 
 export const metadata = { title: "Create your house" };
 
 export default async function CreateHousePage() {
   const user = await requireUser();
-  const houses = await getMyHouses();
-  const hasHouse = houses.length > 0;
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 py-8">
       <div className="flex items-center justify-between">
         <HomeLogoLink logoClassName="text-lg" />
-        {hasHouse && (
-          <Link href="/dashboard" className="text-sm font-medium text-slate-500 hover:text-slate-800">
-            Back
-          </Link>
-        )}
+        <BackHomeButton />
       </div>
 
       <div className="mt-8">
