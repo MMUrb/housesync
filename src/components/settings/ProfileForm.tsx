@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { AVATAR_COLORS } from "@/lib/constants";
 import { Avatar } from "@/components/Avatar";
 
+const PRESET_AVATARS = Array.from({ length: 10 }, (_, i) => `/avatars/preset-${i + 1}.svg`);
+
 export function ProfileForm({
   userId,
   initialName,
@@ -70,6 +72,13 @@ export function ProfileForm({
     router.refresh();
   }
 
+  async function choosePreset(url: string) {
+    setError(null);
+    setAvatarUrl(url);
+    await supabase.from("profiles").update({ avatar_url: url }).eq("id", userId);
+    router.refresh();
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -114,6 +123,27 @@ export function ProfileForm({
             )}
           </div>
           <p className="mt-1 text-xs text-slate-400">JPG or PNG, up to 5 MB.</p>
+        </div>
+      </div>
+
+      {/* Or pick a ready-made cartoon avatar */}
+      <div>
+        <span className="label">Or pick an avatar</span>
+        <div className="flex flex-wrap gap-2">
+          {PRESET_AVATARS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => choosePreset(p)}
+              aria-label="Choose this avatar"
+              className={`overflow-hidden rounded-full ring-offset-2 transition ${
+                avatarUrl === p ? "ring-2 ring-brand-600" : "hover:opacity-80"
+              }`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p} alt="" className="h-12 w-12" />
+            </button>
+          ))}
         </div>
       </div>
 

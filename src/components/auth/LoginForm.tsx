@@ -60,6 +60,14 @@ export function LoginForm() {
 
   const providers = OAUTH_PROVIDERS.filter((p) => PROVIDER_CONFIG[p]);
 
+  // Live password requirements (shown on the Create-account form).
+  const pwChecks = {
+    length: password.length >= 6,
+    upper: /[A-Z]/.test(password),
+    number: /[0-9]/.test(password),
+  };
+  const pwValid = pwChecks.length && pwChecks.upper && pwChecks.number;
+
   // Warn before leaving mid sign-up (when fields have been filled in).
   useEffect(() => {
     const hasInput = Boolean(name || email || password);
@@ -125,6 +133,10 @@ export function LoginForm() {
 
     try {
       if (mode === "signup") {
+        if (!pwValid) {
+          setError("Your password needs an uppercase letter and a number.");
+          return;
+        }
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -318,6 +330,13 @@ export function LoginForm() {
               {showPassword ? <EyeOffIcon /> : <EyeIcon />}
             </button>
           </div>
+          {mode === "signup" && (
+            <ul className="mt-2 space-y-1 text-xs">
+              <Req ok={pwChecks.length} text="At least 6 characters" />
+              <Req ok={pwChecks.upper} text="At least one uppercase letter" />
+              <Req ok={pwChecks.number} text="At least one number" />
+            </ul>
+          )}
         </div>
 
         {error && (
@@ -332,6 +351,17 @@ export function LoginForm() {
         </button>
       </form>
     </div>
+  );
+}
+
+function Req({ ok, text }: { ok: boolean; text: string }) {
+  return (
+    <li className={`flex items-center gap-1.5 ${ok ? "text-mint-600" : "text-red-600"}`}>
+      <span aria-hidden className="font-semibold">
+        {ok ? "✓" : "✗"}
+      </span>
+      <span>{text}</span>
+    </li>
   );
 }
 
