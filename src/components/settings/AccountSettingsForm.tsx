@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { getSiteUrl } from "@/lib/env";
 
 export function AccountSettingsForm({
   userId,
@@ -29,6 +30,10 @@ export function AccountSettingsForm({
   const [error, setError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [verifySent, setVerifySent] = useState(false);
+  const [changingEmail, setChangingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailMsg, setEmailMsg] = useState<string | null>(null);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -69,6 +74,35 @@ export function AccountSettingsForm({
     }
   }
 
+  async function changeEmail() {
+    setError(null);
+    setEmailMsg(null);
+    const next = newEmail.trim();
+    if (!next || next === email) {
+      setError("Enter a different email address.");
+      return;
+    }
+    setEmailBusy(true);
+    try {
+      // Supabase sends a confirmation link; the email only changes (and is
+      // re-verified) once the user clicks it.
+      const { error } = await supabase.auth.updateUser(
+        { email: next },
+        { emailRedirectTo: `${getSiteUrl()}/auth/callback` },
+      );
+      if (error) throw error;
+      setEmailMsg(
+        `Confirmation sent to ${next}. Your email stays the same until you click the link in that message.`,
+      );
+      setChangingEmail(false);
+      setNewEmail("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not start the email change.");
+    } finally {
+      setEmailBusy(false);
+    }
+  }
+
   return (
     <form onSubmit={save} className="card space-y-4 p-5">
       <div>
@@ -99,7 +133,58 @@ export function AccountSettingsForm({
               </button>
             </>
           )}
+          <span className="text-slate-300">·</span>
+          <button
+            type="button"
+            onClick={() => {
+              setChangingEmail((v) => !v);
+              setEmailMsg(null);
+            }}
+            className="font-medium text-brand-600 hover:underline"
+          >
+            Change email
+          </button>
         </div>
+
+        {changingEmail && (
+          <div className="mt-2 space-y-2">
+            <input
+              type="email"
+              className="input"
+              placeholder="new@email.com"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={changeEmail}
+                disabled={emailBusy}
+                className="btn-primary px-3 py-1.5 text-sm"
+              >
+                {emailBusy ? "Sending…" : "Send confirmation"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setChangingEmail(false);
+                  setNewEmail("");
+                }}
+                className="btn-ghost px-3 py-1.5 text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              We&apos;ll email a confirmation link to the new address. Your email only changes once
+              you click it — so it stays verified.
+            </p>
+          </div>
+        )}
+
+        {emailMsg && (
+          <p className="mt-2 rounded-xl bg-mint-50 px-3 py-2 text-xs text-mint-700">{emailMsg}</p>
+        )}
       </div>
 
       <div>

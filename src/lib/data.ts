@@ -136,12 +136,29 @@ export async function getSplitsForExpenses(expenseIds: string[]): Promise<Expens
   return (data ?? []) as ExpenseSplit[];
 }
 
-/** Expenses for a house plus all of their splits, in one helper. */
+/** All splits for a house in a single query (joins through expenses). */
+export async function getSplitsForHouse(houseId: string): Promise<ExpenseSplit[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("expense_splits")
+    .select("*, expenses!inner(house_id)")
+    .eq("expenses.house_id", houseId);
+  const rows = (data ?? []) as Array<ExpenseSplit & { expenses?: unknown }>;
+  // Strip the nested join object so callers get clean ExpenseSplit rows.
+  return rows.map(({ expenses, ...rest }) => rest as ExpenseSplit);
+}
+
+/**
+ * Expenses for a house plus all of their splits — fetched IN PARALLEL
+ * (two round-trips at once instead of one-after-the-other).
+ */
 export async function getExpensesAndSplits(
   houseId: string,
 ): Promise<{ expenses: Expense[]; splits: ExpenseSplit[] }> {
-  const expenses = await getExpenses(houseId);
-  const splits = await getSplitsForExpenses(expenses.map((e) => e.id));
+  const [expenses, splits] = await Promise.all([
+    getExpenses(houseId),
+    getSplitsForHouse(houseId),
+  ]);
   return { expenses, splits };
 }
 
