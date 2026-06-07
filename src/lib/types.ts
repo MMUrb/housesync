@@ -123,6 +123,15 @@ export interface Notice {
   created_at: string;
 }
 
+/** Private, account-level settings — only the owner can read these. */
+export interface AccountSettings {
+  user_id: string;
+  phone: string | null;
+  notify_email: boolean;
+  notify_sms: boolean;
+  updated_at: string;
+}
+
 export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string; emoji: string }[] = [
   { value: "rent", label: "Rent", emoji: "🏠" },
   { value: "bills", label: "Bills", emoji: "💡" },

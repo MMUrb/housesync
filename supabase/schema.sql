@@ -437,4 +437,31 @@ drop policy if exists "receipts_delete" on storage.objects;
 create policy "receipts_delete" on storage.objects for delete to authenticated
   using (bucket_id = 'receipts');
 
+-- ----------------------------------------------------------------------------
+-- ACCOUNT SETTINGS (private per-user: phone + reminder opt-ins)
+-- Kept separate from `profiles` so housemates can NEVER read your phone number
+-- or notification preferences. RLS allows access to the owner only.
+-- ----------------------------------------------------------------------------
+create table if not exists public.account_settings (
+  user_id      uuid primary key references auth.users (id) on delete cascade,
+  phone        text,
+  notify_email boolean not null default true,
+  notify_sms   boolean not null default false,
+  updated_at   timestamptz not null default now()
+);
+
+alter table public.account_settings enable row level security;
+
+drop policy if exists "account_settings_select" on public.account_settings;
+create policy "account_settings_select" on public.account_settings for select to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "account_settings_insert" on public.account_settings;
+create policy "account_settings_insert" on public.account_settings for insert to authenticated
+  with check (user_id = auth.uid());
+
+drop policy if exists "account_settings_update" on public.account_settings;
+create policy "account_settings_update" on public.account_settings for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
 -- Done.

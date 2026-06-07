@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVE_HOUSE_COOKIE } from "@/lib/constants";
 import type {
+  AccountSettings,
   Activity,
   Chore,
   Expense,
@@ -30,6 +31,19 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
   const { data } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
   return (data as Profile | null) ?? null;
+});
+
+/** Private account settings (phone + reminder opt-ins) for the current user. */
+export const getAccountSettings = cache(async (): Promise<AccountSettings | null> => {
+  const user = await getUser();
+  if (!user) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("account_settings")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  return (data as AccountSettings | null) ?? null;
 });
 
 /** All houses the current user is a member of, oldest first. */
