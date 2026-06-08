@@ -23,7 +23,7 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-brand-50 to-white" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-brand-50 to-white dark:hidden" />
         <div className="relative mx-auto grid max-w-5xl items-center gap-10 px-5 py-16 md:grid-cols-2 md:py-24">
           <div>
             <span className="chip bg-brand-100 text-brand-700">For UK shared houses 🇬🇧</span>
