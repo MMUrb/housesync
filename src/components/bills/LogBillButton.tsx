@@ -46,8 +46,9 @@ export function LogBillButton({
           paid_by: payer,
           split_type: "equal",
           date: todayISO(),
-          notes: "Logged from recurring bill",
+          notes: "Requested from recurring bill",
           created_by: currentUserId,
+          bill_id: bill.id,
         })
         .select()
         .single();
@@ -76,7 +77,7 @@ export function LogBillButton({
         house_id: bill.house_id,
         user_id: currentUserId,
         type: "bill_logged",
-        message: `logged the ${bill.title} payment (${formatMoney(Number(bill.amount), currency)})`,
+        message: `requested everyone's share of ${bill.title} (${formatMoney(Number(bill.amount), currency)})`,
       });
 
       router.refresh();
@@ -89,8 +90,8 @@ export function LogBillButton({
 
   return (
     <div className="text-right">
-      <button onClick={log} disabled={loading} className="btn-secondary px-3 py-1.5 text-xs">
-        {loading ? "…" : "Log payment"}
+      <button onClick={log} disabled={loading} className="btn-primary px-3 py-1.5 text-xs">
+        {loading ? "…" : "Request from house"}
       </button>
       {error && <p className="mt-1 text-[11px] text-red-600">{error}</p>}
     </div>

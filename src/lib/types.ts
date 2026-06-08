@@ -67,6 +67,7 @@ export interface Expense {
   notes: string | null;
   created_by: string | null;
   created_at: string;
+  bill_id: string | null;
 }
 
 export interface ExpenseSplit {
