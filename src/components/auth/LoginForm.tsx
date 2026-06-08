@@ -164,6 +164,10 @@ export function LoginForm() {
             return;
           }
         }
+
+        // New account created with a session — fire the one-time welcome email
+        // (best-effort; the server dedupes so it only ever sends once).
+        void fetch("/api/email/welcome", { method: "POST", keepalive: true });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;

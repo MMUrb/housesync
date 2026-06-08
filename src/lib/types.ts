@@ -25,6 +25,7 @@ export interface Profile {
   pay_paypal: string | null;
   pay_revolut: string | null;
   pay_bank: string | null;
+  welcomed_at: string | null;
 }
 
 export interface House {
