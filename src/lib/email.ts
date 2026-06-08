@@ -6,7 +6,11 @@ import "server-only";
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? "";
 const FROM_EMAIL = process.env.REMINDER_FROM_EMAIL ?? "hello@housesync.co.uk";
 const FROM_NAME = "HouseSync";
-const REPLY_TO = process.env.REMINDER_REPLY_TO ?? "hellohousesync@outlook.com";
+// Must be on the SAME domain as the sender, or SpamAssassin's
+// FREEMAIL_FORGED_REPLYTO rule docks ~2.5 points (custom-domain From + freemail
+// Reply-To looks like a forgery). Make sure this address can receive mail
+// (forward hello@housesync.co.uk to wherever you read it).
+const REPLY_TO = process.env.REMINDER_REPLY_TO ?? "hello@housesync.co.uk";
 
 export const isEmailConfigured = Boolean(BREVO_API_KEY);
 
