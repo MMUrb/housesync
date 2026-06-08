@@ -5,13 +5,30 @@ const siteName = "HouseSync";
 const description =
   "The housemate app for bills, chores and rent. Split rent, bills, groceries and chores with your housemates in one simple place — without the awkwardness.";
 
+const tagline = `${siteName} — stop arguing about house bills`;
+
 export const metadata: Metadata = {
+  metadataBase: new URL("https://housesync.co.uk"),
   title: {
     default: `${siteName} — Bills, chores & rent for shared houses`,
     template: `%s · ${siteName}`,
   },
   description,
   applicationName: siteName,
+  keywords: [
+    "split rent",
+    "split bills",
+    "housemate app",
+    "flatmate app",
+    "shared house",
+    "chore rota",
+    "house expenses",
+    "settle up",
+    "student house",
+    "roommate",
+    "split groceries",
+    "house bills UK",
+  ],
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -21,6 +38,28 @@ export const metadata: Metadata = {
   icons: {
     icon: "/icon.svg",
     apple: "/icon.svg",
+  },
+  openGraph: {
+    type: "website",
+    siteName,
+    title: tagline,
+    description,
+    url: "https://housesync.co.uk",
+    locale: "en_GB",
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "HouseSync — split rent, bills & chores with your housemates",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: tagline,
+    description,
+    images: ["/og.png"],
   },
 };
 
