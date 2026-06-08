@@ -20,8 +20,7 @@ export default async function ReportPage() {
     return (
       <AdminShell email={user.email} active="report">
         <p className="card p-4 text-sm text-slate-600">
-          Analytics isn&rsquo;t configured yet: set <code>SUPABASE_SERVICE_ROLE_KEY</code> in your
-          environment and reload.
+          Analytics isn&rsquo;t configured yet: set <code>SUPABASE_SERVICE_ROLE_KEY</code> and reload.
         </p>
       </AdminShell>
     );
@@ -39,7 +38,6 @@ export default async function ReportPage() {
   const now = Date.now();
   const last30 = rows.filter((r) => new Date(r.created_at).getTime() >= now - 30 * DAY).length;
 
-  // Reason breakdown (only reasons that actually occurred), most common first.
   const counts = new Map<string, number>();
   for (const r of rows) {
     const key = r.reason ?? "unspecified";
@@ -79,8 +77,7 @@ export default async function ReportPage() {
                   <div className="mb-1 flex items-baseline justify-between text-sm">
                     <span className="text-slate-700">{b.label}</span>
                     <span className="font-semibold text-slate-900">
-                      {pct(b.count)}%{" "}
-                      <span className="font-normal text-slate-400">({b.count})</span>
+                      {pct(b.count)}% <span className="font-normal text-slate-400">({b.count})</span>
                     </span>
                   </div>
                   <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">

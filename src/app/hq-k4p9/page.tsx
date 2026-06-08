@@ -1,6 +1,9 @@
 import "server-only";
+import Link from "next/link";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { adminGate } from "@/components/admin/guard";
+import { listAllUsers, tableCount, msOf, type AdminUserRow } from "@/lib/adminData";
+import { ADMIN_BASE } from "@/lib/constants";
 import {
   AdminShell,
   Section,
@@ -15,13 +18,6 @@ import {
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin", robots: { index: false, follow: false } };
 
-type AdminClient = ReturnType<typeof createAdminClient>;
-type UserRow = {
-  id: string;
-  email?: string;
-  created_at?: string;
-  last_sign_in_at?: string | null;
-};
 type View = {
   path: string;
   referrer: string | null;
@@ -44,31 +40,6 @@ function last30(): string[] {
 }
 
 const dayOf = (iso: string) => new Date(iso).toISOString().slice(0, 10);
-const ms = (iso?: string | null) => (iso ? new Date(iso).getTime() : 0);
-
-async function tableCount(admin: AdminClient, table: string): Promise<number> {
-  const { count } = await admin.from(table).select("*", { count: "exact", head: true });
-  return count ?? 0;
-}
-
-async function listAllUsers(admin: AdminClient): Promise<UserRow[]> {
-  const all: UserRow[] = [];
-  for (let page = 1; page <= 50; page++) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
-    if (error) break;
-    const users = data?.users ?? [];
-    all.push(
-      ...users.map((u) => ({
-        id: u.id,
-        email: u.email ?? undefined,
-        created_at: u.created_at,
-        last_sign_in_at: u.last_sign_in_at,
-      })),
-    );
-    if (users.length < 1000) break;
-  }
-  return all;
-}
 
 function topCounts(items: string[], n: number): { label: string; value: number }[] {
   const m = new Map<string, number>();
@@ -79,7 +50,7 @@ function topCounts(items: string[], n: number): { label: string; value: number }
     .map(([label, value]) => ({ label, value }));
 }
 
-export default async function AdminPage() {
+export default async function AdminOverviewPage() {
   const gate = await adminGate();
   if (!gate.ok) return gate.node;
   const user = gate.user;
@@ -88,8 +59,7 @@ export default async function AdminPage() {
     return (
       <AdminShell email={user.email} active="overview">
         <p className="card p-4 text-sm text-slate-600">
-          Analytics isn&rsquo;t configured yet: set <code>SUPABASE_SERVICE_ROLE_KEY</code> in your
-          environment and reload.
+          Analytics isn&rsquo;t configured yet: set <code>SUPABASE_SERVICE_ROLE_KEY</code> and reload.
         </p>
       </AdminShell>
     );
@@ -139,13 +109,12 @@ export default async function AdminPage() {
   const d30 = now - 30 * DAY;
   const days = last30();
 
-  // Users / sign-ups
   const totalUsers = users.length;
-  const signups1 = users.filter((u) => ms(u.created_at) >= d1).length;
-  const signups7 = users.filter((u) => ms(u.created_at) >= d7).length;
-  const signups30 = users.filter((u) => ms(u.created_at) >= d30).length;
-  const active7 = users.filter((u) => ms(u.last_sign_in_at) >= d7).length;
-  const recent = [...users].sort((a, b) => ms(b.created_at) - ms(a.created_at)).slice(0, 50);
+  const signups1 = users.filter((u) => msOf(u.created_at) >= d1).length;
+  const signups7 = users.filter((u) => msOf(u.created_at) >= d7).length;
+  const signups30 = users.filter((u) => msOf(u.created_at) >= d30).length;
+  const active7 = users.filter((u) => msOf(u.last_sign_in_at) >= d7).length;
+  const recent = [...users].sort((a, b) => msOf(b.created_at) - msOf(a.created_at)).slice(0, 50);
 
   const signupByDay = new Map(days.map((d) => [d, 0]));
   for (const u of users) {
@@ -155,10 +124,9 @@ export default async function AdminPage() {
   }
   const signupBars = days.map((d) => ({ day: d, value: signupByDay.get(d) ?? 0 }));
 
-  // Traffic
   const visits30 = views.length;
-  const visits1 = views.filter((v) => ms(v.created_at) >= d1).length;
-  const visits7 = views.filter((v) => ms(v.created_at) >= d7).length;
+  const visits1 = views.filter((v) => msOf(v.created_at) >= d1).length;
+  const visits7 = views.filter((v) => msOf(v.created_at) >= d7).length;
   const uniques = (vs: View[]) => new Set(vs.map((v) => v.visitor_hash ?? "")).size;
   const uniques30 = uniques(views);
   const avgPerDay = Math.round(visits30 / 30);
@@ -204,7 +172,14 @@ export default async function AdminPage() {
         <p className="text-xs text-slate-400">All-time page views: {totalViews.toLocaleString()}</p>
       </Section>
 
-      <Section title="Sign-ups — last 30 days">
+      <Section
+        title="Sign-ups — last 30 days"
+        action={
+          <Link href={`${ADMIN_BASE}/users`} className="text-xs font-medium text-brand-600 hover:underline">
+            View all users →
+          </Link>
+        }
+      >
         <div className="card space-y-2 p-4">
           <BarHeader left={`${signups30} new sign-ups`} right={`${totalUsers} all-time`} />
           <Bars data={signupBars} color="mint" />
@@ -229,7 +204,7 @@ export default async function AdminPage() {
   );
 }
 
-function SignupsTable({ rows, nameById }: { rows: UserRow[]; nameById: Map<string, string> }) {
+function SignupsTable({ rows, nameById }: { rows: AdminUserRow[]; nameById: Map<string, string> }) {
   const fmt = (iso?: string | null) =>
     iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "—";
   return (
@@ -252,8 +227,15 @@ function SignupsTable({ rows, nameById }: { rows: UserRow[]; nameById: Map<strin
             </tr>
           ) : (
             rows.map((u) => (
-              <tr key={u.id} className="border-b border-slate-50 last:border-0">
-                <td className="px-4 py-2.5 font-medium text-slate-700">{u.email ?? "—"}</td>
+              <tr key={u.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                <td className="px-4 py-2.5">
+                  <Link
+                    href={`${ADMIN_BASE}/users/${u.id}`}
+                    className="font-medium text-brand-700 hover:underline"
+                  >
+                    {u.email ?? "—"}
+                  </Link>
+                </td>
                 <td className="px-4 py-2.5 text-slate-500">{nameById.get(u.id) ?? "—"}</td>
                 <td className="px-4 py-2.5 text-slate-500">{fmt(u.created_at)}</td>
                 <td className="px-4 py-2.5 text-slate-500">{fmt(u.last_sign_in_at)}</td>

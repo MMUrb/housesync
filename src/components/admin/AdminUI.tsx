@@ -2,6 +2,7 @@ import Link from "next/link";
 import { HomeLogoLink } from "@/components/HomeLogoLink";
 import { isAdminGateEnabled } from "@/lib/adminAuth";
 import { AdminLogin, LockButton } from "@/components/admin/AdminLogin";
+import { ADMIN_BASE } from "@/lib/constants";
 
 // Shared, server-rendered chrome + presentational pieces for the admin pages.
 
@@ -15,12 +16,20 @@ export function AdminShell({
   children,
 }: {
   email?: string | null;
-  active: "overview" | "report";
+  active: "overview" | "users" | "report";
   tabs?: boolean;
   unlocked?: boolean;
   children: React.ReactNode;
 }) {
-  const Tab = ({ href, label, k }: { href: string; label: string; k: "overview" | "report" }) => (
+  const Tab = ({
+    href,
+    label,
+    k,
+  }: {
+    href: string;
+    label: string;
+    k: "overview" | "users" | "report";
+  }) => (
     <Link
       href={href}
       className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
@@ -48,8 +57,9 @@ export function AdminShell({
         </div>
         {tabs && (
           <div className="mx-auto flex max-w-6xl gap-1 px-4 pb-2">
-            <Tab href="/admin" label="Overview" k="overview" />
-            <Tab href="/admin/report" label="Churn report" k="report" />
+            <Tab href={ADMIN_BASE} label="Overview" k="overview" />
+            <Tab href={`${ADMIN_BASE}/users`} label="Users" k="users" />
+            <Tab href={`${ADMIN_BASE}/report`} label="Churn report" k="report" />
           </div>
         )}
       </header>

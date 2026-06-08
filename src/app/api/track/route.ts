@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
+import { ADMIN_BASE } from "@/lib/constants";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     }
 
     // Don't log the admin dashboard or API calls.
-    if (path.startsWith("/admin") || path.startsWith("/api")) {
+    if (path.startsWith(ADMIN_BASE) || path.startsWith("/api")) {
       return new NextResponse(null, { status: 204 });
     }
 

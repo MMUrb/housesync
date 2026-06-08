@@ -2,6 +2,9 @@
 
 export const ACTIVE_HOUSE_COOKIE = "hs_active_house";
 
+/** Base path for the (hidden) admin area. The route folder name must match. */
+export const ADMIN_BASE = "/hq-k4p9";
+
 export const CURRENCIES = [
   { value: "GBP", label: "£ GBP — British Pound" },
   { value: "EUR", label: "€ EUR — Euro" },
