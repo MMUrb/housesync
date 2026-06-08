@@ -43,6 +43,20 @@ const METHODS: {
   },
 ];
 
+function parseBank(s: string): { name: string; sort: string; account: string } {
+  const p = s.split("·").map((x) => x.trim());
+  return { name: p[0] ?? "", sort: p[1] ?? "", account: p[2] ?? "" };
+}
+
+function formatSort(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 6);
+  return d.replace(/(\d{2})(?=\d)/g, "$1-");
+}
+
+function formatAccount(v: string): string {
+  return v.replace(/\D/g, "").slice(0, 8);
+}
+
 export function PaymentDetailsForm({
   userId,
   initialPayMonzo,
@@ -66,6 +80,7 @@ export function PaymentDetailsForm({
   });
   const [open, setOpen] = useState<MethodKey | null>(null);
   const [draft, setDraft] = useState("");
+  const [bank, setBank] = useState({ name: "", sort: "", account: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +88,8 @@ export function PaymentDetailsForm({
 
   function openMethod(key: MethodKey) {
     setError(null);
-    setDraft(values[key]);
+    if (key === "bank") setBank(parseBank(values.bank));
+    else setDraft(values[key]);
     setOpen(key);
   }
 
@@ -84,16 +100,19 @@ export function PaymentDetailsForm({
 
   async function save() {
     if (!active) return;
-    const trimmed = draft.trim();
+    const value =
+      active.key === "bank"
+        ? [bank.name.trim(), bank.sort.trim(), bank.account.trim()].filter(Boolean).join(" · ")
+        : draft.trim();
     setSaving(true);
     setError(null);
     try {
       const { error: upErr } = await supabase
         .from("profiles")
-        .update({ [active.column]: trimmed || null })
+        .update({ [active.column]: value || null })
         .eq("id", userId);
       if (upErr) throw upErr;
-      setValues((v) => ({ ...v, [active.key]: trimmed }));
+      setValues((v) => ({ ...v, [active.key]: value }));
       setOpen(null);
       router.refresh();
     } catch (err) {
@@ -115,20 +134,58 @@ export function PaymentDetailsForm({
         /* Expanded editor — fills the whole box */
         <div>
           <p className="mb-2 text-sm font-semibold text-slate-900">{active.label}</p>
-          <input
-            autoFocus
-            className="input"
-            placeholder={active.placeholder}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void save();
-              }
-            }}
-          />
-          <p className="mt-1.5 text-xs text-slate-400">{active.hint}</p>
+
+          {active.key === "bank" ? (
+            <div className="space-y-2.5">
+              <BankField
+                label="Cardholder name"
+                placeholder="Jordan Smith"
+                value={bank.name}
+                autoFocus
+                onChange={(v) => setBank((b) => ({ ...b, name: v }))}
+                onEnter={() => void save()}
+              />
+              <div className="grid grid-cols-2 gap-2.5">
+                <BankField
+                  label="Sort code"
+                  placeholder="12-34-56"
+                  inputMode="numeric"
+                  value={bank.sort}
+                  onChange={(v) => setBank((b) => ({ ...b, sort: formatSort(v) }))}
+                  onEnter={() => void save()}
+                />
+                <BankField
+                  label="Account number"
+                  placeholder="12345678"
+                  inputMode="numeric"
+                  value={bank.account}
+                  onChange={(v) => setBank((b) => ({ ...b, account: formatAccount(v) }))}
+                  onEnter={() => void save()}
+                />
+              </div>
+              <p className="text-xs text-slate-400">
+                Housemates copy these for a manual bank transfer.
+              </p>
+            </div>
+          ) : (
+            <>
+              <input
+                autoFocus
+                className="input"
+                placeholder={active.placeholder}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void save();
+                  }
+                }}
+              />
+              <p className="mt-1.5 text-xs text-slate-400">{active.hint}</p>
+            </>
+          )}
+
           {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
 
           <div className="mt-4 flex items-center justify-between">
@@ -168,7 +225,7 @@ export function PaymentDetailsForm({
                 key={m.key}
                 type="button"
                 onClick={() => openMethod(m.key)}
-                className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-brand-400 hover:bg-slate-50"
+                className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-brand-400 hover:bg-slate-50 dark:hover:bg-white/[0.06]"
               >
                 <span className="shrink-0 text-sm font-medium text-slate-800">{m.label}</span>
                 <span className="min-w-0 flex-1 truncate text-xs text-slate-400">
@@ -201,6 +258,44 @@ export function PaymentDetailsForm({
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function BankField({
+  label,
+  placeholder,
+  value,
+  onChange,
+  onEnter,
+  inputMode,
+  autoFocus,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  onEnter: () => void;
+  inputMode?: "numeric";
+  autoFocus?: boolean;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-slate-500">{label}</label>
+      <input
+        className="input"
+        placeholder={placeholder}
+        value={value}
+        inputMode={inputMode}
+        autoFocus={autoFocus}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onEnter();
+          }
+        }}
+      />
     </div>
   );
 }
