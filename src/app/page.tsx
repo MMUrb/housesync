@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { HomeLogoLink } from "@/components/HomeLogoLink";
+import { ThemeIconButton } from "@/components/ThemeIconButton";
 
 export default function LandingPage() {
   return (
@@ -10,6 +11,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5">
           <HomeLogoLink logoClassName="text-lg" />
           <div className="flex items-center gap-2">
+            <ThemeIconButton />
             <Link href="/login" className="hidden whitespace-nowrap text-sm btn-ghost sm:inline-flex">
               Sign in
             </Link>
