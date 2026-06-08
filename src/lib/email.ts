@@ -15,11 +15,13 @@ export async function sendEmail({
   toName,
   subject,
   html,
+  text,
 }: {
   to: string;
   toName?: string;
   subject: string;
   html: string;
+  text?: string;
 }) {
   if (!isEmailConfigured) throw new Error("BREVO_API_KEY is not set");
 
@@ -36,6 +38,9 @@ export async function sendEmail({
       to: [{ email: to, name: toName }],
       subject,
       htmlContent: html,
+      // A matching plain-text part improves deliverability (spam filters
+      // penalise HTML-only mail).
+      textContent: text ?? htmlToText(html),
     }),
   });
 
@@ -44,6 +49,25 @@ export async function sendEmail({
     throw new Error(`Brevo ${res.status}: ${txt}`);
   }
   return res.json();
+}
+
+/** Crude HTML → text fallback so every email ships with a plain-text part. */
+function htmlToText(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, "$2 ($1)")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|h1|h2|h3|li|tr)>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&rsquo;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 /** Wrap email body content in a simple branded layout. */
@@ -86,7 +110,7 @@ export async function sendWelcomeEmail(to: string, name?: string | null) {
   await sendEmail({
     to,
     toName: name ?? undefined,
-    subject: "Welcome to HouseSync 🏡",
+    subject: "Welcome to HouseSync",
     html: emailLayout(body, "You're receiving this because you just created a HouseSync account."),
   });
 }
