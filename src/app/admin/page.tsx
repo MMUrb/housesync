@@ -1,8 +1,8 @@
 import "server-only";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getUser } from "@/lib/data";
-import { isAdminEmail } from "@/lib/admin";
+import { isAdminEmail, hasAdminAllowlist } from "@/lib/admin";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { HomeLogoLink } from "@/components/HomeLogoLink";
 
@@ -76,8 +76,12 @@ function topCounts(items: string[], n: number): { label: string; value: number }
 
 export default async function AdminPage() {
   const user = await getUser();
-  // 404 (not 403) for non-admins, so the page's existence isn't revealed.
-  if (!user || !isAdminEmail(user.email)) notFound();
+  if (!user) redirect("/login");
+  if (!isAdminEmail(user.email)) {
+    // Signed in but not on the allowlist — show their exact account email so
+    // they know precisely what to put in ADMIN_EMAILS. No data is exposed.
+    return <NoAccess email={user.email} configured={hasAdminAllowlist} />;
+  }
 
   if (!isAdminConfigured) {
     return (
@@ -244,6 +248,41 @@ function Shell({ email, children }: { email?: string | null; children: React.Rea
       </header>
       <main className="mx-auto max-w-6xl space-y-8 px-5 py-8">{children}</main>
     </div>
+  );
+}
+
+function NoAccess({ email, configured }: { email?: string | null; configured: boolean }) {
+  return (
+    <Shell email={email}>
+      <div className="card mx-auto max-w-lg space-y-3 p-6 text-center">
+        <p className="text-3xl">🔒</p>
+        <h1 className="text-lg font-bold text-slate-900">Admin access required</h1>
+        <p className="text-sm text-slate-600">
+          You&rsquo;re signed in as{" "}
+          <strong className="break-all text-slate-800">{email ?? "an unknown account"}</strong>,
+          which isn&rsquo;t on the admin allowlist.
+        </p>
+        {configured ? (
+          <p className="text-xs text-slate-400">
+            Make sure <code className="rounded bg-slate-100 px-1">ADMIN_EMAILS</code> contains
+            exactly <code className="break-all rounded bg-slate-100 px-1">{email}</code>, then
+            redeploy.
+          </p>
+        ) : (
+          <div className="rounded-xl bg-slate-50 p-3 text-left text-sm text-slate-600">
+            <p className="font-medium text-slate-700">To grant yourself access:</p>
+            <ol className="ml-4 mt-1 list-decimal space-y-1">
+              <li>
+                In Vercel, add an environment variable{" "}
+                <code className="rounded bg-slate-100 px-1">ADMIN_EMAILS</code> ={" "}
+                <code className="break-all rounded bg-slate-100 px-1">{email}</code>
+              </li>
+              <li>Redeploy, then reload this page.</li>
+            </ol>
+          </div>
+        )}
+      </div>
+    </Shell>
   );
 }
 
