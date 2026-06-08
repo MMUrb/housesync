@@ -54,7 +54,9 @@ export async function sendEmail({
 /** Crude HTML → text fallback so every email ships with a plain-text part. */
 function htmlToText(html: string): string {
   return html
+    .replace(/<head[\s\S]*?<\/head>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<!doctype[^>]*>/gi, "")
     .replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, "$2 ($1)")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(p|div|h1|h2|h3|li|tr)>/gi, "\n")
@@ -75,12 +77,22 @@ export function emailLayout(
   body: string,
   footer = "You're receiving this because email reminders are on for your HouseSync account. You can turn them off anytime in Settings.",
 ): string {
-  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:8px;color:#15151c;font-size:15px;line-height:1.5">
-    <div style="font-weight:bold;font-size:18px;margin-bottom:16px">House<span style="color:#5f3fe0">Sync</span></div>
-    ${body}
-    <hr style="border:none;border-top:1px solid #eee;margin:24px 0" />
-    <p style="color:#94a3b8;font-size:12px">${footer}</p>
-  </div>`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HouseSync</title>
+</head>
+<body style="margin:0;padding:0;background:#f6f7fb">
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:16px;color:#15151c;font-size:15px;line-height:1.5">
+  <div style="font-weight:bold;font-size:18px;margin-bottom:16px">House<span style="color:#5f3fe0">Sync</span></div>
+  ${body}
+  <hr style="border:none;border-top:1px solid #eee;margin:24px 0" />
+  <p style="color:#94a3b8;font-size:12px">${footer}</p>
+</div>
+</body>
+</html>`;
 }
 
 function escapeHtml(s: string): string {
