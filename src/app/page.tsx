@@ -10,11 +10,12 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5">
           <HomeLogoLink logoClassName="text-lg" />
           <div className="flex items-center gap-2">
-            <Link href="/login" className="btn-ghost text-sm">
+            <Link href="/login" className="hidden whitespace-nowrap text-sm btn-ghost sm:inline-flex">
               Sign in
             </Link>
-            <Link href="/login" className="btn-primary text-sm">
-              Create your house
+            <Link href="/login" className="whitespace-nowrap text-sm btn-primary">
+              <span className="sm:hidden">Get started</span>
+              <span className="hidden sm:inline">Create your house</span>
             </Link>
           </div>
         </div>
