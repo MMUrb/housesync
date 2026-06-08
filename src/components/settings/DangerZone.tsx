@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { clearActiveHouse } from "@/lib/activeHouse";
+import { DELETION_REASONS } from "@/lib/deletion";
 
 export function DangerZone({
   houseId,
@@ -20,6 +21,9 @@ export function DangerZone({
   const supabase = createClient();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDelete, setShowDelete] = useState(false);
+  const [reason, setReason] = useState("");
+  const [comment, setComment] = useState("");
 
   async function leave() {
     if (!confirm(`Leave ${houseName}? You can re-join later with the invite link.`)) return;
@@ -61,16 +65,16 @@ export function DangerZone({
   }
 
   async function deleteAccount() {
-    if (
-      !confirm(
-        "Permanently delete your account? This removes you from all your houses and erases your profile and settings. This cannot be undone.",
-      )
-    )
-      return;
+    if (!reason) return;
+    if (!confirm("Permanently delete your account? This cannot be undone.")) return;
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/account/delete", { method: "POST" });
+      const res = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason, comment: comment.trim() || null }),
+      });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || "Could not delete your account.");
@@ -98,13 +102,74 @@ export function DangerZone({
           </button>
         )}
         <div className="mt-3 border-t border-red-100 pt-3">
-          <button onClick={deleteAccount} disabled={busy} className="btn-danger btn-block">
-            Delete my account
-          </button>
-          <p className="mt-1.5 text-xs text-slate-400">
-            Deletes your account everywhere — all houses, profile and settings. This can&apos;t be
-            undone.
-          </p>
+          {!showDelete ? (
+            <>
+              <button
+                onClick={() => setShowDelete(true)}
+                disabled={busy}
+                className="btn-danger btn-block"
+              >
+                Delete my account
+              </button>
+              <p className="mt-1.5 text-xs text-slate-400">
+                Deletes your account everywhere — all houses, profile and settings. This can&apos;t
+                be undone.
+              </p>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-slate-700">
+                Sorry to see you go — what&apos;s the main reason?
+              </p>
+              <div className="space-y-1.5">
+                {DELETION_REASONS.map((r) => (
+                  <label
+                    key={r.code}
+                    className="flex cursor-pointer items-center gap-2 text-sm text-slate-600"
+                  >
+                    <input
+                      type="radio"
+                      name="delete-reason"
+                      value={r.code}
+                      checked={reason === r.code}
+                      onChange={() => setReason(r.code)}
+                      className="h-4 w-4 accent-brand-600"
+                    />
+                    {r.label}
+                  </label>
+                ))}
+              </div>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                maxLength={1000}
+                rows={2}
+                placeholder="Anything you'd like to add? (optional)"
+                className="input w-full resize-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowDelete(false);
+                    setReason("");
+                    setComment("");
+                    setError(null);
+                  }}
+                  disabled={busy}
+                  className="btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={deleteAccount}
+                  disabled={busy || !reason}
+                  className="btn-danger flex-1"
+                >
+                  {busy ? "Deleting…" : "Delete account"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

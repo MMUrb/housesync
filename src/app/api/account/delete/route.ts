@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
+import { DELETION_REASON_CODES } from "@/lib/deletion";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,10 @@ export const dynamic = "force-dynamic";
 // needs the service-role key, so it runs here on the server (never the browser).
 // ON DELETE CASCADE in the schema removes their profile, memberships, splits
 // and account settings; houses they created stay for the remaining members.
-export async function POST() {
+//
+// Before deleting, we optionally record an ANONYMOUS reason for leaving (no user
+// id or email) so the churn report can show why people leave.
+export async function POST(request: Request) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -24,7 +28,29 @@ export async function POST() {
     );
   }
 
+  // Parse optional, anonymous feedback from the request body.
+  let reason: string | null = null;
+  let comment: string | null = null;
+  try {
+    const body = await request.json();
+    if (typeof body?.reason === "string" && body.reason) {
+      reason = DELETION_REASON_CODES.includes(body.reason) ? body.reason : "other";
+    }
+    if (typeof body?.comment === "string" && body.comment.trim()) {
+      comment = body.comment.trim().slice(0, 1000);
+    }
+  } catch {
+    /* no/invalid body — proceed with the deletion anyway */
+  }
+
   const admin = createAdminClient();
+
+  // Record churn feedback first (best-effort — never block the deletion).
+  if (reason || comment) {
+    const { error: fbErr } = await admin.from("deletion_feedback").insert({ reason, comment });
+    if (fbErr) console.error("deletion_feedback insert failed:", fbErr.message);
+  }
+
   const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
