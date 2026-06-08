@@ -174,7 +174,12 @@ export default function LandingPage() {
               <TikTokIcon />
             </a>
           </div>
-          <p className="text-xs text-slate-300">© {new Date().getFullYear()} HouseSync</p>
+          <p className="text-xs text-slate-300">
+            © {new Date().getFullYear()} HouseSync ·{" "}
+            <Link href="/privacy" className="transition hover:text-slate-500">
+              Privacy
+            </Link>
+          </p>
         </div>
       </footer>
     </div>

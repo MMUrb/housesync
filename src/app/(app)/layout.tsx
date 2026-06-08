@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/env";
 import { NotConfigured } from "@/components/NotConfigured";
 import { getMyHouses, getProfile, requireHouse } from "@/lib/data";
@@ -20,8 +21,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <TopNav />
       </div>
       <main className="flex-1 px-4 pb-8 pt-4">{children}</main>
-      <footer className="border-t border-slate-100 px-4 py-3.5">
-        <FollowUs />
+      <footer className="border-t border-slate-100 px-4 py-3">
+        <div className="flex flex-col items-center gap-1.5">
+          <FollowUs />
+          <Link
+            href="/privacy"
+            className="text-[11px] text-slate-400 transition hover:text-slate-600"
+          >
+            Privacy Policy
+          </Link>
+        </div>
       </footer>
     </div>
   );

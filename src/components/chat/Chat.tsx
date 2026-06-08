@@ -141,7 +141,7 @@ export function Chat({
   }
 
   return (
-    <div className="flex h-[calc(100dvh-15rem)] flex-col">
+    <div className="flex h-[calc(100dvh-16rem)] flex-col">
       <div className="flex-1 overflow-y-auto pb-2">
         {messages.length === 0 ? (
           <div className="grid h-full place-items-center text-center text-sm text-slate-400">
