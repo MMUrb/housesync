@@ -1,9 +1,7 @@
 import "server-only";
-import { redirect } from "next/navigation";
-import { getUser } from "@/lib/data";
-import { isAdminEmail, hasAdminAllowlist } from "@/lib/admin";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
-import { AdminShell, NoAccess, Section, Grid, StatCard } from "@/components/admin/AdminUI";
+import { adminGate } from "@/components/admin/guard";
+import { AdminShell, Section, Grid, StatCard } from "@/components/admin/AdminUI";
 import { deletionReasonLabel } from "@/lib/deletion";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +12,9 @@ type Feedback = { reason: string | null; comment: string | null; created_at: str
 const DAY = 86_400_000;
 
 export default async function ReportPage() {
-  const user = await getUser();
-  if (!user) redirect("/login");
-  if (!isAdminEmail(user.email)) {
-    return <NoAccess email={user.email} configured={hasAdminAllowlist} />;
-  }
+  const gate = await adminGate();
+  if (!gate.ok) return gate.node;
+  const user = gate.user;
 
   if (!isAdminConfigured) {
     return (

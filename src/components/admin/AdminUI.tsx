@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { HomeLogoLink } from "@/components/HomeLogoLink";
+import { isAdminGateEnabled } from "@/lib/adminAuth";
+import { AdminLogin, LockButton } from "@/components/admin/AdminLogin";
 
 // Shared, server-rendered chrome + presentational pieces for the admin pages.
 
@@ -9,11 +11,13 @@ export function AdminShell({
   email,
   active,
   tabs = true,
+  unlocked = true,
   children,
 }: {
   email?: string | null;
   active: "overview" | "report";
   tabs?: boolean;
+  unlocked?: boolean;
   children: React.ReactNode;
 }) {
   const Tab = ({ href, label, k }: { href: string; label: string; k: "overview" | "report" }) => (
@@ -36,6 +40,7 @@ export function AdminShell({
           </div>
           <div className="flex items-center gap-3 text-sm text-slate-400">
             {email && <span className="hidden truncate sm:inline">{email}</span>}
+            {unlocked && isAdminGateEnabled() && <LockButton />}
             <Link href="/dashboard" className="btn-ghost text-sm">
               App →
             </Link>
@@ -50,6 +55,14 @@ export function AdminShell({
       </header>
       <main className="mx-auto max-w-6xl space-y-8 px-5 py-8">{children}</main>
     </div>
+  );
+}
+
+export function AdminLockScreen({ email }: { email?: string | null }) {
+  return (
+    <AdminShell email={email} active="overview" tabs={false} unlocked={false}>
+      <AdminLogin />
+    </AdminShell>
   );
 }
 

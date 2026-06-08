@@ -1,11 +1,8 @@
 import "server-only";
-import { redirect } from "next/navigation";
-import { getUser } from "@/lib/data";
-import { isAdminEmail, hasAdminAllowlist } from "@/lib/admin";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
+import { adminGate } from "@/components/admin/guard";
 import {
   AdminShell,
-  NoAccess,
   Section,
   Grid,
   StatCard,
@@ -83,11 +80,9 @@ function topCounts(items: string[], n: number): { label: string; value: number }
 }
 
 export default async function AdminPage() {
-  const user = await getUser();
-  if (!user) redirect("/login");
-  if (!isAdminEmail(user.email)) {
-    return <NoAccess email={user.email} configured={hasAdminAllowlist} />;
-  }
+  const gate = await adminGate();
+  if (!gate.ok) return gate.node;
+  const user = gate.user;
 
   if (!isAdminConfigured) {
     return (
