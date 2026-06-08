@@ -14,6 +14,7 @@ import {
   BarHeader,
   RankList,
 } from "@/components/admin/AdminUI";
+import { TestEmail } from "@/components/admin/TestEmail";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin", robots: { index: false, follow: false } };
@@ -199,6 +200,10 @@ export default async function AdminOverviewPage() {
           <StatCard label="Chores" value={chores} />
           <StatCard label="Messages" value={messages} />
         </Grid>
+      </Section>
+
+      <Section title="Tools">
+        <TestEmail />
       </Section>
     </AdminShell>
   );
