@@ -93,6 +93,12 @@ export function emailLayout(
   <div style="font-weight:bold;font-size:18px;margin-bottom:16px">House<span style="color:#5f3fe0">Sync</span></div>
   ${body}
   <hr style="border:none;border-top:1px solid #eee;margin:24px 0" />
+  <p style="margin:0 0 10px;color:#475569;font-size:13px">Got a question? Send us a message on any of our socials:</p>
+  <p style="margin:0 0 16px">
+    <a href="https://www.linkedin.com/company/housesyncuk/" style="display:inline-block;margin:0 6px 6px 0;padding:7px 14px;background:#f1f5f9;color:#5f3fe0;text-decoration:none;border-radius:8px;font-size:12px;font-weight:bold">LinkedIn</a>
+    <a href="https://www.instagram.com/housesync.uk/" style="display:inline-block;margin:0 6px 6px 0;padding:7px 14px;background:#f1f5f9;color:#5f3fe0;text-decoration:none;border-radius:8px;font-size:12px;font-weight:bold">Instagram</a>
+    <a href="https://www.tiktok.com/@housesync.uk" style="display:inline-block;margin:0 0 6px 0;padding:7px 14px;background:#f1f5f9;color:#5f3fe0;text-decoration:none;border-radius:8px;font-size:12px;font-weight:bold">TikTok</a>
+  </p>
   <p style="color:#94a3b8;font-size:12px">${footer}</p>
 </div>
 </body>
@@ -121,8 +127,7 @@ export async function sendWelcomeEmail(to: string, name?: string | null) {
       <li style="margin-bottom:4px">Invite your housemates.</li>
       <li>Add your first bill or expense — we'll split it for you.</li>
     </ol>
-    <p style="margin-top:18px">Got a question? Just reply to this email — we're happy to help.</p>
-    <p>— The HouseSync team</p>`;
+    <p style="margin-top:18px">— The HouseSync team</p>`;
   await sendEmail({
     to,
     toName: name ?? undefined,

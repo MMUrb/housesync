@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ComponentType } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getSiteUrl, OAUTH_PROVIDERS } from "@/lib/env";
@@ -340,6 +341,16 @@ export function LoginForm() {
               <Req ok={pwChecks.upper} text="At least one uppercase letter" />
               <Req ok={pwChecks.number} text="At least one number" />
             </ul>
+          )}
+          {mode === "signin" && (
+            <div className="mt-1.5 text-right">
+              <Link
+                href="/forgot-password"
+                className="text-xs font-medium text-brand-600 hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
           )}
         </div>
 
