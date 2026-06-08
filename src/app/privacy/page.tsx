@@ -72,6 +72,11 @@ export default function PrivacyPage() {
                 Basic technical data needed to run the app (your sign-in session and standard server
                 logs from our hosting provider).
               </li>
+              <li>
+                Anonymous usage analytics — we log page views (the page visited, the referring site
+                and approximate country) using our own first-party system. This uses no cookies and
+                isn&rsquo;t linked to your identity.
+              </li>
             </ul>
             <p className="mt-3">
               We do <strong>not</strong> collect payment card details — HouseSync doesn&rsquo;t take

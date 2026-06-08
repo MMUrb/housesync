@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { Analytics } from "@/components/Analytics";
 
 const siteName = "HouseSync";
 const description =
@@ -78,7 +79,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en-GB">
-      <body className="min-h-dvh antialiased">{children}</body>
+      <body className="min-h-dvh antialiased">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
