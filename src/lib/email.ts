@@ -90,3 +90,25 @@ export async function sendWelcomeEmail(to: string, name?: string | null) {
     html: emailLayout(body, "You're receiving this because you just created a HouseSync account."),
   });
 }
+
+/** Email-verification link sent when a user taps "Verify now" in Settings. */
+export async function sendVerificationEmail(to: string, name: string | null, url: string) {
+  const first = (name ?? "").trim().split(/\s+/)[0] || "there";
+  const body = `
+    <h1 style="font-size:20px;margin:0 0 10px">Verify your email</h1>
+    <p>Hi ${escapeHtml(first)}, please confirm this is your email address for HouseSync.</p>
+    <p style="margin:22px 0">
+      <a href="${url}" style="display:inline-block;background:#6f53f5;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:10px">Verify my email</a>
+    </p>
+    <p style="color:#64748b;font-size:13px">Or paste this link into your browser:<br><a href="${url}" style="color:#6f53f5;word-break:break-all">${url}</a></p>
+    <p style="color:#94a3b8;font-size:12px;margin-top:14px">This link expires in 24 hours. If you didn't request it, you can safely ignore this email.</p>`;
+  await sendEmail({
+    to,
+    toName: name ?? undefined,
+    subject: "Verify your HouseSync email",
+    html: emailLayout(
+      body,
+      "You're receiving this because someone asked to verify this email for a HouseSync account.",
+    ),
+  });
+}

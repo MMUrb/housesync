@@ -67,8 +67,11 @@ export function AccountSettingsForm({
     setError(null);
     setVerifying(true);
     try {
-      const { error } = await supabase.auth.resend({ type: "signup", email });
-      if (error) throw error;
+      const res = await fetch("/api/email/verify-send", { method: "POST" });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || "Could not send the verification email.");
+      }
       setVerifySent(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not send the verification email.");
@@ -134,7 +137,7 @@ export function AccountSettingsForm({
                 disabled={verifying}
                 className="font-medium text-brand-600 hover:underline disabled:opacity-50"
               >
-                {verifying ? "Sending…" : "Verify email"}
+                {verifying ? "Sending…" : "Verify now"}
               </button>
             </>
           )}

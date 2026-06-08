@@ -11,6 +11,24 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      // Reaching here means the user proved ownership of their email (Google
+      // OAuth, an email-change confirmation, or a recovery link), so mark it
+      // verified. Best-effort — never block the redirect.
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from("account_settings")
+            .upsert(
+              { user_id: user.id, email_verified_at: new Date().toISOString() },
+              { onConflict: "user_id" },
+            );
+        }
+      } catch {
+        /* ignore */
+      }
       return NextResponse.redirect(`${origin}${next}`);
     }
   }

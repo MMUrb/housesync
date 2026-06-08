@@ -146,6 +146,9 @@ export interface AccountSettings {
   notify_email: boolean;
   notify_sms: boolean;
   updated_at: string;
+  email_verified_at: string | null;
+  email_verify_token: string | null;
+  email_verify_expires: string | null;
 }
 
 export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string; emoji: string }[] = [
