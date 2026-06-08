@@ -12,7 +12,7 @@ export default function LoginPage() {
 
   return (
     <main className="relative mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-10">
-      <BackHomeButton className="absolute left-4 top-4" />
+      <BackHomeButton className="absolute left-4 [top:calc(1rem_+_env(safe-area-inset-top))]" />
       <HomeLogoLink className="mx-auto" logoClassName="text-xl" />
       <h1 className="mt-8 text-center text-2xl font-bold text-slate-900">
         Welcome to your house

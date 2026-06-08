@@ -6,7 +6,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-dvh bg-white">
       {/* Nav */}
-      <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/90 backdrop-blur">
+      <header className="safe-top sticky top-0 z-30 border-b border-slate-100 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5">
           <HomeLogoLink logoClassName="text-lg" />
           <div className="flex items-center gap-2">

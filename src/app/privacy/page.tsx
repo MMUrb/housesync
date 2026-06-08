@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <div className="min-h-dvh bg-white">
-      <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/90 backdrop-blur">
+      <header className="safe-top sticky top-0 z-30 border-b border-slate-100 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-3.5">
           <HomeLogoLink logoClassName="text-lg" />
           <Link href="/" className="btn-ghost text-sm">

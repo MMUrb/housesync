@@ -16,6 +16,9 @@
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Respect device safe areas (notch / rounded corners) in the native app. */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
   /* Tap targets feel app-like, not website-like. */
   button,
@@ -68,4 +71,16 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+@layer utilities {
+  /* Push content clear of the status bar / notch and home indicator in the
+     native app. These resolve to 0 in a normal browser, so they're no-ops on
+     the website. */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

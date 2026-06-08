@@ -41,7 +41,7 @@ export function AdminShell({
   );
   return (
     <div className="min-h-dvh bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
+      <header className="safe-top border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
           <div className="flex items-center gap-3">
             <HomeLogoLink logoClassName="text-lg" />
