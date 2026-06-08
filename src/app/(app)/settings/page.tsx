@@ -32,6 +32,10 @@ export default async function SettingsPage() {
           initialName={profile?.name ?? ""}
           initialColor={profile?.avatar_color ?? "#6f53f5"}
           initialAvatarUrl={profile?.avatar_url ?? null}
+          initialPayMonzo={profile?.pay_monzo ?? ""}
+          initialPayPaypal={profile?.pay_paypal ?? ""}
+          initialPayRevolut={profile?.pay_revolut ?? ""}
+          initialPayBank={profile?.pay_bank ?? ""}
         />
 
         <AccountSettingsForm

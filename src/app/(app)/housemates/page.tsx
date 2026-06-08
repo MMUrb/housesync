@@ -35,6 +35,12 @@ export default async function HousematesPage() {
       owedPending: 0,
       markPaidIds: [],
       confirmIds: [],
+      pay: {
+        monzo: profileOf(uid)?.pay_monzo ?? null,
+        paypal: profileOf(uid)?.pay_paypal ?? null,
+        revolut: profileOf(uid)?.pay_revolut ?? null,
+        bank: profileOf(uid)?.pay_bank ?? null,
+      },
     });
 
   for (const s of splits) {

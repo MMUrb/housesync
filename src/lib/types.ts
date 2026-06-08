@@ -21,6 +21,10 @@ export interface Profile {
   avatar_color: string;
   avatar_url: string | null;
   created_at: string;
+  pay_monzo: string | null;
+  pay_paypal: string | null;
+  pay_revolut: string | null;
+  pay_bank: string | null;
 }
 
 export interface House {

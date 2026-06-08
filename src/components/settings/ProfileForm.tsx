@@ -13,17 +13,29 @@ export function ProfileForm({
   initialName,
   initialColor,
   initialAvatarUrl,
+  initialPayMonzo,
+  initialPayPaypal,
+  initialPayRevolut,
+  initialPayBank,
 }: {
   userId: string;
   initialName: string;
   initialColor: string;
   initialAvatarUrl: string | null;
+  initialPayMonzo: string;
+  initialPayPaypal: string;
+  initialPayRevolut: string;
+  initialPayBank: string;
 }) {
   const router = useRouter();
   const supabase = createClient();
   const [name, setName] = useState(initialName);
   const [color, setColor] = useState(initialColor);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl);
+  const [payMonzo, setPayMonzo] = useState(initialPayMonzo);
+  const [payPaypal, setPayPaypal] = useState(initialPayPaypal);
+  const [payRevolut, setPayRevolut] = useState(initialPayRevolut);
+  const [payBank, setPayBank] = useState(initialPayBank);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -83,7 +95,17 @@ export function ProfileForm({
     e.preventDefault();
     setSaving(true);
     setSaved(false);
-    await supabase.from("profiles").update({ name: name.trim(), avatar_color: color }).eq("id", userId);
+    await supabase
+      .from("profiles")
+      .update({
+        name: name.trim(),
+        avatar_color: color,
+        pay_monzo: payMonzo.trim() || null,
+        pay_paypal: payPaypal.trim() || null,
+        pay_revolut: payRevolut.trim() || null,
+        pay_bank: payBank.trim() || null,
+      })
+      .eq("id", userId);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -186,9 +208,48 @@ export function ProfileForm({
         </div>
       </div>
 
+      {/* Payment details — so housemates can pay you back directly */}
+      <div>
+        <span className="label">Payment details</span>
+        <p className="-mt-1 mb-2 text-xs text-slate-400">
+          Optional. Lets housemates pay you back in a tap — only people in your houses can see
+          these, and HouseSync never touches the money.
+        </p>
+        <div className="space-y-2">
+          <PayInput label="Monzo" placeholder="monzo.me username" value={payMonzo} onChange={setPayMonzo} />
+          <PayInput label="PayPal" placeholder="paypal.me username" value={payPaypal} onChange={setPayPaypal} />
+          <PayInput label="Revolut" placeholder="revolut.me tag" value={payRevolut} onChange={setPayRevolut} />
+          <PayInput label="Bank" placeholder="Name · 12-34-56 · 12345678" value={payBank} onChange={setPayBank} />
+        </div>
+      </div>
+
       <button type="submit" disabled={saving} className="btn-primary">
         {saving ? "Saving…" : saved ? "Saved!" : "Save profile"}
       </button>
     </form>
+  );
+}
+
+function PayInput({
+  label,
+  placeholder,
+  value,
+  onChange,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-16 shrink-0 text-xs font-medium text-slate-500">{label}</span>
+      <input
+        className="input flex-1"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
   );
 }
