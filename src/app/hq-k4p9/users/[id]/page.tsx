@@ -96,11 +96,11 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
               <p className="truncate text-sm text-slate-500">{email}</p>
             </div>
           </div>
-          <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Field label="Joined" value={fmt(authUser?.created_at)} />
             <Field label="Account age" value={ageLabel(authUser?.created_at)} />
             <Field label="Last seen" value={fmt(authUser?.last_sign_in_at)} />
-            <Field label="User ID" value={`${id.slice(0, 8)}…`} mono />
+            <Field label="User ID" value={id} mono wide />
           </dl>
         </div>
       </Section>
@@ -165,11 +165,23 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   );
 }
 
-function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Field({
+  label,
+  value,
+  mono,
+  wide,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  wide?: boolean;
+}) {
   return (
-    <div>
+    <div className={wide ? "col-span-2 sm:col-span-3" : ""}>
       <dt className="text-xs text-slate-400">{label}</dt>
-      <dd className={`mt-0.5 text-sm text-slate-700 ${mono ? "font-mono" : ""}`}>{value}</dd>
+      <dd className={`mt-0.5 text-sm text-slate-700 ${mono ? "select-all break-all font-mono" : ""}`}>
+        {value}
+      </dd>
     </div>
   );
 }
