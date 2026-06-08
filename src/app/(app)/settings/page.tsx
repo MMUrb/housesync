@@ -2,6 +2,7 @@ import { getAccountSettings, requireHouse } from "@/lib/data";
 import { PageTitle } from "@/components/app/PageTitle";
 import { InviteBox } from "@/components/house/InviteBox";
 import { ProfileForm } from "@/components/settings/ProfileForm";
+import { PaymentDetailsForm } from "@/components/settings/PaymentDetailsForm";
 import { AccountSettingsForm } from "@/components/settings/AccountSettingsForm";
 import { HouseSettingsForm } from "@/components/settings/HouseSettingsForm";
 import { DangerZone } from "@/components/settings/DangerZone";
@@ -33,6 +34,10 @@ export default async function SettingsPage() {
           initialName={profile?.name ?? ""}
           initialColor={profile?.avatar_color ?? "#6f53f5"}
           initialAvatarUrl={profile?.avatar_url ?? null}
+        />
+
+        <PaymentDetailsForm
+          userId={user.id}
           initialPayMonzo={profile?.pay_monzo ?? ""}
           initialPayPaypal={profile?.pay_paypal ?? ""}
           initialPayRevolut={profile?.pay_revolut ?? ""}
