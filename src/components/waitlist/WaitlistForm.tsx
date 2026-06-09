@@ -1,0 +1,125 @@
+"use client";
+
+import { useState } from "react";
+
+export function WaitlistForm() {
+  const [email, setEmail] = useState("");
+  const [joinState, setJoinState] = useState<"idle" | "loading" | "done">("idle");
+  const [joinErr, setJoinErr] = useState<string | null>(null);
+  const [already, setAlready] = useState(false);
+
+  const [showCode, setShowCode] = useState(false);
+  const [code, setCode] = useState("");
+  const [codeLoading, setCodeLoading] = useState(false);
+  const [codeErr, setCodeErr] = useState<string | null>(null);
+
+  async function join(e: React.FormEvent) {
+    e.preventDefault();
+    setJoinErr(null);
+    setJoinState("loading");
+    try {
+      const res = await fetch("/api/waitlist/join", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setJoinErr(data?.error ?? "Something went wrong. Please try again.");
+        setJoinState("idle");
+        return;
+      }
+      setAlready(Boolean(data?.already));
+      setJoinState("done");
+    } catch {
+      setJoinErr("Network error. Please try again.");
+      setJoinState("idle");
+    }
+  }
+
+  async function unlock(e: React.FormEvent) {
+    e.preventDefault();
+    setCodeErr(null);
+    setCodeLoading(true);
+    try {
+      const res = await fetch("/api/waitlist/unlock", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setCodeErr(data?.error ?? "That code isn't right.");
+        setCodeLoading(false);
+        return;
+      }
+      // Unlocked — reload so middleware now lets us through to the app.
+      window.location.href = "/";
+    } catch {
+      setCodeErr("Network error. Please try again.");
+      setCodeLoading(false);
+    }
+  }
+
+  return (
+    <div className="mt-6">
+      {joinState === "done" ? (
+        <div className="rounded-xl bg-mint-50 p-4 text-center">
+          <p className="text-2xl">🎉</p>
+          <p className="mt-1 font-semibold text-slate-900">
+            {already ? "You're already on the list!" : "You're on the list!"}
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            {already
+              ? "We've got your email — we'll be in touch with updates."
+              : "Check your inbox for a confirmation. We'll email you when there's an update."}
+          </p>
+        </div>
+      ) : (
+        <form onSubmit={join} className="space-y-3">
+          <input
+            type="email"
+            required
+            autoComplete="email"
+            inputMode="email"
+            className="input"
+            placeholder="you@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <button type="submit" disabled={joinState === "loading"} className="btn-primary btn-block">
+            {joinState === "loading" ? "Joining…" : "Join the waitlist"}
+          </button>
+          {joinErr && <p className="text-sm text-red-600">{joinErr}</p>}
+        </form>
+      )}
+
+      {/* Access code — small, below the main form */}
+      <div className="mt-5 border-t border-slate-100 pt-4 text-center">
+        {!showCode ? (
+          <button
+            type="button"
+            onClick={() => setShowCode(true)}
+            className="text-xs font-medium text-slate-400 transition hover:text-slate-600"
+          >
+            Have an access code?
+          </button>
+        ) : (
+          <form onSubmit={unlock} className="mx-auto max-w-xs space-y-2">
+            <input
+              autoFocus
+              className="input text-center"
+              placeholder="Enter access code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
+            <button type="submit" disabled={codeLoading} className="btn-secondary btn-block">
+              {codeLoading ? "Checking…" : "Unlock access"}
+            </button>
+            {codeErr && <p className="text-sm text-red-600">{codeErr}</p>}
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -157,3 +157,20 @@ export async function sendVerificationEmail(to: string, name: string | null, url
     ),
   });
 }
+
+/** Confirmation email sent when someone joins the pre-launch waitlist. */
+export async function sendWaitlistEmail(to: string) {
+  const body = `
+    <h1 style="font-size:20px;margin:0 0 10px">You're on the list 🎉</h1>
+    <p>Thanks for joining the HouseSync waitlist! We're putting the finishing touches on the easiest way for UK housemates to split bills, track chores and stay on top of rent — without the awkward money chats.</p>
+    <p>You're now in the queue for early access. We'll email you the moment there's an update or your invite is ready — no spam, just the important stuff.</p>
+    <p style="margin-top:18px">Talk soon,<br>— The HouseSync team</p>`;
+  await sendEmail({
+    to,
+    subject: "You're on the HouseSync waitlist 🎉",
+    html: emailLayout(
+      body,
+      "You're receiving this because you joined the HouseSync waitlist at housesync.co.uk.",
+    ),
+  });
+}
