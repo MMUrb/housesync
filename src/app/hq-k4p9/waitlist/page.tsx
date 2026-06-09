@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { adminGate } from "@/components/admin/guard";
 import { AdminShell, Section, Grid, StatCard } from "@/components/admin/AdminUI";
+import { WaitlistBroadcast } from "@/components/admin/WaitlistBroadcast";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Waitlist", robots: { index: false, follow: false } };
@@ -91,6 +92,10 @@ export default async function WaitlistAdminPage() {
           <StatCard label="Total sign-ups" value={signups.length} sub={`${signups7} this week`} />
           <StatCard label="Code unlocks" value={unlocks.length} sub={`${unlocks7} this week`} />
         </Grid>
+      </Section>
+
+      <Section title="Broadcast">
+        <WaitlistBroadcast count={signups.length} />
       </Section>
 
       <Section
