@@ -1,34 +1,70 @@
 import "server-only";
 
-// Transactional email via Brevo's HTTP API. Server-only — the API key must
-// never reach the browser.
+// Transactional email. Prefers Resend (sends links un-wrapped, so it avoids the
+// click-tracking redirect Brevo forces — which trips SpamAssassin's URI_PHISH).
+// Falls back to Brevo when only BREVO_API_KEY is set, so the cutover is seamless.
+// Server-only — the API key must never reach the browser.
 
+const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? "";
-const FROM_EMAIL = process.env.REMINDER_FROM_EMAIL ?? "hello@housesync.co.uk";
+const FROM_EMAIL = process.env.EMAIL_FROM ?? process.env.REMINDER_FROM_EMAIL ?? "hello@housesync.co.uk";
 const FROM_NAME = "HouseSync";
 // Must be on the SAME domain as the sender, or SpamAssassin's
-// FREEMAIL_FORGED_REPLYTO rule docks ~2.5 points (custom-domain From + freemail
-// Reply-To looks like a forgery). Make sure this address can receive mail
-// (forward hello@housesync.co.uk to wherever you read it).
-const REPLY_TO = process.env.REMINDER_REPLY_TO ?? "hello@housesync.co.uk";
+// FREEMAIL_FORGED_REPLYTO rule docks ~2.5 points. Make sure this address can
+// receive mail (forward hello@housesync.co.uk to wherever you read it).
+const REPLY_TO = process.env.EMAIL_REPLY_TO ?? process.env.REMINDER_REPLY_TO ?? "hello@housesync.co.uk";
 
-export const isEmailConfigured = Boolean(BREVO_API_KEY);
+export const isEmailConfigured = Boolean(RESEND_API_KEY || BREVO_API_KEY);
 
-export async function sendEmail({
-  to,
-  toName,
-  subject,
-  html,
-  text,
-}: {
+type SendArgs = {
   to: string;
   toName?: string;
   subject: string;
   html: string;
   text?: string;
-}) {
-  if (!isEmailConfigured) throw new Error("BREVO_API_KEY is not set");
+};
 
+export async function sendEmail({ to, toName, subject, html, text }: SendArgs) {
+  if (!isEmailConfigured) {
+    throw new Error("No email provider configured (set RESEND_API_KEY)");
+  }
+  // A matching plain-text part improves deliverability (spam filters penalise
+  // HTML-only mail).
+  const textContent = text ?? htmlToText(html);
+  if (RESEND_API_KEY) return sendViaResend({ to, subject, html, text: textContent });
+  return sendViaBrevo({ to, toName, subject, html, text: textContent });
+}
+
+async function sendViaResend(args: { to: string; subject: string; html: string; text: string }) {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${RESEND_API_KEY}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      from: `${FROM_NAME} <${FROM_EMAIL}>`,
+      to: [args.to],
+      reply_to: REPLY_TO,
+      subject: args.subject,
+      html: args.html,
+      text: args.text,
+    }),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`Resend ${res.status}: ${txt}`);
+  }
+  return res.json();
+}
+
+async function sendViaBrevo(args: {
+  to: string;
+  toName?: string;
+  subject: string;
+  html: string;
+  text: string;
+}) {
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
@@ -39,15 +75,12 @@ export async function sendEmail({
     body: JSON.stringify({
       sender: { email: FROM_EMAIL, name: FROM_NAME },
       replyTo: { email: REPLY_TO, name: FROM_NAME },
-      to: [{ email: to, name: toName }],
-      subject,
-      htmlContent: html,
-      // A matching plain-text part improves deliverability (spam filters
-      // penalise HTML-only mail).
-      textContent: text ?? htmlToText(html),
+      to: [{ email: args.to, name: args.toName }],
+      subject: args.subject,
+      htmlContent: args.html,
+      textContent: args.text,
     }),
   });
-
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     throw new Error(`Brevo ${res.status}: ${txt}`);
