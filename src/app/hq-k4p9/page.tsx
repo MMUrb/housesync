@@ -81,7 +81,6 @@ export default async function AdminOverviewPage() {
     chores,
     messages,
     waitlistCountRes,
-    waitlistListRes,
   ] = await Promise.all([
     listAllUsers(admin),
     admin.from("profiles").select("id, name"),
@@ -99,15 +98,9 @@ export default async function AdminOverviewPage() {
     tableCount(admin, "chores"),
     tableCount(admin, "messages"),
     admin.from("waitlist").select("*", { count: "exact", head: true }),
-    admin
-      .from("waitlist")
-      .select("email, created_at")
-      .order("created_at", { ascending: false })
-      .limit(200),
   ]);
 
   const waitlistCount = waitlistCountRes.count ?? 0;
-  const waitlistRows = (waitlistListRes.data ?? []) as { email: string; created_at: string }[];
 
   const nameById = new Map<string, string>();
   for (const p of (profilesRes.data ?? []) as { id: string; name: string | null }[]) {
@@ -214,12 +207,6 @@ export default async function AdminOverviewPage() {
         </Grid>
       </Section>
 
-      <Section title="Waitlist" action={<span className="text-xs text-slate-400">{waitlistCount} total</span>}>
-        <div className="card p-0">
-          <WaitlistTable rows={waitlistRows} />
-        </div>
-      </Section>
-
       <Section title="Tools">
         <TestEmail />
       </Section>
@@ -262,39 +249,6 @@ function SignupsTable({ rows, nameById }: { rows: AdminUserRow[]; nameById: Map<
                 <td className="px-4 py-2.5 text-slate-500">{nameById.get(u.id) ?? "—"}</td>
                 <td className="px-4 py-2.5 text-slate-500">{fmt(u.created_at)}</td>
                 <td className="px-4 py-2.5 text-slate-500">{fmt(u.last_sign_in_at)}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function WaitlistTable({ rows }: { rows: { email: string; created_at: string }[] }) {
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-            <th className="px-4 py-2.5 font-medium">Email</th>
-            <th className="px-4 py-2.5 font-medium">Joined</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={2} className="px-4 py-4 text-slate-400">
-                No waitlist sign-ups yet.
-              </td>
-            </tr>
-          ) : (
-            rows.map((r) => (
-              <tr key={r.email} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                <td className="px-4 py-2.5 font-medium text-slate-700">{r.email}</td>
-                <td className="px-4 py-2.5 text-slate-500">{fmt(r.created_at)}</td>
               </tr>
             ))
           )}
