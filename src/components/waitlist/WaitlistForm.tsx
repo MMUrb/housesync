@@ -71,9 +71,20 @@ export function WaitlistForm() {
           </p>
           <p className="mt-1 text-sm text-slate-600">
             {already
-              ? "We've got your email — we'll be in touch with updates."
-              : "Check your inbox for a confirmation. We'll email you when there's an update."}
+              ? "We've already got this email — we'll be in touch with updates."
+              : "We've sent a confirmation — check your inbox."}
           </p>
+          <p className="mt-2 break-all text-sm font-semibold text-slate-900">{email}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setJoinState("idle");
+              setJoinErr(null);
+            }}
+            className="mt-2 text-xs font-medium text-slate-500 underline-offset-2 hover:underline"
+          >
+            Wrong email? Edit it
+          </button>
         </div>
       ) : (
         <form onSubmit={join} className="space-y-3">
