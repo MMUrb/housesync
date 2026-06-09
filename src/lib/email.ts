@@ -145,7 +145,8 @@ export async function sendVerificationEmail(to: string, name: string | null, url
     <p style="margin:22px 0">
       <a href="${url}" style="display:inline-block;background:#6f53f5;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:10px">Verify my email</a>
     </p>
-    <p style="color:#64748b;font-size:13px">Or paste this link into your browser:<br><a href="${url}" style="color:#6f53f5;word-break:break-all">${url}</a></p>
+    <p style="color:#64748b;font-size:13px;margin-bottom:4px">If the button doesn't work, copy and paste this link into your browser:</p>
+    <p style="color:#64748b;font-size:13px;word-break:break-all;margin-top:0">${url}</p>
     <p style="color:#94a3b8;font-size:12px;margin-top:14px">This link expires in 24 hours. If you didn't request it, you can safely ignore this email.</p>`;
   await sendEmail({
     to,
