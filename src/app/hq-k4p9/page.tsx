@@ -154,6 +154,8 @@ export default async function AdminOverviewPage() {
           <StatCard label="Total users" value={totalUsers} sub={`${signups1} new today`} />
           <StatCard label="New sign-ups (7d)" value={signups7} />
           <StatCard label="Active users (7d)" value={active7} />
+          <StatCard label="Visits (1d)" value={visits1} />
+          <StatCard label="Visits (7d)" value={visits7} sub={`~${Math.round(visits7 / 7)}/day`} />
           <StatCard label="Visits (30d)" value={visits30} sub={`~${avgPerDay}/day`} />
           <StatCard label="Unique visitors (30d)" value={uniques30} />
           <StatCard label="Total houses" value={houses} />
