@@ -56,9 +56,10 @@ Attach 3–4 mobile screenshots from `Desktop\housesync-shots-v2`
 First comment (immediately after posting):
 > Waitlist for early access here → https://housesync.co.uk
 
-### Posting plan
-- **Thu 8:00am** — company page post (with screenshots).
-- **Thu 8:45–9:00am** — personal post (text-only or 1 screenshot; link in first comment).
+### Posting plan (actual)
+- **Wed 10 Jun** — company page posted.
+- **Thu 11 Jun, 11am–12pm** — personal post (link in FIRST comment, then pin it; 1 screenshot max).
 - Reply to every comment within the first hour — early engagement drives reach.
-- Later that day: reshare the personal post from the company page (or vice versa).
-- Never post late evening; UK sweet spot is Tue–Thu 8–10am, backup 12–1pm.
+- Optional: repost the personal one from the company page Fri/weekend.
+- Cadence while small: 2–3 posts/week per page, ≥2 days apart on the same page.
+- UK sweet spots: Tue–Thu 8–10am, backup 12–1pm. Avoid late evenings & Fri PM.
