@@ -9,22 +9,23 @@ friendly, benefit-led, "awkward money chats", light emoji.
 
 ### Company page (post ~8:00am)
 
-Attach 2–3 mobile screenshots from `Desktop\housesync-shots-v2`
-(suggested: `dashboard-light-mobile`, `bills-light-mobile`, `landing-dark-mobile`).
+Attach 3–4 mobile screenshots from `Desktop\housesync-shots-v2`
+(suggested order: `chat-light-mobile`, `dashboard-light-mobile`, `bills-light-mobile`, `landing-dark-mobile`).
 
 > Moving in with people is easy. Living with them is the hard part. 😅
 >
 > The group chat fills up with "who's paid the wi-fi?", someone's still owed £12.50 for the food shop, and the bins… nobody remembers the bins.
 >
-> We're building HouseSync to fix exactly that — one simple app for UK shared houses:
+> We're building HouseSync to fix exactly that — everything your shared house needs, in one simple app:
 >
-> 💸 Split rent, bills and the food shop — equally, by amount or by %
+> 💸 Split anything — rent, bills, the big shop — equally, by amount or by %
 > 🔁 Recurring bills with friendly reminders, so nothing gets missed
-> 🧹 A chore rota that rotates itself
-> 💬 A house chat, so plans don't get lost in the WhatsApp scroll
-> ✅ Clear balances — see who owes who and settle up, no drama
+> 🧹 A chore rota that rotates itself, so it's never "always you"
+> 💬 A built-in house chat — bills, plans and polite nudges in one place, not lost in the WhatsApp scroll
+> ✅ One clear answer to "who owes who?" — and settle up in a tap
+> 📱 On the web now, Android app landing on the Play Store very soon
 >
-> Free for your whole house. No card needed.
+> And it's completely free for your whole house. No card. No premium tier. No catch.
 >
 > We're launching very soon — join the waitlist for early access:
 > 👉 housesync.co.uk
@@ -48,9 +49,9 @@ Attach 2–3 mobile screenshots from `Desktop\housesync-shots-v2`
 >
 > It's free for your whole house, and the Android app is on its way to the Play Store.
 >
-> The waitlist is open and we're launching very soon. If you live in a shared house (or survived one), I'd genuinely love your thoughts — link in the comments.
+> The waitlist is open and we're launching very soon — link in the comments.
 >
-> What's the bill that causes the most arguments in your house? My money's on the food shop. 👇
+> I'm building this in the open, so I'll ask: if you live in a shared house (or survived one), what's the one feature an app like this needs? Genuinely taking requests below. 👇
 
 First comment (immediately after posting):
 > Waitlist for early access here → https://housesync.co.uk
