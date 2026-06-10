@@ -53,8 +53,15 @@ export function WaitlistForm() {
         setCodeLoading(false);
         return;
       }
-      // Unlocked — reload so middleware now lets us through to the app.
-      window.location.href = "/";
+      // Unlocked — the gate page is a REWRITE, so the address bar still holds
+      // the page the visitor actually wanted (e.g. /hq-k4p9 in the admin app).
+      // Reloading lands them there; only on a direct /waitlist visit do we
+      // send them to the homepage instead.
+      if (window.location.pathname === "/waitlist") {
+        window.location.href = "/";
+      } else {
+        window.location.reload();
+      }
     } catch {
       setCodeErr("Network error. Please try again.");
       setCodeLoading(false);
