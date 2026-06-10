@@ -63,7 +63,7 @@ export default function LandingPage() {
               </div>
               <div className="mt-3 space-y-2">
                 <MockRow emoji="💡" title="Wi-Fi bill" meta="Due in 3 days" amount="£32.99" />
-                <MockRow emoji="🧹" title="Kitchen clean" meta="Rahul · tomorrow" />
+                <MockRow emoji="🧹" title="Kitchen clean" meta="Maya · tomorrow" />
                 <MockRow emoji="🛒" title="Big shop" meta="Adam paid" amount="£54.20" />
               </div>
             </div>
