@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Logo } from "@/components/Logo";
+import { FollowUs } from "@/components/SocialLinks";
 import { WaitlistForm } from "@/components/waitlist/WaitlistForm";
 
 export const metadata: Metadata = {
@@ -32,7 +33,11 @@ export default function WaitlistPage() {
           <WaitlistForm />
         </div>
 
-        <p className="mt-6 text-center text-xs text-slate-400">
+        <div className="mt-6">
+          <FollowUs />
+        </div>
+
+        <p className="mt-4 text-center text-xs text-slate-400">
           HouseSync · stop arguing about house bills
         </p>
       </div>
