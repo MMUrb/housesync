@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export function WaitlistForm() {
+export function WaitlistForm({ returnTo = "/" }: { returnTo?: string }) {
   const [email, setEmail] = useState("");
   const [joinState, setJoinState] = useState<"idle" | "loading" | "done">("idle");
   const [joinErr, setJoinErr] = useState<string | null>(null);
@@ -53,15 +53,9 @@ export function WaitlistForm() {
         setCodeLoading(false);
         return;
       }
-      // Unlocked — the gate page is a REWRITE, so the address bar still holds
-      // the page the visitor actually wanted (e.g. /hq-k4p9 in the admin app).
-      // Reloading lands them there; only on a direct /waitlist visit do we
-      // send them to the homepage instead.
-      if (window.location.pathname === "/waitlist") {
-        window.location.href = "/";
-      } else {
-        window.location.reload();
-      }
+      // Unlocked — go back to the page the visitor originally asked for
+      // (middleware forwards it; "/" on a direct /waitlist visit).
+      window.location.href = returnTo;
     } catch {
       setCodeErr("Network error. Please try again.");
       setCodeLoading(false);

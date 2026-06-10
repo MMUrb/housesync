@@ -19,7 +19,13 @@ export async function middleware(request: NextRequest) {
         const url = request.nextUrl.clone();
         url.pathname = "/waitlist";
         url.search = "";
-        return NextResponse.rewrite(url);
+        // Tell the waitlist page which path was actually requested so the
+        // unlock flow can land the visitor back there (e.g. /hq-k4p9 in the
+        // admin app). The browser URL can't be trusted for this — the App
+        // Router may swap it for the rewritten /waitlist route on hydration.
+        const headers = new Headers(request.headers);
+        headers.set("x-gate-requested-path", path);
+        return NextResponse.rewrite(url, { request: { headers } });
       }
     }
   }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Logo } from "@/components/Logo";
 import { FollowUs } from "@/components/SocialLinks";
 import { WaitlistForm } from "@/components/waitlist/WaitlistForm";
@@ -9,7 +10,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function WaitlistPage() {
+export default async function WaitlistPage() {
+  // Set by middleware when the gate rewrote another path to this page; the
+  // unlock flow sends the visitor back there. Internal paths only.
+  const requested = (await headers()).get("x-gate-requested-path") ?? "/";
+  const returnTo = requested.startsWith("/") && !requested.startsWith("//") ? requested : "/";
   return (
     <main className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden bg-white px-5 py-12">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-brand-50 to-white dark:hidden" />
@@ -30,7 +35,7 @@ export default function WaitlistPage() {
             it&apos;s live, plus updates along the way.
           </p>
 
-          <WaitlistForm />
+          <WaitlistForm returnTo={returnTo} />
         </div>
 
         <div className="mt-6">

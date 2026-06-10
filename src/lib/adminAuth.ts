@@ -6,7 +6,10 @@ import { cookies } from "next/headers";
 // allowlist — you must already be the signed-in allowlisted user to unlock it.
 
 export const ADMIN_COOKIE = "hs_admin";
-export const ADMIN_SESSION_MAX_AGE = 60 * 60 * 12; // 12 hours, in seconds
+// Long-lived so a trusted device (e.g. the HQ app on your phone) doesn't ask
+// for the admin password on every open. Still bound to the signed-in admin
+// user and revocable any time via the admin "Lock" button / logout route.
+export const ADMIN_SESSION_MAX_AGE = 60 * 60 * 24 * 90; // 90 days, in seconds
 
 const passwordHash = process.env.ADMIN_PASSWORD_HASH ?? "";
 const signingSecret =
