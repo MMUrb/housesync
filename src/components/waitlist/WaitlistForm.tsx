@@ -75,6 +75,11 @@ export function WaitlistForm() {
               : "We've sent a confirmation — check your inbox."}
           </p>
           <p className="mt-2 break-all text-sm font-semibold text-slate-900">{email}</p>
+          {!already && (
+            <p className="mt-2 text-xs text-slate-500">
+              {"Can't see it? Check your junk or spam folder — and move it to your inbox so future emails land there too."}
+            </p>
+          )}
           <button
             type="button"
             onClick={() => {

@@ -149,7 +149,7 @@ function escapeHtml(s: string): string {
 export async function sendWelcomeEmail(to: string, name?: string | null) {
   const first = (name ?? "").trim().split(/\s+/)[0] || "there";
   const body = `
-    <h1 style="font-size:20px;margin:0 0 10px">Welcome to HouseSync, ${escapeHtml(first)} 👋</h1>
+    <h1 style="font-size:20px;margin:0 0 10px">Welcome to HouseSync, ${escapeHtml(first)}</h1>
     <p>Thanks for signing up! HouseSync helps you and your housemates split bills, track chores and stay on top of rent — without the awkward money chats.</p>
     <p style="margin:22px 0">
       <a href="https://housesync.co.uk/dashboard" style="display:inline-block;background:#6f53f5;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:10px">Open HouseSync</a>
@@ -195,13 +195,13 @@ export async function sendVerificationEmail(to: string, name: string | null, url
 /** Confirmation email sent when someone joins the pre-launch waitlist. */
 export async function sendWaitlistEmail(to: string) {
   const body = `
-    <h1 style="font-size:20px;margin:0 0 10px">You're on the list 🎉</h1>
+    <h1 style="font-size:20px;margin:0 0 10px">You're on the list</h1>
     <p>Thanks for joining the HouseSync waitlist! We're putting the finishing touches on the easiest way for UK housemates to split bills, track chores and stay on top of rent — without the awkward money chats.</p>
-    <p>You're now in the queue for early access. We'll email you the moment there's an update or your invite is ready — no spam, just the important stuff.</p>
+    <p>You're now in the queue for early access. We'll email you the moment there's an update or your invite is ready — just the important stuff.</p>
     <p style="margin-top:18px">Talk soon,<br>— The HouseSync team</p>`;
   await sendEmail({
     to,
-    subject: "You're on the HouseSync waitlist 🎉",
+    subject: "You're on the HouseSync waitlist",
     html: emailLayout(
       body,
       "You're receiving this because you joined the HouseSync waitlist at housesync.co.uk.",
