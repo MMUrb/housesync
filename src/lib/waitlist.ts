@@ -39,11 +39,15 @@ export function isGateBypassPath(path: string): boolean {
  * Deterministic, non-reversible token derived from the access code. Stored in
  * the gate cookie; recomputed in middleware to validate. Works in both Edge
  * (middleware) and Node (route handler) runtimes via the global Web Crypto API.
+ *
+ * Bumping the version string (v2 -> v3 -> ...) invalidates EVERY existing gate
+ * cookie without changing the access code — everyone must re-enter the code,
+ * and each re-entry is logged in waitlist_unlocks.
  */
 export async function gateToken(): Promise<string> {
   const code = getAccessCode();
   if (!code) return "";
-  const bytes = new TextEncoder().encode(`housesync-gate:v1:${code}`);
+  const bytes = new TextEncoder().encode(`housesync-gate:v2:${code}`);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
