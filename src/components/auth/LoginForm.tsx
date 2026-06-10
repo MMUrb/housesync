@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ComponentType } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -12,8 +12,11 @@ type Mode = "signin" | "signup";
 type OAuthProvider = "google" | "azure" | "apple";
 
 // Custom URL scheme used to return to the native (Capacitor) app after OAuth
-// completes in the system browser. Must match the Android manifest intent-filter
-// AND be allow-listed in Supabase Auth → URL Configuration → Redirect URLs.
+// completes in the system browser. The real scheme is the running app's id
+// (uk.co.housesync for the main app, uk.co.housesync.admin for the admin app),
+// read at runtime via App.getInfo() — this is only the fallback. Each scheme
+// must match that app's manifest intent-filter AND be allow-listed in
+// Supabase Auth → URL Configuration → Redirect URLs.
 const NATIVE_SCHEME = "uk.co.housesync";
 
 const PROVIDER_CONFIG: Record<
@@ -59,6 +62,9 @@ export function LoginForm() {
 
   const supabase = createClient();
 
+  // The deep-link scheme for this native app (= its app id), set on mount.
+  const nativeSchemeRef = useRef(NATIVE_SCHEME);
+
   const providers = OAUTH_PROVIDERS.filter((p) => PROVIDER_CONFIG[p]);
 
   // Live password requirements (shown on the Create-account form).
@@ -91,8 +97,14 @@ export function LoginForm() {
       const { App } = await import("@capacitor/app");
       const { Browser } = await import("@capacitor/browser");
 
+      try {
+        nativeSchemeRef.current = (await App.getInfo()).id || NATIVE_SCHEME;
+      } catch {
+        /* keep the fallback scheme */
+      }
+
       const urlOpen = await App.addListener("appUrlOpen", async ({ url }) => {
-        if (!url || !url.startsWith(`${NATIVE_SCHEME}://`)) return;
+        if (!url || !url.startsWith(`${nativeSchemeRef.current}://`)) return;
         const params = new URLSearchParams(url.slice(url.indexOf("?") + 1));
         const code = params.get("code");
         const dest = params.get("next") || next;
@@ -198,7 +210,7 @@ export function LoginForm() {
     }
 
     const redirectTo = isNative
-      ? `${NATIVE_SCHEME}://auth/callback?next=${encodeURIComponent(next)}`
+      ? `${nativeSchemeRef.current}://auth/callback?next=${encodeURIComponent(next)}`
       : `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(next)}`;
 
     const { data, error } = await supabase.auth.signInWithOAuth({
