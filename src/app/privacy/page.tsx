@@ -65,6 +65,13 @@ export default function PrivacyPage() {
               <li>
                 <strong>Preferences</strong> — whether you want email and/or SMS reminders.
               </li>
+              <li>
+                <strong>Payment details</strong> — optionally, payment links (Monzo, PayPal,
+                Revolut) and/or bank details (name, sort code, account number) you add so
+                housemates can pay you back. You control in Settings whether your house can see
+                them, we only ever show them to members of your house, we never use them to move
+                money, and you can edit or remove them at any time.
+              </li>
             </ul>
             <p className="mt-3 font-medium text-slate-700">Collected automatically:</p>
             <ul className="ml-5 list-disc space-y-1">

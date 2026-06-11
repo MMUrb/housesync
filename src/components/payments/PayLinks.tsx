@@ -17,13 +17,17 @@ function cleanHandle(s: string): string {
     .replace(/\/.*$/, "");
 }
 
-/** One-tap pay buttons: Monzo/PayPal/Revolut deep links (amount pre-filled) + copy bank details. */
-export function PayLinks({ pay, amount }: { pay: PayHandles; amount: number }) {
+/**
+ * One-tap pay buttons: Monzo/PayPal/Revolut deep links + copy bank details.
+ * With an amount it's pre-filled in the link; without one the links open the
+ * person's plain payment page (used on housemate profiles).
+ */
+export function PayLinks({ pay, amount }: { pay: PayHandles; amount?: number }) {
   const [copied, setCopied] = useState(false);
-  const amt = amount.toFixed(2);
+  const amt = amount != null ? `/${amount.toFixed(2)}` : "";
   const links: { label: string; href: string }[] = [];
-  if (pay.monzo) links.push({ label: "Monzo", href: `https://monzo.me/${cleanHandle(pay.monzo)}/${amt}` });
-  if (pay.paypal) links.push({ label: "PayPal", href: `https://paypal.me/${cleanHandle(pay.paypal)}/${amt}` });
+  if (pay.monzo) links.push({ label: "Monzo", href: `https://monzo.me/${cleanHandle(pay.monzo)}${amt}` });
+  if (pay.paypal) links.push({ label: "PayPal", href: `https://paypal.me/${cleanHandle(pay.paypal)}${amt}` });
   if (pay.revolut) links.push({ label: "Revolut", href: `https://revolut.me/${cleanHandle(pay.revolut)}` });
 
   async function copyBank() {

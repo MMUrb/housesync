@@ -21,11 +21,22 @@ export interface Profile {
   avatar_color: string;
   avatar_url: string | null;
   created_at: string;
-  pay_monzo: string | null;
-  pay_paypal: string | null;
-  pay_revolut: string | null;
-  pay_bank: string | null;
   welcomed_at: string | null;
+}
+
+/**
+ * Optional person-to-person payment handles + who may see them. RLS enforces
+ * the consent switch: housemates can only read a row while share_with_house
+ * is true; the owner can always read their own.
+ */
+export interface PaymentDetails {
+  user_id: string;
+  monzo: string | null;
+  paypal: string | null;
+  revolut: string | null;
+  bank: string | null;
+  share_with_house: boolean;
+  updated_at: string;
 }
 
 export interface House {

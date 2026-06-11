@@ -1,4 +1,4 @@
-import { getAccountSettings, requireHouse } from "@/lib/data";
+import { getAccountSettings, getVisiblePaymentDetails, requireHouse } from "@/lib/data";
 import { PageTitle } from "@/components/app/PageTitle";
 import { InviteBox } from "@/components/house/InviteBox";
 import { ProfileForm } from "@/components/settings/ProfileForm";
@@ -13,7 +13,8 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const { user, profile, house } = await requireHouse();
-  const account = await getAccountSettings();
+  const [account, payMap] = await Promise.all([getAccountSettings(), getVisiblePaymentDetails()]);
+  const pay = payMap.get(user.id);
   const isOwner = house.created_by === user.id;
 
   return (
@@ -38,10 +39,11 @@ export default async function SettingsPage() {
 
         <PaymentDetailsForm
           userId={user.id}
-          initialPayMonzo={profile?.pay_monzo ?? ""}
-          initialPayPaypal={profile?.pay_paypal ?? ""}
-          initialPayRevolut={profile?.pay_revolut ?? ""}
-          initialPayBank={profile?.pay_bank ?? ""}
+          initialMonzo={pay?.monzo ?? ""}
+          initialPaypal={pay?.paypal ?? ""}
+          initialRevolut={pay?.revolut ?? ""}
+          initialBank={pay?.bank ?? ""}
+          initialShare={pay?.share_with_house ?? true}
         />
 
         <AccountSettingsForm

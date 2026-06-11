@@ -1,4 +1,5 @@
-import { getExpensesAndSplits, requireHouse } from "@/lib/data";
+import Link from "next/link";
+import { getExpensesAndSplits, getVisiblePaymentDetails, requireHouse } from "@/lib/data";
 import { computeBalances } from "@/lib/balances";
 import { formatMoney, formatDate } from "@/lib/format";
 import { PageTitle } from "@/components/app/PageTitle";
@@ -13,7 +14,10 @@ const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 export default async function HousematesPage() {
   const { user, house, members } = await requireHouse();
-  const { expenses, splits } = await getExpensesAndSplits(house.id);
+  const [{ expenses, splits }, payMap] = await Promise.all([
+    getExpensesAndSplits(house.id),
+    getVisiblePaymentDetails(),
+  ]);
   const balances = computeBalances(expenses, splits, user.id);
 
   const profileOf = (id: string) => members.find((m) => m.user_id === id)?.profile;
@@ -35,11 +39,12 @@ export default async function HousematesPage() {
       owedPending: 0,
       markPaidIds: [],
       confirmIds: [],
+      // RLS only returns rows the housemate has chosen to share.
       pay: {
-        monzo: profileOf(uid)?.pay_monzo ?? null,
-        paypal: profileOf(uid)?.pay_paypal ?? null,
-        revolut: profileOf(uid)?.pay_revolut ?? null,
-        bank: profileOf(uid)?.pay_bank ?? null,
+        monzo: payMap.get(uid)?.monzo ?? null,
+        paypal: payMap.get(uid)?.paypal ?? null,
+        revolut: payMap.get(uid)?.revolut ?? null,
+        bank: payMap.get(uid)?.bank ?? null,
       },
     });
 
@@ -100,30 +105,38 @@ export default async function HousematesPage() {
           {members.map((m) => {
             const net = round2(balances.netByUser[m.user_id] ?? 0);
             return (
-              <li key={m.user_id} className="flex items-center gap-3 p-3.5">
-                <Avatar name={m.profile?.name} color={m.profile?.avatar_color} avatarUrl={m.profile?.avatar_url} size="md" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-slate-900">
-                    {nameOf(m.user_id)}
-                    {m.role === "admin" && (
-                      <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                        admin
+              <li key={m.user_id}>
+                <Link
+                  href={`/housemates/${m.user_id}`}
+                  className="flex items-center gap-3 p-3.5 transition hover:bg-slate-50 dark:hover:bg-white/[0.04]"
+                >
+                  <Avatar name={m.profile?.name} color={m.profile?.avatar_color} avatarUrl={m.profile?.avatar_url} size="md" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-900">
+                      {nameOf(m.user_id)}
+                      {m.role === "admin" && (
+                        <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                          admin
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-slate-400">Joined {formatDate(m.joined_at)}</p>
+                  </div>
+                  <div className="shrink-0 text-right text-sm font-medium">
+                    {Math.abs(net) < 0.005 ? (
+                      <span className="text-slate-400">settled</span>
+                    ) : net > 0 ? (
+                      <span className="text-mint-600">
+                        is owed {formatMoney(net, house.currency)}
                       </span>
+                    ) : (
+                      <span className="text-red-600">owes {formatMoney(-net, house.currency)}</span>
                     )}
-                  </p>
-                  <p className="text-xs text-slate-400">Joined {formatDate(m.joined_at)}</p>
-                </div>
-                <div className="shrink-0 text-right text-sm font-medium">
-                  {Math.abs(net) < 0.005 ? (
-                    <span className="text-slate-400">settled</span>
-                  ) : net > 0 ? (
-                    <span className="text-mint-600">
-                      is owed {formatMoney(net, house.currency)}
-                    </span>
-                  ) : (
-                    <span className="text-red-600">owes {formatMoney(-net, house.currency)}</span>
-                  )}
-                </div>
+                  </div>
+                  <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4 shrink-0 text-slate-300" aria-hidden="true">
+                    <path d="M8 5l5 5-5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Link>
               </li>
             );
           })}

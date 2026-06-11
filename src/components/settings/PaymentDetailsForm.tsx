@@ -9,35 +9,35 @@ type MethodKey = "monzo" | "paypal" | "revolut" | "bank";
 const METHODS: {
   key: MethodKey;
   label: string;
-  column: "pay_monzo" | "pay_paypal" | "pay_revolut" | "pay_bank";
+  column: "monzo" | "paypal" | "revolut" | "bank";
   placeholder: string;
   hint: string;
 }[] = [
   {
     key: "monzo",
     label: "Monzo",
-    column: "pay_monzo",
+    column: "monzo",
     placeholder: "monzo.me username",
     hint: "Your monzo.me username — housemates get a one-tap Pay button.",
   },
   {
     key: "paypal",
     label: "PayPal",
-    column: "pay_paypal",
+    column: "paypal",
     placeholder: "paypal.me username",
     hint: "Your paypal.me username.",
   },
   {
     key: "revolut",
     label: "Revolut",
-    column: "pay_revolut",
+    column: "revolut",
     placeholder: "revolut.me tag",
     hint: "Your revolut.me tag.",
   },
   {
     key: "bank",
     label: "Bank transfer",
-    column: "pay_bank",
+    column: "bank",
     placeholder: "Name · 12-34-56 · 12345678",
     hint: "Name, sort code and account number for a manual bank transfer.",
   },
@@ -59,25 +59,29 @@ function formatAccount(v: string): string {
 
 export function PaymentDetailsForm({
   userId,
-  initialPayMonzo,
-  initialPayPaypal,
-  initialPayRevolut,
-  initialPayBank,
+  initialMonzo,
+  initialPaypal,
+  initialRevolut,
+  initialBank,
+  initialShare,
 }: {
   userId: string;
-  initialPayMonzo: string;
-  initialPayPaypal: string;
-  initialPayRevolut: string;
-  initialPayBank: string;
+  initialMonzo: string;
+  initialPaypal: string;
+  initialRevolut: string;
+  initialBank: string;
+  initialShare: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
   const [values, setValues] = useState<Record<MethodKey, string>>({
-    monzo: initialPayMonzo,
-    paypal: initialPayPaypal,
-    revolut: initialPayRevolut,
-    bank: initialPayBank,
+    monzo: initialMonzo,
+    paypal: initialPaypal,
+    revolut: initialRevolut,
+    bank: initialBank,
   });
+  const [share, setShare] = useState(initialShare);
+  const [shareSaving, setShareSaving] = useState(false);
   const [open, setOpen] = useState<MethodKey | null>(null);
   const [draft, setDraft] = useState("");
   const [bank, setBank] = useState({ name: "", sort: "", account: "" });
@@ -108,9 +112,11 @@ export function PaymentDetailsForm({
     setError(null);
     try {
       const { error: upErr } = await supabase
-        .from("profiles")
-        .update({ [active.column]: value || null })
-        .eq("id", userId);
+        .from("payment_details")
+        .upsert(
+          { user_id: userId, share_with_house: share, [active.column]: value || null },
+          { onConflict: "user_id" },
+        );
       if (upErr) throw upErr;
       setValues((v) => ({ ...v, [active.key]: value }));
       setOpen(null);
@@ -122,12 +128,30 @@ export function PaymentDetailsForm({
     }
   }
 
+  async function saveShare(next: boolean) {
+    setShareSaving(true);
+    setError(null);
+    setShare(next); // optimistic — the switch should feel instant
+    try {
+      const { error: upErr } = await supabase
+        .from("payment_details")
+        .upsert({ user_id: userId, share_with_house: next }, { onConflict: "user_id" });
+      if (upErr) throw upErr;
+      router.refresh();
+    } catch (err) {
+      setShare(!next);
+      setError(err instanceof Error ? err.message : "Couldn't save — please try again.");
+    } finally {
+      setShareSaving(false);
+    }
+  }
+
   return (
     <div className="card p-5">
       <span className="label">Payment details</span>
       <p className="-mt-1 mb-3 text-xs text-slate-400">
-        Optional. Lets housemates pay you back in a tap — only people in your houses can see these,
-        and HouseSync never touches the money.
+        Optional. Lets housemates pay you back in a tap — the switch below controls whether your
+        house can see them, and HouseSync never touches the money.
       </p>
 
       {active ? (
@@ -217,6 +241,7 @@ export function PaymentDetailsForm({
         </div>
       ) : (
         /* Collapsed — one button per method, tick once saved */
+        <>
         <div className="space-y-2">
           {METHODS.map((m) => {
             const filled = values[m.key].trim().length > 0;
@@ -257,6 +282,37 @@ export function PaymentDetailsForm({
             );
           })}
         </div>
+
+        {/* Consent switch — who can see the handles above */}
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3.5">
+          <div>
+            <p className="text-sm font-medium text-slate-800">Visible to housemates</p>
+            <p className="text-xs text-slate-400">
+              {share
+                ? "People in your house can see these to pay you back."
+                : "Hidden — only you can see these right now."}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={share}
+            aria-label="Visible to housemates"
+            disabled={shareSaving}
+            onClick={() => void saveShare(!share)}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition ${
+              share ? "bg-brand-600" : "bg-slate-300"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition ${
+                share ? "left-[22px]" : "left-0.5"
+              }`}
+            />
+          </button>
+        </div>
+        {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+        </>
       )}
     </div>
   );

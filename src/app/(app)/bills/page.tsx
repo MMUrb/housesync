@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getBills, getSplitsForExpenses, requireHouse } from "@/lib/data";
+import { getBills, getSplitsForExpenses, getVisiblePaymentDetails, requireHouse } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { PageTitle } from "@/components/app/PageTitle";
 import { LogBillButton } from "@/components/bills/LogBillButton";
@@ -33,7 +33,7 @@ function dueLabel(next: string | null): { text: string; tone: "muted" | "soon" |
 
 export default async function BillsPage() {
   const { user, house, members } = await requireHouse();
-  const bills = await getBills(house.id);
+  const [bills, payMap] = await Promise.all([getBills(house.id), getVisiblePaymentDetails()]);
   const memberIds = members.map((m) => m.user_id);
   const profileOf = (id: string | null) => members.find((m) => m.user_id === id)?.profile ?? null;
   const nameOf = (id: string | null) =>
@@ -179,10 +179,10 @@ export default async function BillsPage() {
                           amount={Number(mine.amount_owed)}
                           payerName={nameOf(payer)}
                           payerPay={{
-                            monzo: profileOf(payer)?.pay_monzo ?? null,
-                            paypal: profileOf(payer)?.pay_paypal ?? null,
-                            revolut: profileOf(payer)?.pay_revolut ?? null,
-                            bank: profileOf(payer)?.pay_bank ?? null,
+                            monzo: (payer && payMap.get(payer)?.monzo) ?? null,
+                            paypal: (payer && payMap.get(payer)?.paypal) ?? null,
+                            revolut: (payer && payMap.get(payer)?.revolut) ?? null,
+                            bank: (payer && payMap.get(payer)?.bank) ?? null,
                           }}
                           houseId={house.id}
                           currentUserId={user.id}

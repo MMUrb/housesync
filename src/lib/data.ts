@@ -13,6 +13,7 @@ import type {
   House,
   MemberWithProfile,
   Message,
+  PaymentDetails,
   Profile,
   RecurringBill,
 } from "@/lib/types";
@@ -71,6 +72,17 @@ export async function getActiveHouse(): Promise<House | null> {
   const wanted = cookieStore.get(ACTIVE_HOUSE_COOKIE)?.value;
   return houses.find((h) => h.id === wanted) ?? houses[0];
 }
+
+/**
+ * Payment handles the current user is allowed to see, keyed by user id.
+ * RLS does the gating — your own row always comes back; housemates' rows only
+ * while they've left "share with house" on. Missing user = nothing shared.
+ */
+export const getVisiblePaymentDetails = cache(async (): Promise<Map<string, PaymentDetails>> => {
+  const supabase = await createClient();
+  const { data } = await supabase.from("payment_details").select("*");
+  return new Map(((data ?? []) as PaymentDetails[]).map((p) => [p.user_id, p]));
+});
 
 /** Members of a house, each with their profile, oldest first. */
 export const getHouseMembers = cache(async (houseId: string): Promise<MemberWithProfile[]> => {
