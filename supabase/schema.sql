@@ -172,13 +172,20 @@ set search_path = public
 as $$
 declare
   palette text[] := array['#6f53f5','#1bb27e','#f5953f','#e0567f','#3f9fe0','#9b5fe0','#e0b53f','#3fcdad'];
+  v_idx int;
 begin
+  -- Pick a palette colour from the user id. The md5 hash is cast to a SIGNED
+  -- 32-bit int, so widen to bigint before abs() (abs(INT_MIN) would overflow)
+  -- and take a guaranteed-non-negative modulo → index always in [1, len].
+  -- Out-of-range Postgres array access returns NULL, which used to violate
+  -- profiles.avatar_color NOT NULL and break signup; coalesce is a backstop.
+  v_idx := 1 + (abs(('x' || substr(md5(new.id::text), 1, 8))::bit(32)::int::bigint) % array_length(palette, 1));
   insert into public.profiles (id, name, email, avatar_color)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
     new.email,
-    palette[1 + (('x' || substr(md5(new.id::text), 1, 8))::bit(32)::int % array_length(palette, 1))]
+    coalesce(palette[v_idx], '#6f53f5')
   )
   on conflict (id) do nothing;
   return new;
