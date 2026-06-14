@@ -35,12 +35,12 @@ export async function POST(request: Request) {
 
   const body = `
     <h1 style="font-size:20px;margin:0 0 10px">HouseSync test email</h1>
-    <p>This is a deliverability test from HouseSync — the app that helps housemates split bills, track chores and stay on top of rent without the awkward money chats.</p>
+    <p>This is a deliverability test from HouseSync, the app that helps housemates split bills, track chores and stay on top of rent without the awkward money chats.</p>
     <p>It's sent through exactly the same path as our real transactional emails (welcome messages, email verification and bill reminders), so the spam score here reflects what your housemates actually receive in their inbox.</p>
     <p style="margin:18px 0">
       <a href="https://housesync.co.uk" style="display:inline-block;background:#6f53f5;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:10px">Visit HouseSync</a>
     </p>
-    <p>If you're viewing this in mail-tester.com, expand each section to see what passed and what could be improved — authentication (SPF, DKIM and DMARC) should all show green.</p>
+    <p>If you're viewing this in mail-tester.com, expand each section to see what passed and what could be improved: authentication (SPF, DKIM and DMARC) should all show green.</p>
     <p>Thanks for testing. You can safely ignore or delete this message.</p>`;
 
   try {

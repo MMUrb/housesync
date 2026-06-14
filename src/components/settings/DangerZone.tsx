@@ -112,14 +112,14 @@ export function DangerZone({
                 Delete my account
               </button>
               <p className="mt-1.5 text-xs text-slate-400">
-                Deletes your account everywhere — all houses, profile and settings. This can&apos;t
+                Deletes your account everywhere: all houses, profile and settings. This can&apos;t
                 be undone.
               </p>
             </>
           ) : (
             <div className="space-y-3">
               <p className="text-sm font-medium text-slate-700">
-                Sorry to see you go — what&apos;s the main reason?
+                Sorry to see you go. What&apos;s the main reason?
               </p>
               <div className="space-y-1.5">
                 {DELETION_REASONS.map((r) => (

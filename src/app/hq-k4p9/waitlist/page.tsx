@@ -145,7 +145,7 @@ export default async function WaitlistAdminPage() {
       >
         <p className="-mt-1 text-xs text-slate-400">
           People who entered the access code to get past the waitlist. They&rsquo;re anonymous until
-          they create an account — only the time, rough location and device are recorded (no IPs).
+          they create an account. Only the time, rough location and device are recorded (no IPs).
         </p>
         <div className="card p-0">
           <div className="overflow-x-auto">

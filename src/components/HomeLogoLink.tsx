@@ -15,7 +15,7 @@ export function HomeLogoLink({
   return (
     <Link
       href="/"
-      aria-label="HouseSync — home"
+      aria-label="HouseSync home"
       className={className}
       onClick={(e) => {
         if (!confirmLeave()) e.preventDefault();

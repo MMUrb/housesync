@@ -198,7 +198,7 @@ export default async function BillsPage() {
                   <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
                     <span className="text-xs text-slate-400">
                       {settled
-                        ? "All settled 🎉 — ready for the next cycle"
+                        ? "All settled 🎉, ready for the next cycle"
                         : `Split ${memberIds.length} ${memberIds.length === 1 ? "way" : "ways"}`}
                     </span>
                     <LogBillButton

@@ -70,7 +70,7 @@ function EmptyExpenses() {
       <div className="grid h-14 w-14 place-items-center rounded-full bg-brand-50 text-3xl">🧾</div>
       <h2 className="mt-3 font-semibold text-slate-900">No expenses yet</h2>
       <p className="mt-1 max-w-xs text-sm text-slate-500">
-        Add your first shared cost — a bill, the weekly shop, anything — and we&apos;ll split it for
+        Add your first shared cost (a bill, the weekly shop, anything) and we&apos;ll split it for
         you.
       </p>
       <Link href="/expenses/new" className="btn-primary mt-5">

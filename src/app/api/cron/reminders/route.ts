@@ -109,7 +109,7 @@ export async function GET(request: Request) {
           await sendEmail({
             to: r.email,
             toName: r.name,
-            subject: `${bill.title} is due ${due} — your share is ${formatMoney(shares[i], currency)}`,
+            subject: `${bill.title} is due ${due}, your share is ${formatMoney(shares[i], currency)}`,
             html: emailLayout(
               `<p>Hi ${r.name},</p>
                <p>Your share of <strong>${bill.title}</strong> for <strong>${(house as any).name}</strong> is

@@ -84,6 +84,29 @@ export const getVisiblePaymentDetails = cache(async (): Promise<Map<string, Paym
   return new Map(((data ?? []) as PaymentDetails[]).map((p) => [p.user_id, p]));
 });
 
+/**
+ * Whether the active house chat has messages the user hasn't seen yet (from
+ * someone else, after their last read). Drives the red dot on the Chat tab.
+ * Read state lives in the DB, so it's consistent across web + native.
+ */
+export const getChatUnread = cache(async (houseId: string, userId: string): Promise<boolean> => {
+  const supabase = await createClient();
+  const { data: read } = await supabase
+    .from("message_reads")
+    .select("last_read_at")
+    .eq("user_id", userId)
+    .eq("house_id", houseId)
+    .maybeSingle();
+  const since = read?.last_read_at ?? "1970-01-01T00:00:00Z";
+  const { count } = await supabase
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("house_id", houseId)
+    .neq("user_id", userId)
+    .gt("created_at", since);
+  return (count ?? 0) > 0;
+});
+
 /** Members of a house, each with their profile, oldest first. */
 export const getHouseMembers = cache(async (houseId: string): Promise<MemberWithProfile[]> => {
   const supabase = await createClient();

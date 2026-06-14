@@ -14,7 +14,7 @@ export function InviteBox({ code, houseName }: { code: string; houseName?: strin
   const url = inviteUrl(code);
   const message = `Join ${
     houseName ? `"${houseName}"` : "our house"
-  } on HouseSync 🏠 We split rent, bills & chores on here — tap to join: ${url}`;
+  } on HouseSync 🏠 We split rent, bills & chores on here. Tap to join: ${url}`;
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
 
   async function copy() {

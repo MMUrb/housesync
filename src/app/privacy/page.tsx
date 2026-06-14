@@ -46,27 +46,27 @@ export default function PrivacyPage() {
             <p className="font-medium text-slate-700">Information you give us:</p>
             <ul className="ml-5 list-disc space-y-1">
               <li>
-                <strong>Account</strong> — your name, email address and a password (or, if you use
+                <strong>Account</strong>: your name, email address and a password (or, if you use
                 Google sign-in, the basic profile info Google shares).
               </li>
               <li>
-                <strong>Profile</strong> — a display name, an avatar colour and an optional profile
+                <strong>Profile</strong>: a display name, an avatar colour and an optional profile
                 photo.
               </li>
               <li>
-                <strong>Phone number</strong> — only if you choose to add and verify one for SMS
+                <strong>Phone number</strong>: only if you choose to add and verify one for SMS
                 reminders.
               </li>
               <li>
-                <strong>House content</strong> — the houses you create or join, expenses, bills,
+                <strong>House content</strong>: the houses you create or join, expenses, bills,
                 chores, settle-up records, receipts you upload, and messages you send in your house
                 chat.
               </li>
               <li>
-                <strong>Preferences</strong> — whether you want email and/or SMS reminders.
+                <strong>Preferences</strong>: whether you want email and/or SMS reminders.
               </li>
               <li>
-                <strong>Payment details</strong> — optionally, payment links (Monzo, PayPal,
+                <strong>Payment details</strong>: optionally, payment links (Monzo, PayPal,
                 Revolut) and/or bank details (name, sort code, account number) you add so
                 housemates can pay you back. You control in Settings whether your house can see
                 them, we only ever show them to members of your house, we never use them to move
@@ -80,13 +80,13 @@ export default function PrivacyPage() {
                 logs from our hosting provider).
               </li>
               <li>
-                Anonymous usage analytics — we log page views (the page visited, the referring site
+                Anonymous usage analytics: we log page views (the page visited, the referring site
                 and approximate country) using our own first-party system. This uses no cookies and
                 isn&rsquo;t linked to your identity.
               </li>
             </ul>
             <p className="mt-3">
-              We do <strong>not</strong> collect payment card details — HouseSync doesn&rsquo;t take
+              We do <strong>not</strong> collect payment card details. HouseSync doesn&rsquo;t take
               payments.
             </p>
           </Section>
@@ -105,13 +105,13 @@ export default function PrivacyPage() {
           <Section title="Legal bases (UK GDPR)">
             <ul className="ml-5 list-disc space-y-1">
               <li>
-                <strong>Contract</strong> — to provide the service you sign up for.
+                <strong>Contract</strong>: to provide the service you sign up for.
               </li>
               <li>
-                <strong>Legitimate interests</strong> — to keep the app secure and improve it.
+                <strong>Legitimate interests</strong>: to keep the app secure and improve it.
               </li>
               <li>
-                <strong>Consent</strong> — for optional things like SMS reminders, which you can
+                <strong>Consent</strong>: for optional things like SMS reminders, which you can
                 withdraw any time in Settings.
               </li>
             </ul>
@@ -119,13 +119,13 @@ export default function PrivacyPage() {
 
           <Section title="Who can see your data">
             <p>
-              <strong>Your housemates</strong> can see the shared content of houses you&rsquo;re in —
+              <strong>Your housemates</strong> can see the shared content of houses you&rsquo;re in,
               your name, avatar, the expenses, bills and chores you add, balances, and your chat
               messages. Please don&rsquo;t put anything in a house that you wouldn&rsquo;t want your
               housemates to see.
             </p>
             <p className="mt-2">
-              <strong>Your phone number and notification preferences are private</strong> — other
+              <strong>Your phone number and notification preferences are private</strong>: other
               housemates cannot see them.
             </p>
           </Section>
@@ -137,24 +137,24 @@ export default function PrivacyPage() {
             </p>
             <ul className="ml-5 list-disc space-y-1">
               <li>
-                <strong>Supabase</strong> — database, authentication and file storage (your account,
+                <strong>Supabase</strong>: database, authentication and file storage (your account,
                 house data, photos and receipts).
               </li>
               <li>
-                <strong>Vercel</strong> — application hosting (London region).
+                <strong>Vercel</strong>: application hosting (London region).
               </li>
               <li>
-                <strong>Brevo</strong> — sending transactional emails and SMS.
+                <strong>Brevo</strong>: sending transactional emails and SMS.
               </li>
               <li>
-                <strong>Google</strong> — only if you choose &ldquo;Sign in with Google&rdquo;.
+                <strong>Google</strong>: only if you choose &ldquo;Sign in with Google&rdquo;.
               </li>
             </ul>
           </Section>
 
           <Section title="Cookies">
             <p>
-              We use essential cookies only — to keep you signed in and to secure your session. We
+              We use essential cookies only, to keep you signed in and to secure your session. We
               don&rsquo;t use advertising or third-party tracking cookies.
             </p>
           </Section>
@@ -192,7 +192,7 @@ export default function PrivacyPage() {
           <Section title="Security">
             <p>
               Data is encrypted in transit (HTTPS). Passwords are securely hashed by our
-              authentication provider — we never see or store your raw password. Access to house data
+              authentication provider. We never see or store your raw password. Access to house data
               is restricted so that only members of a house can read it.
             </p>
           </Section>

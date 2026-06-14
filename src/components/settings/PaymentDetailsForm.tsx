@@ -18,7 +18,7 @@ const METHODS: {
     label: "Monzo",
     column: "monzo",
     placeholder: "monzo.me username",
-    hint: "Your monzo.me username — housemates get a one-tap Pay button.",
+    hint: "Your monzo.me username, housemates get a one-tap Pay button.",
   },
   {
     key: "paypal",
@@ -122,7 +122,7 @@ export function PaymentDetailsForm({
       setOpen(null);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't save — please try again.");
+      setError(err instanceof Error ? err.message : "Couldn't save. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -140,7 +140,7 @@ export function PaymentDetailsForm({
       router.refresh();
     } catch (err) {
       setShare(!next);
-      setError(err instanceof Error ? err.message : "Couldn't save — please try again.");
+      setError(err instanceof Error ? err.message : "Couldn't save. Please try again.");
     } finally {
       setShareSaving(false);
     }
@@ -150,7 +150,7 @@ export function PaymentDetailsForm({
     <div className="card p-5">
       <span className="label">Payment details</span>
       <p className="-mt-1 mb-3 text-xs text-slate-400">
-        Optional. Lets housemates pay you back in a tap — the switch below controls whether your
+        Optional. Lets housemates pay you back in a tap, and the switch below controls whether your
         house can see them, and HouseSync never touches the money.
       </p>
 
@@ -290,7 +290,7 @@ export function PaymentDetailsForm({
             <p className="text-xs text-slate-400">
               {share
                 ? "People in your house can see these to pay you back."
-                : "Hidden — only you can see these right now."}
+                : "Hidden, only you can see these right now."}
             </p>
           </div>
           <button

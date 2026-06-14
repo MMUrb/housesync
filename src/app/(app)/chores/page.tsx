@@ -39,7 +39,7 @@ export default async function ChoresPage() {
     <div>
       <PageTitle
         title="Chores"
-        subtitle="Keep the house running — together."
+        subtitle="Keep the house running, together."
         action={
           <Link href="/chores/new" className="btn-primary px-3 py-2 text-sm">
             <IconPlus className="h-4 w-4" /> Add

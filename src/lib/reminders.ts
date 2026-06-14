@@ -7,5 +7,5 @@ export function buildReminderMessage(
   currency: string,
 ): string {
   const money = formatMoney(amount, currency);
-  return `Hey ${name}, just a friendly reminder you owe ${money} for house bills on HouseSync whenever you get a chance. No rush — thank you! 🙏`;
+  return `Hey ${name}, just a friendly reminder you owe ${money} for house bills on HouseSync whenever you get a chance. No rush, thank you! 🙏`;
 }

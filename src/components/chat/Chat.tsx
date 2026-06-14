@@ -81,6 +81,17 @@ export function Chat({
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Mark the chat read server-side whenever it's open and as new messages
+  // arrive while viewing. Stored per (user, house), so the unread dot clears
+  // on this account's other devices/platforms too.
+  useEffect(() => {
+    void supabase.from("message_reads").upsert(
+      { user_id: currentUserId, house_id: houseId, last_read_at: new Date().toISOString() },
+      { onConflict: "user_id,house_id" },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [houseId, currentUserId, messages.length]);
+
   // Close the emoji picker when tapping elsewhere.
   useEffect(() => {
     if (!showEmoji) return;
@@ -134,7 +145,7 @@ export function Chat({
       if (data) addMessage(data as Message);
       setText("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't send — please try again.");
+      setError(err instanceof Error ? err.message : "Couldn't send. Please try again.");
     } finally {
       setSending(false);
     }

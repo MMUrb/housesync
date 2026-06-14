@@ -189,7 +189,7 @@ export function PhoneVerification({
       )}
       {error && <p className="text-xs text-red-600">{error}</p>}
       <p className="text-xs text-slate-400">
-        🔒 Private — never shown to housemates. We text a one-time code to confirm it&apos;s yours.
+        🔒 Private, never shown to housemates. We text a one-time code to confirm it&apos;s yours.
       </p>
     </div>
   );

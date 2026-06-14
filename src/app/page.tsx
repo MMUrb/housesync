@@ -34,7 +34,7 @@ export default function LandingPage() {
             </h1>
             <p className="mt-4 max-w-md text-lg text-slate-600">
               HouseSync helps housemates split rent, bills, groceries and chores in one simple place
-              — without the awkward money chats.
+              , without the awkward money chats.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Link href="/login" className="btn-primary px-5 py-3 text-base">
@@ -124,7 +124,7 @@ export default function LandingPage() {
           <Feature emoji="🧾" title="Split bills" text="Add rent, Wi-Fi, energy, water and groceries. Split equally, by amount or by %." />
           <Feature emoji="🔁" title="Recurring bills" text="Set monthly bills once. We remind the house and split each payment." />
           <Feature emoji="🧹" title="Chore rota" text="Assign cleaning, bins and tasks. Repeating chores rotate automatically." />
-          <Feature emoji="💬" title="Polite reminders" text="Generate a friendly nudge to copy into WhatsApp — no awkward messages." />
+          <Feature emoji="💬" title="Polite reminders" text="Generate a friendly nudge to copy into WhatsApp, no awkward messages." />
           <Feature emoji="📊" title="One clear dashboard" text="See what you owe, what you're owed and what's due at a glance." />
           <Feature emoji="🕓" title="House timeline" text="A transparent record of every expense, payment and completed chore." />
         </div>
@@ -135,7 +135,7 @@ export default function LandingPage() {
         <div className="rounded-3xl border border-brand-100 bg-brand-50 p-8 text-center sm:p-12">
           <h2 className="text-2xl font-bold text-slate-900">Built for shared living</h2>
           <p className="mx-auto mt-3 max-w-2xl text-slate-600">
-            Made for UK students, apprentices and young professionals sharing a house or flat —
+            Made for UK students, apprentices and young professionals sharing a house or flat,
             focused on real house living, not just splitting a holiday.
           </p>
         </div>
@@ -148,7 +148,7 @@ export default function LandingPage() {
         </h2>
         <div className="mt-7 flex justify-center">
           <Link href="/login" className="btn-primary px-6 py-3 text-base">
-            Create your house — it&apos;s free
+            Create your house, it&apos;s free
           </Link>
         </div>
       </section>

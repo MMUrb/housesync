@@ -90,7 +90,7 @@ export default async function HousemateProfilePage({
               {hasHandles
                 ? pay?.share_with_house
                   ? "This is what your housemates see when they pay you back."
-                  : "Hidden — housemates can't see these until you switch sharing on."
+                  : "Hidden, housemates can't see these until you switch sharing on."
                 : "You haven't added any payment details yet."}
             </p>
             {hasHandles && pay?.share_with_house && (
@@ -107,7 +107,7 @@ export default async function HousemateProfilePage({
         ) : hasHandles ? (
           <>
             <p className="mb-3 mt-1 text-xs text-slate-400">
-              {first} shares these with the house so you can pay them back directly — HouseSync
+              {first} shares these with the house so you can pay them back directly. HouseSync
               never touches the money.
             </p>
             <div className="flex flex-wrap gap-2">

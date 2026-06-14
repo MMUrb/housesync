@@ -59,7 +59,7 @@ export default async function ReportPage() {
           <StatCard label="With a comment" value={comments.length} />
         </Grid>
         <p className="text-xs text-slate-400">
-          Feedback is anonymous — no email or identity is stored when someone deletes their account.
+          Feedback is anonymous. No email or identity is stored when someone deletes their account.
           Only deletions from when this feature went live are counted.
         </p>
       </Section>

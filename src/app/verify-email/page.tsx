@@ -40,7 +40,7 @@ export default async function VerifyEmailPage({
             <p className="text-4xl">✅</p>
             <h1 className="text-xl font-bold text-slate-900">Email verified!</h1>
             <p className="text-sm text-slate-600">
-              Thanks — your email address is confirmed. You&rsquo;re all set.
+              Thanks, your email address is confirmed. You&rsquo;re all set.
             </p>
             <Link href="/dashboard" className="btn-primary btn-block">
               Open HouseSync

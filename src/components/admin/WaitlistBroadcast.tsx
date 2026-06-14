@@ -49,14 +49,14 @@ export function WaitlistBroadcast({ count }: { count: number }) {
       <div>
         <p className="text-sm font-medium text-slate-700">Email the waitlist</p>
         <p className="text-xs text-slate-400">
-          Sends a one-off message to all {people} on the waitlist — e.g. a progress update or your
+          Sends a one-off message to all {people} on the waitlist, e.g. a progress update or your
           launch announcement. Everyone gets it individually (no shared To: line).
         </p>
       </div>
 
       <input
         className="input"
-        placeholder="Subject — e.g. HouseSync is live 🎉"
+        placeholder="Subject, e.g. HouseSync is live 🎉"
         value={subject}
         maxLength={200}
         onChange={(e) => {
@@ -66,7 +66,7 @@ export function WaitlistBroadcast({ count }: { count: number }) {
       />
       <textarea
         className="input min-h-[120px]"
-        placeholder="Write your message… plain text — leave a blank line between paragraphs."
+        placeholder="Write your message… plain text. Leave a blank line between paragraphs."
         value={message}
         onChange={(e) => {
           setMessage(e.target.value);

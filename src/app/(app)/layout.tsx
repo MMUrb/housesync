@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/env";
 import { NotConfigured } from "@/components/NotConfigured";
-import { getMyHouses, getProfile, requireHouse } from "@/lib/data";
+import { getChatUnread, getMyHouses, getProfile, requireHouse } from "@/lib/data";
 import { AppHeader } from "@/components/app/AppHeader";
 import { TopNav } from "@/components/app/TopNav";
 import { FollowUs } from "@/components/SocialLinks";
@@ -10,15 +10,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!isSupabaseConfigured) return <NotConfigured />;
 
   // Ensures the user is signed in and has a house (redirects otherwise).
-  const { house } = await requireHouse();
-  const [houses, profile] = await Promise.all([getMyHouses(), getProfile()]);
+  const { user, house } = await requireHouse();
+  const [houses, profile, chatUnread] = await Promise.all([
+    getMyHouses(),
+    getProfile(),
+    getChatUnread(house.id, user.id),
+  ]);
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col">
       {/* Sticky top bar: house switcher + profile, then the main nav tabs. */}
       <div className="safe-top sticky top-0 z-30 border-b border-slate-200 bg-[var(--background)]/90 backdrop-blur">
         <AppHeader house={house} houses={houses} profile={profile} />
-        <TopNav />
+        <TopNav houseId={house.id} userId={user.id} initialUnread={chatUnread} />
       </div>
       <main className="flex-1 px-4 pb-8 pt-4">{children}</main>
       <footer className="border-t border-slate-100 px-4 pt-3 [padding-bottom:calc(0.75rem_+_env(safe-area-inset-bottom))]">

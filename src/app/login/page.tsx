@@ -18,7 +18,7 @@ export default function LoginPage() {
         Welcome to your house
       </h1>
       <p className="mt-1.5 text-center text-sm text-slate-600">
-        Split bills, track chores and stay on top of rent — together.
+        Split bills, track chores and stay on top of rent, together.
       </p>
 
       <Suspense fallback={<div className="card mt-8 h-64 animate-pulse" />}>

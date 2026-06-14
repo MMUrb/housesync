@@ -170,7 +170,7 @@ export function LoginForm() {
           });
           if (signInErr) {
             setNotice(
-              "Account created. Check your email — including your spam/junk folder — to confirm, then sign in.",
+              "Account created. Check your email (including your spam/junk folder) to confirm, then sign in.",
             );
             setMode("signin");
             setLeaveGuard(false);

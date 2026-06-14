@@ -98,7 +98,7 @@ export function AccountSettingsForm({
       );
       if (error) throw error;
       setEmailMsg(
-        `Confirmation sent to ${next} — check your inbox and your spam/junk folder. Your email stays the same until you click the link in that message.`,
+        `Confirmation sent to ${next}. Check your inbox and your spam/junk folder. Your email stays the same until you click the link in that message.`,
       );
       setChangingEmail(false);
       setNewEmail("");
@@ -126,7 +126,7 @@ export function AccountSettingsForm({
             <span className="font-medium text-mint-600">✓ Email verified</span>
           ) : verifySent ? (
             <span className="text-mint-600">
-              Verification email sent — check your inbox (and your spam/junk folder).
+              Verification email sent. Check your inbox (and your spam/junk folder).
             </span>
           ) : (
             <>
@@ -185,7 +185,7 @@ export function AccountSettingsForm({
             </div>
             <p className="text-xs text-slate-400">
               We&apos;ll email a confirmation link to the new address. Your email only changes once
-              you click it — so it stays verified.
+              you click it, so it stays verified.
             </p>
           </div>
         )}

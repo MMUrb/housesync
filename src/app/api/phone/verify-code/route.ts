@@ -25,14 +25,14 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (!row) {
-    return NextResponse.json({ error: "No code to check — request a new one." }, { status: 400 });
+    return NextResponse.json({ error: "No code to check. Request a new one." }, { status: 400 });
   }
   if (new Date(row.expires_at).getTime() < Date.now()) {
-    return NextResponse.json({ error: "That code has expired — request a new one." }, { status: 400 });
+    return NextResponse.json({ error: "That code has expired. Request a new one." }, { status: 400 });
   }
   if (row.attempts >= 5) {
     return NextResponse.json(
-      { error: "Too many attempts — request a new code." },
+      { error: "Too many attempts. Request a new code." },
       { status: 429 },
     );
   }

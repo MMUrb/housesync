@@ -163,7 +163,7 @@ export default async function AdminOverviewPage() {
         </Grid>
       </Section>
 
-      <Section title="Traffic — last 30 days">
+      <Section title="Traffic · last 30 days">
         <div className="card space-y-2 p-4">
           <BarHeader
             left={`${visits30} visits`}
@@ -181,7 +181,7 @@ export default async function AdminOverviewPage() {
       </Section>
 
       <Section
-        title="Sign-ups — last 30 days"
+        title="Sign-ups · last 30 days"
         action={
           <Link href={`${ADMIN_BASE}/users`} className="text-xs font-medium text-brand-600 hover:underline">
             View all users →
@@ -198,7 +198,7 @@ export default async function AdminOverviewPage() {
         </div>
       </Section>
 
-      <Section title="Engagement — all-time">
+      <Section title="Engagement · all-time">
         <Grid>
           <StatCard label="Houses" value={houses} />
           <StatCard label="Memberships" value={memberships} />

@@ -150,17 +150,17 @@ export async function sendWelcomeEmail(to: string, name?: string | null) {
   const first = (name ?? "").trim().split(/\s+/)[0] || "there";
   const body = `
     <h1 style="font-size:20px;margin:0 0 10px">Welcome to HouseSync, ${escapeHtml(first)}</h1>
-    <p>Thanks for signing up! HouseSync helps you and your housemates split bills, track chores and stay on top of rent — without the awkward money chats.</p>
+    <p>Thanks for signing up! HouseSync helps you and your housemates split bills, track chores and stay on top of rent, without the awkward money chats.</p>
     <p style="margin:22px 0">
       <a href="https://housesync.co.uk/dashboard" style="display:inline-block;background:#6f53f5;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:10px">Open HouseSync</a>
     </p>
     <p style="font-weight:bold;margin-bottom:6px">Getting started takes two minutes:</p>
     <ol style="padding-left:18px;margin-top:0">
-      <li style="margin-bottom:4px">Create your house — or join one with an invite link.</li>
+      <li style="margin-bottom:4px">Create your house, or join one with an invite link.</li>
       <li style="margin-bottom:4px">Invite your housemates.</li>
-      <li>Add your first bill or expense — we'll split it for you.</li>
+      <li>Add your first bill or expense, and we'll split it for you.</li>
     </ol>
-    <p style="margin-top:18px">— The HouseSync team</p>`;
+    <p style="margin-top:18px">The HouseSync team</p>`;
   await sendEmail({
     to,
     toName: name ?? undefined,
@@ -196,9 +196,9 @@ export async function sendVerificationEmail(to: string, name: string | null, url
 export async function sendWaitlistEmail(to: string) {
   const body = `
     <h1 style="font-size:20px;margin:0 0 10px">You're on the list</h1>
-    <p>Thanks for joining the HouseSync waitlist! We're putting the finishing touches on the easiest way for UK housemates to split bills, track chores and stay on top of rent — without the awkward money chats.</p>
-    <p>You're now in the queue for early access. We'll email you the moment there's an update or your invite is ready — just the important stuff.</p>
-    <p style="margin-top:18px">Talk soon,<br>— The HouseSync team</p>`;
+    <p>Thanks for joining the HouseSync waitlist! We're putting the finishing touches on the easiest way for UK housemates to split bills, track chores and stay on top of rent, without the awkward money chats.</p>
+    <p>You're now in the queue for early access. We'll email you the moment there's an update or your invite is ready, just the important stuff.</p>
+    <p style="margin-top:18px">Talk soon,<br>The HouseSync team</p>`;
   await sendEmail({
     to,
     subject: "You're on the HouseSync waitlist",

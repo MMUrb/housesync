@@ -6,9 +6,9 @@ export const ACTIVE_HOUSE_COOKIE = "hs_active_house";
 export const ADMIN_BASE = "/hq-k4p9";
 
 export const CURRENCIES = [
-  { value: "GBP", label: "£ GBP — British Pound" },
-  { value: "EUR", label: "€ EUR — Euro" },
-  { value: "USD", label: "$ USD — US Dollar" },
+  { value: "GBP", label: "£ GBP · British Pound" },
+  { value: "EUR", label: "€ EUR · Euro" },
+  { value: "USD", label: "$ USD · US Dollar" },
 ];
 
 /** Preset avatar colours (matches the palette seeded in schema.sql). */

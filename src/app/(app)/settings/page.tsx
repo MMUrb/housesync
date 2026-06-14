@@ -26,7 +26,7 @@ export default async function SettingsPage() {
         <div className="px-1">
           <h2 className="text-base font-bold text-slate-900">Your account</h2>
           <p className="text-xs text-slate-500">
-            Applies to you everywhere — across all of your houses.
+            Applies to you everywhere, across all of your houses.
           </p>
         </div>
 

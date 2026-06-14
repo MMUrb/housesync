@@ -72,13 +72,13 @@ export function WaitlistForm({ returnTo = "/" }: { returnTo?: string }) {
           </p>
           <p className="mt-1 text-sm text-slate-600">
             {already
-              ? "We've already got this email — we'll be in touch with updates."
-              : "We've sent a confirmation — check your inbox."}
+              ? "We've already got this email, we'll be in touch with updates."
+              : "We've sent a confirmation. Check your inbox."}
           </p>
           <p className="mt-2 break-all text-sm font-semibold text-slate-900">{email}</p>
           {!already && (
             <p className="mt-2 text-xs text-slate-500">
-              {"Can't see it? Check your junk or spam folder — and move it to your inbox so future emails land there too."}
+              {"Can't see it? Check your junk or spam folder, and move it to your inbox so future emails land there too."}
             </p>
           )}
           <button

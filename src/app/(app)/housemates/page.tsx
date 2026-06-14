@@ -142,7 +142,7 @@ export default async function HousematesPage() {
           })}
         </ul>
         <p className="px-1 text-xs text-slate-400">
-          Balances are shown neutrally — it&apos;s about keeping the house clear, not keeping score.
+          Balances are shown neutrally, it&apos;s about keeping the house clear, not keeping score.
         </p>
       </section>
 

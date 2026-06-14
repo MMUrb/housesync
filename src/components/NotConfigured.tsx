@@ -9,7 +9,7 @@ export function NotConfigured() {
     <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center px-6 py-12">
       <Logo className="text-xl" />
       <div className="card mt-6 p-6">
-        <h1 className="text-lg font-bold text-slate-900">Almost there — connect Supabase</h1>
+        <h1 className="text-lg font-bold text-slate-900">Almost there: connect Supabase</h1>
         <p className="mt-2 text-sm text-slate-600">
           HouseSync needs a Supabase project to store your house, expenses and chores. It only
           takes a few minutes:

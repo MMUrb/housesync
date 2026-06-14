@@ -5,14 +5,14 @@ import { ThemeWatcher } from "@/components/ThemeWatcher";
 
 const siteName = "HouseSync";
 const description =
-  "The housemate app for bills, chores and rent. Split rent, bills, groceries and chores with your housemates in one simple place — without the awkwardness.";
+  "The housemate app for bills, chores and rent. Split rent, bills, groceries and chores with your housemates in one simple place, without the awkwardness.";
 
-const tagline = `${siteName} — stop arguing about house bills`;
+const tagline = `${siteName} · stop arguing about house bills`;
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://housesync.co.uk"),
   title: {
-    default: `${siteName} — Bills, chores & rent for shared houses`,
+    default: `${siteName}: Bills, chores & rent for shared houses`,
     template: `%s · ${siteName}`,
   },
   description,
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: "HouseSync — split rent, bills & chores with your housemates",
+        alt: "HouseSync: split rent, bills & chores with your housemates",
       },
     ],
   },

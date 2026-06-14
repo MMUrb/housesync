@@ -5,7 +5,7 @@ import { FollowUs } from "@/components/SocialLinks";
 import { WaitlistForm } from "@/components/waitlist/WaitlistForm";
 
 export const metadata: Metadata = {
-  title: "Join the waitlist — HouseSync",
+  title: "Join the waitlist · HouseSync",
   description: "HouseSync is launching soon. Join the waitlist for early access.",
   robots: { index: false, follow: false },
 };
@@ -30,7 +30,7 @@ export default async function WaitlistPage() {
             Join the waitlist
           </h1>
           <p className="mt-2 text-slate-600">
-            HouseSync is almost ready — the easiest way for UK housemates to split bills, track
+            HouseSync is almost ready: the easiest way for UK housemates to split bills, track
             chores and stay on top of rent. Drop your email and we&apos;ll let you know the moment
             it&apos;s live, plus updates along the way.
           </p>
