@@ -144,6 +144,13 @@ export function Chat({
       if (error) throw error;
       if (data) addMessage(data as Message);
       setText("");
+      // Notify the other housemates (best-effort; server decides who's opted in).
+      void fetch("/api/push/notify", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({ houseId, preview: body }),
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't send. Please try again.");
     } finally {

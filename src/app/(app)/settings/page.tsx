@@ -7,6 +7,7 @@ import { AccountSettingsForm } from "@/components/settings/AccountSettingsForm";
 import { HouseSettingsForm } from "@/components/settings/HouseSettingsForm";
 import { DangerZone } from "@/components/settings/DangerZone";
 import { ThemeToggle } from "@/components/settings/ThemeToggle";
+import { PushToggle } from "@/components/push/PushToggle";
 
 export const metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
@@ -55,6 +56,8 @@ export default async function SettingsPage() {
           initialNotifySms={account?.notify_sms ?? false}
           emailVerified={Boolean(account?.email_verified_at)}
         />
+
+        <PushToggle />
 
         <ThemeToggle />
 
