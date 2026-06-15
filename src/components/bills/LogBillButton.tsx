@@ -80,6 +80,20 @@ export function LogBillButton({
         message: `requested everyone's share of ${bill.title} (${formatMoney(Number(bill.amount), currency)})`,
       });
 
+      // Notify everyone who owes a share (best-effort).
+      const npIdx = ids.findIndex((id) => id !== payer);
+      void fetch("/api/push/notify", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          type: "bill_request",
+          houseId: bill.house_id,
+          title: bill.title,
+          share: formatMoney(shares[npIdx >= 0 ? npIdx : 0] ?? 0, currency),
+        }),
+      });
+
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not log the payment.");

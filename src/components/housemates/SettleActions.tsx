@@ -87,6 +87,18 @@ function SettleRow({
         type: "marked_paid",
         message: `marked ${formatMoney(item.owe, currency)} as paid to ${item.name}`,
       });
+      // Tell the person who's owed (best-effort).
+      void fetch("/api/push/notify", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          type: "paid",
+          houseId,
+          toUserId: item.userId,
+          amount: formatMoney(item.owe, currency),
+        }),
+      });
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");

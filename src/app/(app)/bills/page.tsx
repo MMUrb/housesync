@@ -178,6 +178,7 @@ export default async function BillsPage() {
                           splitId={mine.id}
                           amount={Number(mine.amount_owed)}
                           payerName={nameOf(payer)}
+                          payerId={payer}
                           payerPay={{
                             monzo: (payer && payMap.get(payer)?.monzo) ?? null,
                             paypal: (payer && payMap.get(payer)?.paypal) ?? null,

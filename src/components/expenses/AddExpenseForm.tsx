@@ -148,6 +148,19 @@ export function AddExpenseForm({
         message: `added “${title.trim()}” (${formatMoney(amountNum, currency)})`,
       });
 
+      // Notify the house (best-effort).
+      void fetch("/api/push/notify", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          type: "expense",
+          houseId,
+          title: title.trim(),
+          amount: formatMoney(amountNum, currency),
+        }),
+      });
+
       router.push("/expenses");
       router.refresh();
     } catch (err) {

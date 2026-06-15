@@ -11,6 +11,7 @@ export function BillPay({
   splitId,
   amount,
   payerName,
+  payerId,
   payerPay,
   houseId,
   currentUserId,
@@ -19,6 +20,7 @@ export function BillPay({
   splitId: string;
   amount: number;
   payerName: string;
+  payerId: string | null;
   payerPay: PayHandles;
   houseId: string;
   currentUserId: string;
@@ -45,6 +47,20 @@ export function BillPay({
         type: "marked_paid",
         message: `marked ${formatMoney(amount, currency)} as paid to ${payerName}`,
       });
+      // Tell the person who's owed (best-effort).
+      if (payerId && payerId !== currentUserId) {
+        void fetch("/api/push/notify", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          keepalive: true,
+          body: JSON.stringify({
+            type: "paid",
+            houseId,
+            toUserId: payerId,
+            amount: formatMoney(amount, currency),
+          }),
+        });
+      }
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
