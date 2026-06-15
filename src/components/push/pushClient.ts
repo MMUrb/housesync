@@ -2,7 +2,10 @@
 // Detects platform: native app -> Capacitor Push Notifications (FCM); browser
 // -> Web Push (service worker + VAPID).
 
-const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+const VAPID_PUBLIC = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "").replace(
+  /^[\s﻿​]+|[\s﻿​]+$/g,
+  "",
+);
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);

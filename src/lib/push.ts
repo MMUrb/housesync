@@ -8,15 +8,20 @@ import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 // has opted in on — browsers/PWA via Web Push (VAPID), the Android app via FCM.
 // Best-effort and never throws; dead subscriptions are pruned automatically.
 
-const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
-const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY ?? "";
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:hello@housesync.co.uk";
+// Strip BOM / zero-width / surrounding whitespace — some env tooling sneaks a
+// leading U+FEFF in, which makes web-push reject the VAPID subject as a URL.
+const clean = (s: string | undefined): string =>
+  (s ?? "").replace(/^[\s﻿​]+|[\s﻿​]+$/g, "");
+
+const VAPID_PUBLIC = clean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
+const VAPID_PRIVATE = clean(process.env.VAPID_PRIVATE_KEY);
+const VAPID_SUBJECT = clean(process.env.VAPID_SUBJECT) || "mailto:hello@housesync.co.uk";
 const webPushReady = Boolean(VAPID_PUBLIC && VAPID_PRIVATE);
 if (webPushReady) webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
 
 function fcmApp(): App | null {
   if (getApps().length) return getApp();
-  const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_B64 ?? "";
+  const b64 = clean(process.env.FIREBASE_SERVICE_ACCOUNT_B64);
   if (!b64) return null;
   try {
     const json = JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
