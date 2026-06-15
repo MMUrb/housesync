@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "659699168737",
+    "project_id": "housesync-5fed0",
+    "storage_bucket": "housesync-5fed0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:659699168737:android:9e81b5eb7cceac05078ea0",
+        "android_client_info": {
+          "package_name": "uk.co.housesync"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC3d8SogLSiWziU15Oj1Bx0YNzo4K4RAFY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
