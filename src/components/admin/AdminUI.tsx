@@ -16,7 +16,7 @@ export function AdminShell({
   children,
 }: {
   email?: string | null;
-  active: "overview" | "waitlist" | "users" | "report";
+  active: "overview" | "waitlist" | "users" | "report" | "errors";
   tabs?: boolean;
   unlocked?: boolean;
   children: React.ReactNode;
@@ -28,7 +28,7 @@ export function AdminShell({
   }: {
     href: string;
     label: string;
-    k: "overview" | "waitlist" | "users" | "report";
+    k: "overview" | "waitlist" | "users" | "report" | "errors";
   }) => (
     <Link
       href={href}
@@ -61,6 +61,7 @@ export function AdminShell({
             <Tab href={`${ADMIN_BASE}/waitlist`} label="Waitlist" k="waitlist" />
             <Tab href={`${ADMIN_BASE}/users`} label="Users" k="users" />
             <Tab href={`${ADMIN_BASE}/report`} label="Churn report" k="report" />
+            <Tab href={`${ADMIN_BASE}/errors`} label="Errors" k="errors" />
           </div>
         )}
       </header>

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Analytics } from "@/components/Analytics";
 import { ThemeWatcher } from "@/components/ThemeWatcher";
+import { ErrorReporter } from "@/components/ErrorReporter";
 
 const siteName = "HouseSync";
 const description =
@@ -89,6 +90,7 @@ export default function RootLayout({
         {children}
         <Analytics />
         <ThemeWatcher />
+        <ErrorReporter />
       </body>
     </html>
   );

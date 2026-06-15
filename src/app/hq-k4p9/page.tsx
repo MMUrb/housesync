@@ -102,6 +102,14 @@ export default async function AdminOverviewPage() {
 
   const waitlistCount = waitlistCountRes.count ?? 0;
 
+  // Unresolved error count for the at-a-glance card (best-effort: the table
+  // may not exist yet until the 0015 migration runs).
+  const errUnresolvedRes = await admin
+    .from("error_logs")
+    .select("id", { count: "exact", head: true })
+    .is("resolved_at", null);
+  const errUnresolved = errUnresolvedRes.count ?? 0;
+
   const nameById = new Map<string, string>();
   for (const p of (profilesRes.data ?? []) as { id: string; name: string | null }[]) {
     if (p.name) nameById.set(p.id, p.name);
@@ -160,6 +168,11 @@ export default async function AdminOverviewPage() {
           <StatCard label="Unique visitors (30d)" value={uniques30} />
           <StatCard label="Total houses" value={houses} />
           <StatCard label="Waitlist" value={waitlistCount} />
+          <StatCard
+            label="Errors (unresolved)"
+            value={errUnresolved}
+            sub={errUnresolved > 0 ? "needs a look" : "all clear"}
+          />
         </Grid>
       </Section>
 

@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getSiteUrl, OAUTH_PROVIDERS } from "@/lib/env";
 import { setLeaveGuard } from "@/lib/leaveGuard";
+import { reportClientError } from "@/components/ErrorReporter";
 
 type Mode = "signin" | "signup";
 type OAuthProvider = "google" | "azure" | "apple";
@@ -191,7 +192,18 @@ export function LoginForm() {
       router.push(next);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      const msg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      setError(msg);
+      // Report unexpected server/database failures (not ordinary "wrong
+      // password" / "already registered" cases) so a silent signup-breaking
+      // bug surfaces in the admin error log + an alert, instead of hiding.
+      const status = (err as { status?: number })?.status ?? 0;
+      if (status >= 500 || /database error|unexpected|relation|not-null|violates/i.test(msg)) {
+        reportClientError(`Auth ${mode} failed: ${msg}`, {
+          stack: err instanceof Error ? err.stack : null,
+          url: "/login",
+        });
+      }
     } finally {
       setLoading(false);
     }
