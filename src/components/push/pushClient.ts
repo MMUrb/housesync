@@ -63,10 +63,27 @@ export async function enablePush(): Promise<{ ok: boolean; reason?: string }> {
     if (perm !== "granted") return { ok: false, reason: "Permission was denied." };
     const reg = await navigator.serviceWorker.register("/sw.js");
     await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC) as BufferSource,
-    });
+    // Clear any stale subscription from a previous attempt first.
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) await existing.unsubscribe().catch(() => {});
+    let sub: PushSubscription;
+    try {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC) as BufferSource,
+      });
+    } catch (err) {
+      const m = err instanceof Error ? err.message : "";
+      // Brave (and some privacy browsers) disable the push service by default.
+      if (/push service error|AbortError/i.test(m)) {
+        return {
+          ok: false,
+          reason:
+            "Your browser blocked the push service. In Brave: Settings → Privacy and security → turn on “Use Google services for push messaging”, then relaunch Brave. Chrome, Edge and Firefox work without this. The HouseSync app also works out of the box.",
+        };
+      }
+      throw err;
+    }
     const res = await fetch("/api/push/subscribe", {
       method: "POST",
       headers: { "content-type": "application/json" },
