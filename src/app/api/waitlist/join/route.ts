@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { isEmailConfigured, sendWaitlistEmail } from "@/lib/email";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,14 @@ export async function POST(request: Request) {
 
   if (!EMAIL_RE.test(email) || email.length > 254) {
     return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 });
+  }
+
+  // Throttle by IP so the sign-up endpoint (which sends an email) can't be spammed.
+  if (!(await rateLimit(`waitlist:${clientIp(request)}`, 6, 60))) {
+    return NextResponse.json(
+      { error: "Too many attempts. Please wait a minute and try again." },
+      { status: 429 },
+    );
   }
 
   let isNew = true;

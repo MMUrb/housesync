@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { logError } from "@/lib/errorLog";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +9,9 @@ export const dynamic = "force-dynamic";
 // ErrorReporter + reportClientError). Client errors are logged but never email
 // the admins (too noisy); only server errors alert.
 export async function POST(request: Request) {
+  if (!(await rateLimit(`log-error:${clientIp(request)}`, 30, 60))) {
+    return NextResponse.json({ ok: false }, { status: 429 });
+  }
   try {
     const b = await request.json();
     const message = typeof b?.message === "string" ? b.message.trim() : "";

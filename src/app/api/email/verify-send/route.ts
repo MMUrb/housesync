@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { isEmailConfigured, sendVerificationEmail } from "@/lib/email";
 import { getSiteUrl } from "@/lib/env";
+import { rateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,13 @@ export async function POST() {
   }
   if (!isEmailConfigured) {
     return NextResponse.json({ error: "Email isn't configured on the server." }, { status: 503 });
+  }
+  // Cap how often a user can fire a verification email (it costs a send).
+  if (!(await rateLimit(`verify-email:${user.id}`, 3, 300))) {
+    return NextResponse.json(
+      { error: "Please wait a few minutes before requesting another email." },
+      { status: 429 },
+    );
   }
 
   const token = randomBytes(24).toString("hex");

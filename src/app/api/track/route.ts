@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { ADMIN_BASE } from "@/lib/constants";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +51,11 @@ export async function POST(request: Request) {
       } catch {
         refHost = null;
       }
+    }
+
+    // Throttle per visitor so analytics ingestion can't be flooded.
+    if (!(await rateLimit(`track:${clientIp(request)}`, 120, 60))) {
+      return new NextResponse(null, { status: 204 });
     }
 
     const admin = createAdminClient();
