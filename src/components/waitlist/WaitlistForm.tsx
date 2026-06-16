@@ -7,6 +7,9 @@ export function WaitlistForm({ returnTo = "/" }: { returnTo?: string }) {
   const [joinState, setJoinState] = useState<"idle" | "loading" | "done">("idle");
   const [joinErr, setJoinErr] = useState<string | null>(null);
   const [already, setAlready] = useState(false);
+  // The email a "Wrong email? Edit it" correction will replace, so the old
+  // (mistyped) row is removed instead of leaving a duplicate on the list.
+  const [correctingFrom, setCorrectingFrom] = useState("");
 
   const [showCode, setShowCode] = useState(false);
   const [code, setCode] = useState("");
@@ -21,7 +24,7 @@ export function WaitlistForm({ returnTo = "/" }: { returnTo?: string }) {
       const res = await fetch("/api/waitlist/join", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, replaces: correctingFrom || undefined }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -30,6 +33,7 @@ export function WaitlistForm({ returnTo = "/" }: { returnTo?: string }) {
         return;
       }
       setAlready(Boolean(data?.already));
+      setCorrectingFrom(""); // correction (if any) has been applied
       setJoinState("done");
     } catch {
       setJoinErr("Network error. Please try again.");
@@ -84,6 +88,7 @@ export function WaitlistForm({ returnTo = "/" }: { returnTo?: string }) {
           <button
             type="button"
             onClick={() => {
+              setCorrectingFrom(email); // remember the email this edit will replace
               setJoinState("idle");
               setJoinErr(null);
             }}

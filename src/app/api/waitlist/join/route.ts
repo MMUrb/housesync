@@ -9,9 +9,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
   let email = "";
+  let replaces = "";
   try {
     const body = await request.json();
     if (typeof body?.email === "string") email = body.email.trim().toLowerCase();
+    if (typeof body?.replaces === "string") replaces = body.replaces.trim().toLowerCase();
   } catch {
     /* ignore malformed body */
   }
@@ -34,6 +36,11 @@ export async function POST(request: Request) {
           { status: 500 },
         );
       }
+    }
+    // If this submission fixes an earlier typo, drop the old (wrong) entry so
+    // only the corrected email stays on the list.
+    if (replaces && replaces !== email && EMAIL_RE.test(replaces)) {
+      await admin.from("waitlist").delete().eq("email", replaces);
     }
   }
 

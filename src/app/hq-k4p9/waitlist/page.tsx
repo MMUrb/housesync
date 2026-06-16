@@ -124,7 +124,7 @@ export default async function WaitlistAdminPage() {
                   signups.map((s, i) => (
                     <tr
                       key={s.email}
-                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
+                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50 dark:hover:bg-white/[0.04]"
                     >
                       <td className="px-4 py-2.5 text-slate-400">{signups.length - i}</td>
                       <td className="px-4 py-2.5 font-medium text-slate-700">{s.email}</td>
@@ -168,7 +168,7 @@ export default async function WaitlistAdminPage() {
                   unlocks.map((u, i) => (
                     <tr
                       key={`${u.created_at}-${i}`}
-                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
+                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50 dark:hover:bg-white/[0.04]"
                     >
                       <td className="px-4 py-2.5 text-slate-500">{fmt(u.created_at)}</td>
                       <td className="px-4 py-2.5 text-slate-500">
