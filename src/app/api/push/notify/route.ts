@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { sendPushToUsers } from "@/lib/push";
+import { sendPushToUsers, type PushPrefColumn } from "@/lib/push";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -86,6 +86,16 @@ export async function POST(request: Request) {
   }
 
   if (recipients.length === 0) return NextResponse.json({ ok: true });
-  await sendPushToUsers(recipients, { title, body: bodyText, url, tag: `${type}-${houseId}` });
+  const prefByType: Record<NonNullable<Body["type"]>, PushPrefColumn> = {
+    message: "notify_push_message",
+    expense: "notify_push_expense",
+    bill_request: "notify_push_bill",
+    paid: "notify_push_paid",
+  };
+  await sendPushToUsers(
+    recipients,
+    { title, body: bodyText, url, tag: `${type}-${houseId}` },
+    prefByType[type],
+  );
   return NextResponse.json({ ok: true });
 }

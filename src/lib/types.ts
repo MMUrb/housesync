@@ -169,6 +169,10 @@ export interface AccountSettings {
   email_verify_token: string | null;
   email_verify_expires: string | null;
   monthly_budget: number | null;
+  notify_push_message: boolean;
+  notify_push_expense: boolean;
+  notify_push_bill: boolean;
+  notify_push_paid: boolean;
 }
 
 export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string; emoji: string }[] = [

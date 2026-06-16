@@ -58,7 +58,15 @@ export default async function SettingsPage() {
           emailVerified={Boolean(account?.email_verified_at)}
         />
 
-        <PushToggle />
+        <PushToggle
+          userId={user.id}
+          initialPrefs={{
+            message: account?.notify_push_message ?? true,
+            expense: account?.notify_push_expense ?? true,
+            bill: account?.notify_push_bill ?? true,
+            paid: account?.notify_push_paid ?? true,
+          }}
+        />
 
         <ThemeToggle />
 

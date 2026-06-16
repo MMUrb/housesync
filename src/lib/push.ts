@@ -39,6 +39,14 @@ function fcmApp(): App | null {
 
 export type PushPayload = { title: string; body: string; url?: string; tag?: string };
 
+// The account_settings columns that gate each push type. Passing one to
+// sendPushToUsers drops any recipient who turned that type off.
+export type PushPrefColumn =
+  | "notify_push_message"
+  | "notify_push_expense"
+  | "notify_push_bill"
+  | "notify_push_paid";
+
 type Sub = {
   id: string;
   kind: string;
@@ -48,14 +56,36 @@ type Sub = {
   token: string | null;
 };
 
-export async function sendPushToUsers(userIds: string[], payload: PushPayload): Promise<void> {
+export async function sendPushToUsers(
+  userIds: string[],
+  payload: PushPayload,
+  prefColumn?: PushPrefColumn,
+): Promise<void> {
   if (!isAdminConfigured || userIds.length === 0) return;
   try {
     const db = createAdminClient();
+
+    // Honour per-type opt-outs. Columns default true, so only users who
+    // explicitly set this type to false are dropped; a missing row = enabled.
+    let targetIds = userIds;
+    if (prefColumn) {
+      const { data: prefs } = await db
+        .from("account_settings")
+        .select(`user_id, ${prefColumn}`)
+        .in("user_id", userIds);
+      const disabled = new Set(
+        (prefs ?? [])
+          .filter((p) => (p as Record<string, unknown>)[prefColumn] === false)
+          .map((p) => (p as { user_id: string }).user_id),
+      );
+      targetIds = userIds.filter((id) => !disabled.has(id));
+      if (targetIds.length === 0) return;
+    }
+
     const { data } = await db
       .from("push_subscriptions")
       .select("id, kind, endpoint, p256dh, auth, token")
-      .in("user_id", userIds);
+      .in("user_id", targetIds);
     const subs = (data ?? []) as Sub[];
     if (subs.length === 0) return;
 
