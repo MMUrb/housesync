@@ -5,7 +5,7 @@ import { disablePush, enablePush, getPushEnabled } from "@/components/push/pushC
 import { createClient } from "@/lib/supabase/client";
 import { IconChevronDown } from "@/components/icons";
 
-type PrefKey = "message" | "expense" | "bill" | "paid";
+type PrefKey = "message" | "expense" | "bill" | "paid" | "chore" | "member";
 type Prefs = Record<PrefKey, boolean>;
 
 // Each toggle and the account_settings column it writes to.
@@ -14,6 +14,8 @@ const TYPES: { key: PrefKey; col: string; label: string; desc: string }[] = [
   { key: "expense", col: "notify_push_expense", label: "New expenses", desc: "When someone adds an expense" },
   { key: "bill", col: "notify_push_bill", label: "Bill requests", desc: "When someone requests a bill payment" },
   { key: "paid", col: "notify_push_paid", label: "Payments to you", desc: "When someone pays you back" },
+  { key: "chore", col: "notify_push_chore", label: "Chores assigned to you", desc: "When a housemate gives you a chore" },
+  { key: "member", col: "notify_push_member", label: "New housemates", desc: "When someone joins your house" },
 ];
 
 function Switch({

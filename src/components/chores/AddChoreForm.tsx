@@ -48,6 +48,21 @@ export function AddChoreForm({
         message: `added a chore: “${title.trim()}”`,
       });
 
+      // Notify the assignee (best-effort), unless it's unassigned or yourself.
+      if (assignedTo && assignedTo !== currentUserId) {
+        void fetch("/api/push/notify", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          keepalive: true,
+          body: JSON.stringify({
+            type: "chore",
+            houseId,
+            title: title.trim(),
+            toUserId: assignedTo,
+          }),
+        });
+      }
+
       router.push("/chores");
       router.refresh();
     } catch (err) {

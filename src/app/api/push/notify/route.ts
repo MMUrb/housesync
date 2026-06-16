@@ -9,13 +9,13 @@ export const dynamic = "force-dynamic";
 // (a non-member can't read the house's members), and recipients are always
 // re-derived server-side, so the client can't notify arbitrary people.
 type Body = {
-  type?: "message" | "expense" | "bill_request" | "paid";
+  type?: "message" | "expense" | "bill_request" | "paid" | "chore" | "joined";
   houseId?: string;
   preview?: string; // message
-  title?: string; // expense / bill_request
+  title?: string; // expense / bill_request / chore
   amount?: string; // expense / paid (already formatted, e.g. "£12.50")
   share?: string; // bill_request (already formatted)
-  toUserId?: string; // paid (the person owed)
+  toUserId?: string; // paid (the person owed) / chore (the assignee)
 };
 
 export async function POST(request: Request) {
@@ -81,6 +81,18 @@ export async function POST(request: Request) {
       url = "/housemates";
       break;
     }
+    case "chore": {
+      const to = body.toUserId;
+      recipients = to && to !== user.id && ids.includes(to) ? [to] : [];
+      bodyText = `${actor} assigned you a chore${body.title ? `: ${clip(body.title, 60)}` : ""}`;
+      url = "/chores";
+      break;
+    }
+    case "joined":
+      recipients = others;
+      bodyText = `${actor} joined the house`;
+      url = "/housemates";
+      break;
     default:
       return NextResponse.json({ error: "Unknown type." }, { status: 400 });
   }
@@ -91,6 +103,8 @@ export async function POST(request: Request) {
     expense: "notify_push_expense",
     bill_request: "notify_push_bill",
     paid: "notify_push_paid",
+    chore: "notify_push_chore",
+    joined: "notify_push_member",
   };
   await sendPushToUsers(
     recipients,

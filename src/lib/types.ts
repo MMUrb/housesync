@@ -173,6 +173,8 @@ export interface AccountSettings {
   notify_push_expense: boolean;
   notify_push_bill: boolean;
   notify_push_paid: boolean;
+  notify_push_chore: boolean;
+  notify_push_member: boolean;
 }
 
 export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string; emoji: string }[] = [

@@ -65,6 +65,8 @@ export default async function SettingsPage() {
             expense: account?.notify_push_expense ?? true,
             bill: account?.notify_push_bill ?? true,
             paid: account?.notify_push_paid ?? true,
+            chore: account?.notify_push_chore ?? true,
+            member: account?.notify_push_member ?? true,
           }}
         />
 

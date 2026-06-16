@@ -19,7 +19,16 @@ export function JoinHouseButton({ code }: { code: string }) {
       const { data, error } = await supabase.rpc("join_house", { p_invite_code: code });
       if (error) throw error;
       const house = (Array.isArray(data) ? data[0] : data) as House;
-      if (house?.id) setActiveHouse(house.id);
+      if (house?.id) {
+        setActiveHouse(house.id);
+        // Let the existing housemates know someone joined (best-effort).
+        void fetch("/api/push/notify", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          keepalive: true,
+          body: JSON.stringify({ type: "joined", houseId: house.id }),
+        });
+      }
       router.push("/dashboard");
       router.refresh();
     } catch (err) {

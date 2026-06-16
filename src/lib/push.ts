@@ -45,7 +45,9 @@ export type PushPrefColumn =
   | "notify_push_message"
   | "notify_push_expense"
   | "notify_push_bill"
-  | "notify_push_paid";
+  | "notify_push_paid"
+  | "notify_push_chore"
+  | "notify_push_member";
 
 type Sub = {
   id: string;
