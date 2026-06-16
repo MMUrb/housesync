@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getSiteUrl } from "@/lib/env";
+import { FEATURES } from "@/lib/features";
 import { PhoneVerification } from "@/components/settings/PhoneVerification";
 
 export function AccountSettingsForm({
@@ -195,10 +196,12 @@ export function AccountSettingsForm({
         )}
       </div>
 
-      <div>
-        <span className="label">Phone number</span>
-        <PhoneVerification initialPhone={initialPhone} initialVerified={initialPhoneVerified} />
-      </div>
+      {FEATURES.phoneSms && (
+        <div>
+          <span className="label">Phone number</span>
+          <PhoneVerification initialPhone={initialPhone} initialVerified={initialPhoneVerified} />
+        </div>
+      )}
 
       <div className="space-y-2">
         <span className="label">Reminders</span>
@@ -208,12 +211,14 @@ export function AccountSettingsForm({
           checked={notifyEmail}
           onChange={setNotifyEmail}
         />
-        <Toggle
-          label="Text (SMS) reminders"
-          desc="Sent to your verified phone number once SMS reminders go live."
-          checked={notifySms}
-          onChange={setNotifySms}
-        />
+        {FEATURES.phoneSms && (
+          <Toggle
+            label="Text (SMS) reminders"
+            desc="Sent to your verified phone number once SMS reminders go live."
+            checked={notifySms}
+            onChange={setNotifySms}
+          />
+        )}
       </div>
 
       {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
