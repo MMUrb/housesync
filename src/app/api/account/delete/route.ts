@@ -45,9 +45,19 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
+  // Anonymous, non-identifying context for the churn report: how long they were
+  // a member, and which platform they left from. No id/email is stored.
+  const createdMs = user.created_at ? new Date(user.created_at).getTime() : null;
+  const daysActive =
+    createdMs != null ? Math.max(0, Math.floor((Date.now() - createdMs) / 86_400_000)) : null;
+  const ua = request.headers.get("user-agent") ?? "";
+  const platform = /Capacitor|HouseSync|; wv\)/i.test(ua) ? "app" : "web";
+
   // Record churn feedback first (best-effort — never block the deletion).
   if (reason || comment) {
-    const { error: fbErr } = await admin.from("deletion_feedback").insert({ reason, comment });
+    const { error: fbErr } = await admin
+      .from("deletion_feedback")
+      .insert({ reason, comment, days_active: daysActive, platform });
     if (fbErr) console.error("deletion_feedback insert failed:", fbErr.message);
   }
 

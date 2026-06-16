@@ -5,6 +5,30 @@ friendly, benefit-led, "awkward money chats", light emoji.
 
 ---
 
+## LinkedIn #3 — personal "shipped new features" (written 2026-06-15)
+
+Personal account. Minimal emoji, natural founder voice (user's request). NO em dashes.
+Lead feature = in-app house chat; second feature = one-tap settle up (pay links).
+Attach `Desktop\housesync-shots-v2\chat-light-mobile.png`. Link in FIRST comment, then pin.
+
+> Most shared houses run on a WhatsApp group that's 90% memes and 10% "has anyone actually paid the electric bill?"
+>
+> I've been building HouseSync to sort out that 10%, and this week I shipped the feature I'm happiest with so far: a house chat built right into the app, sitting next to the bills and chores. So the "who owes what" conversation finally lives in the same place as the actual money, instead of scrolling back through 200 messages to find it.
+>
+> [attach chat screenshot]
+>
+> I also added one-tap settle up. When you owe a housemate, their Monzo, PayPal or Revolut link shows up right on the bill, so paying someone back stops being a sort-code treasure hunt.
+>
+> Still completely free for the whole house, and the Android app is on its way to the Play Store.
+>
+> If you're in a shared house now (or have chosen to forget), I'm genuinely curious where your house sorts out money and chores at the moment. Group chat? Spreadsheet? Passive-aggressive sticky notes?
+>
+> Link's in the comments if you want a look.
+
+First comment (post immediately, then pin): `Here's the site if you want a look → https://housesync.co.uk`
+
+---
+
 ## LinkedIn #2 — pre-launch waitlist push (written 2026-06-10, post Thu 2026-06-11 morning)
 
 ### Company page (post ~8:00am)
