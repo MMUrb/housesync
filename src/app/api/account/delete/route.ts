@@ -45,19 +45,32 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // Anonymous, non-identifying context for the churn report: how long they were
-  // a member, and which platform they left from. No id/email is stored.
-  const createdMs = user.created_at ? new Date(user.created_at).getTime() : null;
-  const daysActive =
-    createdMs != null ? Math.max(0, Math.floor((Date.now() - createdMs) / 86_400_000)) : null;
-  const ua = request.headers.get("user-agent") ?? "";
-  const platform = /Capacitor|HouseSync|; wv\)/i.test(ua) ? "app" : "web";
-
-  // Record churn feedback first (best-effort — never block the deletion).
+  // Record churn feedback first (best-effort — never block the deletion). All
+  // anonymous, non-identifying: how long they were a member, which platform
+  // they left from, and how much they actually used the app (no id/email).
   if (reason || comment) {
-    const { error: fbErr } = await admin
-      .from("deletion_feedback")
-      .insert({ reason, comment, days_active: daysActive, platform });
+    const createdMs = user.created_at ? new Date(user.created_at).getTime() : null;
+    const daysActive =
+      createdMs != null ? Math.max(0, Math.floor((Date.now() - createdMs) / 86_400_000)) : null;
+    const ua = request.headers.get("user-agent") ?? "";
+    const platform = /Capacitor|HouseSync|; wv\)/i.test(ua) ? "app" : "web";
+
+    // Count their activity before it's erased with the account.
+    const [housesRes, messagesRes, expensesRes] = await Promise.all([
+      admin.from("house_members").select("*", { count: "exact", head: true }).eq("user_id", user.id),
+      admin.from("messages").select("*", { count: "exact", head: true }).eq("user_id", user.id),
+      admin.from("expenses").select("*", { count: "exact", head: true }).eq("created_by", user.id),
+    ]);
+
+    const { error: fbErr } = await admin.from("deletion_feedback").insert({
+      reason,
+      comment,
+      days_active: daysActive,
+      platform,
+      houses_joined: housesRes.count ?? 0,
+      messages_sent: messagesRes.count ?? 0,
+      expenses_added: expensesRes.count ?? 0,
+    });
     if (fbErr) console.error("deletion_feedback insert failed:", fbErr.message);
   }
 

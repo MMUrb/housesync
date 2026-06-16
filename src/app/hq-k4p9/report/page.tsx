@@ -13,6 +13,9 @@ type Feedback = {
   created_at: string;
   days_active: number | null;
   platform: string | null;
+  houses_joined: number | null;
+  messages_sent: number | null;
+  expenses_added: number | null;
 };
 
 const DAY = 86_400_000;
@@ -63,7 +66,9 @@ export default async function ReportPage() {
   const admin = createAdminClient();
   const { data } = await admin
     .from("deletion_feedback")
-    .select("reason, comment, created_at, days_active, platform")
+    .select(
+      "reason, comment, created_at, days_active, platform, houses_joined, messages_sent, expenses_added",
+    )
     .order("created_at", { ascending: false })
     .limit(5000);
   const rows = (data ?? []) as Feedback[];
@@ -141,12 +146,21 @@ export default async function ReportPage() {
             <p className="p-4 text-sm text-slate-400">No written comments yet.</p>
           ) : (
             comments.map((c, i) => {
-              const dur = memberFor(c.days_active);
-              const plat = platformLabel(c.platform);
               const abs = new Date(c.created_at).toLocaleString("en-GB", {
                 dateStyle: "medium",
                 timeStyle: "short",
               });
+              const meta: string[] = [];
+              const dur = memberFor(c.days_active);
+              if (dur) meta.push(`Member for ${dur}`);
+              if (c.houses_joined != null)
+                meta.push(`${c.houses_joined} house${c.houses_joined === 1 ? "" : "s"}`);
+              if (c.messages_sent != null)
+                meta.push(`${c.messages_sent} message${c.messages_sent === 1 ? "" : "s"}`);
+              if (c.expenses_added != null)
+                meta.push(`${c.expenses_added} expense${c.expenses_added === 1 ? "" : "s"}`);
+              const plat = platformLabel(c.platform);
+              if (plat) meta.push(`via ${plat}`);
               return (
                 <div key={i} className="space-y-1.5 p-4">
                   <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -154,13 +168,12 @@ export default async function ReportPage() {
                     <span className="chip bg-slate-100 text-slate-500">
                       {deletionReasonLabel(c.reason)}
                     </span>
-                    {plat && <span className="chip bg-slate-100 text-slate-500">{plat}</span>}
-                    {dur && <span className="text-slate-500">Member for {dur}</span>}
                     <span className="text-slate-300">·</span>
                     <span className="text-slate-400" title={abs}>
                       {relTime(c.created_at)}
                     </span>
                   </div>
+                  {meta.length > 0 && <p className="text-xs text-slate-500">{meta.join(" · ")}</p>}
                   <p className="whitespace-pre-wrap break-words text-sm text-slate-700">
                     {c.comment}
                   </p>
