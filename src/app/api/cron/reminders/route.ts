@@ -23,13 +23,19 @@ function todayPlus(days: number): string {
  * Only emails members who have email reminders switched on.
  */
 export async function GET(request: Request) {
-  // Only allow Vercel Cron (or anyone with the secret) to run this.
+  // Only Vercel Cron (or someone with the secret) may run this. Fail CLOSED: if
+  // no secret is configured, refuse rather than run open to the whole internet.
+  // Vercel automatically sends "Authorization: Bearer <CRON_SECRET>" when the
+  // CRON_SECRET env var is set, so set it in the project for the cron to work.
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = request.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!secret) {
+    return NextResponse.json(
+      { error: "Reminders are not configured (set CRON_SECRET)." },
+      { status: 503 },
+    );
+  }
+  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (!isAdminConfigured || !isEmailConfigured) {

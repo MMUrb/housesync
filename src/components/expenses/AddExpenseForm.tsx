@@ -112,7 +112,9 @@ export function AddExpenseForm({
         const path = `${houseId}/${Date.now()}-${safe}`;
         const { error: upErr } = await supabase.storage.from("receipts").upload(path, receipt);
         if (upErr) throw upErr;
-        receiptUrl = supabase.storage.from("receipts").getPublicUrl(path).data.publicUrl;
+        // Receipts live in a PRIVATE bucket, so store the storage path (not a
+        // public URL). View it later via a short-lived signed URL.
+        receiptUrl = path;
       }
 
       // 2. Create the expense.
