@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { currencySymbol, formatMoney } from "@/lib/format";
 import { defaultNextDue } from "@/lib/recurrence";
 import { BILL_FREQUENCIES, type BillFrequency, type MemberWithProfile } from "@/lib/types";
+import { CategoryPicker } from "@/components/categories/CategoryPicker";
 
 type Cat = { code: string; name: string; emoji: string; color: string };
 
@@ -175,26 +176,12 @@ export function AddBillForm({
           </div>
         </div>
 
-        <div>
-          <span className="label">Category</span>
-          <div className="flex flex-wrap gap-2">
-            {categories.map((c) => (
-              <button
-                key={c.code}
-                type="button"
-                onClick={() => setCategory(c.code)}
-                className={`chip border ${
-                  category === c.code
-                    ? "border-brand-500 bg-brand-50 text-brand-700"
-                    : "border-slate-200 bg-white text-slate-600"
-                }`}
-              >
-                <span>{c.emoji}</span>
-                {c.name}
-              </button>
-            ))}
-          </div>
-        </div>
+        <CategoryPicker
+          houseId={houseId}
+          categories={categories}
+          value={category}
+          onChange={setCategory}
+        />
       </div>
 
       <div className="card flex items-center justify-between p-4">
