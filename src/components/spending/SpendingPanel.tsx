@@ -178,7 +178,7 @@ export function SpendingPanel({
             className="cursor-pointer appearance-none bg-transparent font-semibold focus:outline-none"
           >
             {scopes.map((s, i) => (
-              <option key={s.key} value={i} className="text-slate-900">
+              <option key={s.key} value={i}>
                 {s.label}
               </option>
             ))}
