@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatMoney } from "@/lib/format";
 import { buildCatLookup } from "@/lib/categories";
+import { IconChevronDown, IconCheck } from "@/components/icons";
 
 export type SpendExpense = { id: string; amount: number; category: string; date: string };
 export type SpendSplit = { expense_id: string; user_id: string; amount_owed: number };
@@ -95,11 +96,23 @@ export function SpendingPanel({
   );
 
   const [scopeIdx, setScopeIdx] = useState(scopes.findIndex((s) => s.key === meId) >= 0 ? 1 : 0);
+  const [scopeOpen, setScopeOpen] = useState(false);
   const [period, setPeriod] = useState<Period>("month");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
-  const scope = scopes[Math.min(scopeIdx, scopes.length - 1)];
+  // Close the custom scope dropdown on outside click (matches HouseSwitcher).
+  const scopeRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (scopeRef.current && !scopeRef.current.contains(e.target as Node)) setScopeOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const activeIdx = Math.min(scopeIdx, scopes.length - 1);
+  const scope = scopes[activeIdx];
 
   // Per-(expense, user) share lookup for fast person scoping.
   const shareOf = useMemo(() => {
@@ -169,27 +182,48 @@ export function SpendingPanel({
     <div className="card p-4">
       {/* Controls */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="relative inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1.5 pl-3 pr-7 text-sm font-semibold text-slate-700 dark:bg-white/[0.04]">
-          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: scope.color }} />
-          <select
-            value={scopeIdx}
-            onChange={(e) => setScopeIdx(Number(e.target.value))}
-            aria-label="Whose spending to show"
-            className="cursor-pointer appearance-none bg-transparent font-semibold focus:outline-none"
+        <div className="relative" ref={scopeRef}>
+          <button
+            type="button"
+            onClick={() => setScopeOpen((o) => !o)}
+            aria-haspopup="listbox"
+            aria-expanded={scopeOpen}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1.5 pl-3 pr-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
           >
-            {scopes.map((s, i) => (
-              <option key={s.key} value={i}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-          <svg
-            viewBox="0 0 20 20"
-            fill="none"
-            className="pointer-events-none absolute right-2.5 h-3.5 w-3.5 text-slate-400"
-          >
-            <path d="M7 8l3 3 3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: scope.color }} />
+            <span className="max-w-[44vw] truncate">{scope.label}</span>
+            <IconChevronDown
+              className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${scopeOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {scopeOpen && (
+            <div className="absolute left-0 top-full z-50 mt-1.5 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
+              <ul className="max-h-72 overflow-y-auto py-1">
+                {scopes.map((s, i) => {
+                  const active = i === activeIdx;
+                  return (
+                    <li key={s.key}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScopeIdx(i);
+                          setScopeOpen(false);
+                        }}
+                        className={`flex w-full items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-white/[0.06] ${
+                          active ? "bg-slate-50 dark:bg-white/[0.04]" : ""
+                        }`}
+                      >
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+                        <span className="min-w-0 flex-1 truncate text-left text-slate-800">{s.label}</span>
+                        {active && <IconCheck className="h-4 w-4 shrink-0 text-brand-600" />}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </div>
 
         <div className="flex rounded-lg bg-slate-100 p-0.5 text-xs font-semibold dark:bg-white/[0.06]">
