@@ -16,10 +16,23 @@ import {
   IconReceipt,
   IconRepeat,
 } from "@/components/icons";
-import type { MemberWithProfile } from "@/lib/types";
+import { EXPENSE_CATEGORIES, type MemberWithProfile } from "@/lib/types";
 
 export const metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
+
+const CAT_COLOR: Record<string, string> = {
+  rent: "#6f53f5",
+  bills: "#3f9fe0",
+  groceries: "#1bb27e",
+  cleaning: "#e0b53f",
+  furniture: "#e0567f",
+  other: "#94a3b8",
+};
+const CAT_LABEL: Record<string, string> = Object.fromEntries(
+  EXPENSE_CATEGORIES.map((c) => [c.value, c.label]),
+);
+const DAY = 86_400_000;
 
 export default async function DashboardPage() {
   const { user, profile, house, members } = await requireHouse();
@@ -33,6 +46,40 @@ export default async function DashboardPage() {
   const balances = computeBalances(expenses, splits, user.id);
   const memberOf = (id: string | null): MemberWithProfile | undefined =>
     members.find((m) => m.user_id === id);
+
+  // Personal spending insights — the user's own share of expenses over time
+  // and by category. "This month" is the calendar month; week/day are rolling.
+  const expenseById = new Map(expenses.map((e) => [e.id, e]));
+  const nowD = new Date();
+  const startOfMonth = new Date(nowD.getFullYear(), nowD.getMonth(), 1).getTime();
+  const weekAgo = Date.now() - 7 * DAY;
+  const monthAgo = Date.now() - 30 * DAY;
+  let spendMonth = 0;
+  let spendWeek = 0;
+  let spend30 = 0;
+  const byCat: Record<string, number> = {};
+  for (const s of splits) {
+    if (s.user_id !== user.id) continue;
+    const e = expenseById.get(s.expense_id);
+    if (!e) continue;
+    const amt = Number(s.amount_owed) || 0;
+    const t = new Date(`${e.date}T00:00:00`).getTime();
+    if (t >= startOfMonth) spendMonth += amt;
+    if (t >= weekAgo) spendWeek += amt;
+    if (t >= monthAgo) {
+      spend30 += amt;
+      byCat[e.category] = (byCat[e.category] ?? 0) + amt;
+    }
+  }
+  const avgDay = spend30 / 30;
+  const catSegments = Object.entries(byCat)
+    .map(([code, amount]) => ({
+      code,
+      amount,
+      label: CAT_LABEL[code] ?? code,
+      color: CAT_COLOR[code] ?? "#94a3b8",
+    }))
+    .sort((a, b) => b.amount - a.amount);
 
   const upcomingBills = bills
     .filter((b) => b.active && b.next_due_date)
@@ -65,6 +112,57 @@ export default async function DashboardPage() {
           <p className="mt-1 text-2xl font-bold text-mint-600">
             {formatMoney(balances.totalYouAreOwed, house.currency)}
           </p>
+        </div>
+      </section>
+
+      {/* Your spending */}
+      <section className="space-y-2">
+        <h2 className="px-1 text-sm font-semibold text-slate-900">Your spending</h2>
+        <div className="card p-4">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div>
+              <p className="text-lg font-bold text-slate-900">
+                {formatMoney(spendMonth, house.currency)}
+              </p>
+              <p className="text-[11px] text-slate-500">This month</p>
+            </div>
+            <div>
+              <p className="text-lg font-bold text-slate-900">
+                {formatMoney(spendWeek, house.currency)}
+              </p>
+              <p className="text-[11px] text-slate-500">This week</p>
+            </div>
+            <div>
+              <p className="text-lg font-bold text-slate-900">
+                {formatMoney(avgDay, house.currency)}
+              </p>
+              <p className="text-[11px] text-slate-500">Per day (avg)</p>
+            </div>
+          </div>
+
+          {spend30 > 0 ? (
+            <div className="mt-4 flex items-center gap-5 border-t border-slate-100 pt-4">
+              <SpendingDonut segments={catSegments} total={spend30} currency={house.currency} />
+              <ul className="min-w-0 flex-1 space-y-1.5">
+                {catSegments.map((c) => (
+                  <li key={c.code} className="flex items-center gap-2 text-sm">
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: c.color }}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-slate-600">{c.label}</span>
+                    <span className="font-medium text-slate-800">
+                      {formatMoney(c.amount, house.currency)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="mt-3 border-t border-slate-100 pt-3 text-center text-xs text-slate-400">
+              Add an expense to see where your money goes.
+            </p>
+          )}
         </div>
       </section>
 
@@ -197,6 +295,55 @@ export default async function DashboardPage() {
           </ul>
         )}
       </Section>
+    </div>
+  );
+}
+
+function SpendingDonut({
+  segments,
+  total,
+  currency,
+}: {
+  segments: { color: string; amount: number }[];
+  total: number;
+  currency: string;
+}) {
+  let offset = 0;
+  return (
+    <div className="relative h-28 w-28 shrink-0">
+      <svg viewBox="0 0 36 36" className="h-28 w-28 -rotate-90">
+        <circle
+          cx="18"
+          cy="18"
+          r="15.9155"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3.6"
+          className="text-slate-100 dark:text-white/10"
+        />
+        {segments.map((s, i) => {
+          const pct = total > 0 ? (s.amount / total) * 100 : 0;
+          const el = (
+            <circle
+              key={i}
+              cx="18"
+              cy="18"
+              r="15.9155"
+              fill="none"
+              stroke={s.color}
+              strokeWidth="3.6"
+              strokeDasharray={`${pct} ${100 - pct}`}
+              strokeDashoffset={`${-offset}`}
+            />
+          );
+          offset += pct;
+          return el;
+        })}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-sm font-bold text-slate-900">{formatMoney(total, currency)}</span>
+        <span className="text-[9px] uppercase tracking-wide text-slate-400">30 days</span>
+      </div>
     </div>
   );
 }
