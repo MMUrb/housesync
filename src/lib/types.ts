@@ -168,6 +168,7 @@ export interface AccountSettings {
   email_verified_at: string | null;
   email_verify_token: string | null;
   email_verify_expires: string | null;
+  monthly_budget: number | null;
 }
 
 export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string; emoji: string }[] = [

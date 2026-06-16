@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  getAccountSettings,
   getActivity,
   getBills,
   getChores,
@@ -19,19 +20,33 @@ import {
 } from "@/components/icons";
 import type { MemberWithProfile } from "@/lib/types";
 import { SpendingPanel } from "@/components/spending/SpendingPanel";
+import { BudgetCard } from "@/components/spending/BudgetCard";
 
 export const metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const { user, profile, house, members } = await requireHouse();
-  const [{ expenses, splits }, bills, chores, activity, categories] = await Promise.all([
+  const [{ expenses, splits }, bills, chores, activity, categories, account] = await Promise.all([
     getExpensesAndSplits(house.id),
     getBills(house.id),
     getChores(house.id),
     getActivity(house.id, 8),
     getHouseCategories(house.id),
+    getAccountSettings(),
   ]);
+
+  // The user's own share spent in the current calendar month (for the budget).
+  const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+  const dateById = new Map(expenses.map((e) => [e.id, e.date]));
+  let spentThisMonth = 0;
+  for (const s of splits) {
+    if (s.user_id !== user.id) continue;
+    const dt = dateById.get(s.expense_id);
+    if (dt && new Date(`${dt}T00:00:00`).getTime() >= startOfMonth) {
+      spentThisMonth += Number(s.amount_owed);
+    }
+  }
 
   const balances = computeBalances(expenses, splits, user.id);
   const memberOf = (id: string | null): MemberWithProfile | undefined =>
@@ -98,6 +113,12 @@ export default async function DashboardPage() {
       {/* Spending explorer */}
       <section className="space-y-2">
         <h2 className="px-1 text-sm font-semibold text-slate-900">Spending</h2>
+        <BudgetCard
+          userId={user.id}
+          currency={house.currency}
+          spentThisMonth={spentThisMonth}
+          initialBudget={account?.monthly_budget ?? null}
+        />
         <SpendingPanel
           expenses={spendExpenses}
           splits={spendSplits}

@@ -150,7 +150,7 @@ export function SpendingPanel({
 
   const unit = period === "month" ? "month" : period === "week" ? "week" : "period";
   const insight = useMemo(() => {
-    if (total === 0) return "Nothing tracked here yet — add an expense to see the trend.";
+    if (total === 0) return "Nothing tracked here yet. Add an expense to see the trend.";
     const last = series[series.length - 1]?.total ?? 0;
     const prev = series[series.length - 2]?.total ?? 0;
     let trend = "";
@@ -169,18 +169,28 @@ export function SpendingPanel({
     <div className="card p-4">
       {/* Controls */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => setScopeIdx((i) => (i + 1) % scopes.length)}
-          aria-label="Change who"
-          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-brand-400 dark:bg-white/[0.04]"
-        >
-          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: scope.color }} />
-          {scope.label}
-          <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5 text-slate-400">
+        <div className="relative inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1.5 pl-3 pr-7 text-sm font-semibold text-slate-700 dark:bg-white/[0.04]">
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: scope.color }} />
+          <select
+            value={scopeIdx}
+            onChange={(e) => setScopeIdx(Number(e.target.value))}
+            aria-label="Whose spending to show"
+            className="cursor-pointer appearance-none bg-transparent font-semibold focus:outline-none"
+          >
+            {scopes.map((s, i) => (
+              <option key={s.key} value={i} className="text-slate-900">
+                {s.label}
+              </option>
+            ))}
+          </select>
+          <svg
+            viewBox="0 0 20 20"
+            fill="none"
+            className="pointer-events-none absolute right-2.5 h-3.5 w-3.5 text-slate-400"
+          >
             <path d="M7 8l3 3 3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-        </button>
+        </div>
 
         <div className="flex rounded-lg bg-slate-100 p-0.5 text-xs font-semibold dark:bg-white/[0.06]">
           {(["week", "month", "custom"] as Period[]).map((p) => (
