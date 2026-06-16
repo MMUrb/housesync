@@ -4,6 +4,7 @@ import {
   getBills,
   getChores,
   getExpensesAndSplits,
+  getHouseCategories,
   requireHouse,
 } from "@/lib/data";
 import { computeBalances } from "@/lib/balances";
@@ -24,11 +25,12 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const { user, profile, house, members } = await requireHouse();
-  const [{ expenses, splits }, bills, chores, activity] = await Promise.all([
+  const [{ expenses, splits }, bills, chores, activity, categories] = await Promise.all([
     getExpensesAndSplits(house.id),
     getBills(house.id),
     getChores(house.id),
     getActivity(house.id, 8),
+    getHouseCategories(house.id),
   ]);
 
   const balances = computeBalances(expenses, splits, user.id);
@@ -51,6 +53,12 @@ export default async function DashboardPage() {
     id: m.user_id,
     name: m.profile?.name ?? "Housemate",
     color: m.profile?.avatar_color ?? "#6f53f5",
+  }));
+  const spendCategories = categories.map((c) => ({
+    code: c.code,
+    name: c.name,
+    emoji: c.emoji,
+    color: c.color,
   }));
 
   const upcomingBills = bills
@@ -94,6 +102,7 @@ export default async function DashboardPage() {
           expenses={spendExpenses}
           splits={spendSplits}
           members={spendMembers}
+          categories={spendCategories}
           meId={user.id}
           currency={house.currency}
         />

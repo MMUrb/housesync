@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { splitEqually } from "@/lib/balances";
 import { formatMoney, currencySymbol } from "@/lib/format";
-import { EXPENSE_CATEGORIES, type ExpenseCategory, type SplitType } from "@/lib/types";
+import { type SplitType } from "@/lib/types";
+
+type Cat = { code: string; name: string; emoji: string; color: string };
 import type { MemberWithProfile } from "@/lib/types";
 import { Avatar } from "@/components/Avatar";
 
@@ -18,11 +20,13 @@ export function AddExpenseForm({
   currentUserId,
   currency,
   members,
+  categories,
 }: {
   houseId: string;
   currentUserId: string;
   currency: string;
   members: MemberWithProfile[];
+  categories: Cat[];
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -30,7 +34,9 @@ export function AddExpenseForm({
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [paidBy, setPaidBy] = useState(currentUserId);
-  const [category, setCategory] = useState<ExpenseCategory>("bills");
+  const [category, setCategory] = useState<string>(
+    (categories.find((c) => c.code === "bills") ?? categories[0])?.code ?? "bills",
+  );
   const [date, setDate] = useState(today());
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(members.map((m) => m.user_id)),
@@ -245,19 +251,19 @@ export function AddExpenseForm({
         <div>
           <span className="label">Category</span>
           <div className="flex flex-wrap gap-2">
-            {EXPENSE_CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <button
-                key={c.value}
+                key={c.code}
                 type="button"
-                onClick={() => setCategory(c.value)}
+                onClick={() => setCategory(c.code)}
                 className={`chip border ${
-                  category === c.value
+                  category === c.code
                     ? "border-brand-500 bg-brand-50 text-brand-700"
                     : "border-slate-200 bg-white text-slate-600"
                 }`}
               >
                 <span>{c.emoji}</span>
-                {c.label}
+                {c.name}
               </button>
             ))}
           </div>

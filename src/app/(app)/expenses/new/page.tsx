@@ -1,4 +1,4 @@
-import { requireHouse } from "@/lib/data";
+import { getHouseCategories, requireHouse } from "@/lib/data";
 import { PageTitle } from "@/components/app/PageTitle";
 import { AddExpenseForm } from "@/components/expenses/AddExpenseForm";
 
@@ -7,6 +7,12 @@ export const dynamic = "force-dynamic";
 
 export default async function NewExpensePage() {
   const { user, house, members } = await requireHouse();
+  const categories = (await getHouseCategories(house.id)).map((c) => ({
+    code: c.code,
+    name: c.name,
+    emoji: c.emoji,
+    color: c.color,
+  }));
 
   return (
     <div>
@@ -16,6 +22,7 @@ export default async function NewExpensePage() {
         currentUserId={user.id}
         currency={house.currency}
         members={members}
+        categories={categories}
       />
     </div>
   );

@@ -5,31 +5,31 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { currencySymbol, formatMoney } from "@/lib/format";
 import { defaultNextDue } from "@/lib/recurrence";
-import {
-  BILL_FREQUENCIES,
-  EXPENSE_CATEGORIES,
-  type BillFrequency,
-  type ExpenseCategory,
-  type MemberWithProfile,
-} from "@/lib/types";
+import { BILL_FREQUENCIES, type BillFrequency, type MemberWithProfile } from "@/lib/types";
+
+type Cat = { code: string; name: string; emoji: string; color: string };
 
 export function AddBillForm({
   houseId,
   currentUserId,
   currency,
   members,
+  categories,
 }: {
   houseId: string;
   currentUserId: string;
   currency: string;
   members: MemberWithProfile[];
+  categories: Cat[];
 }) {
   const router = useRouter();
   const supabase = createClient();
 
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState<ExpenseCategory>("bills");
+  const [category, setCategory] = useState<string>(
+    (categories.find((c) => c.code === "bills") ?? categories[0])?.code ?? "bills",
+  );
   const [frequency, setFrequency] = useState<BillFrequency>("monthly");
   const [nextDue, setNextDue] = useState(() => defaultNextDue("monthly"));
   const [paidBy, setPaidBy] = useState(currentUserId);
@@ -178,19 +178,19 @@ export function AddBillForm({
         <div>
           <span className="label">Category</span>
           <div className="flex flex-wrap gap-2">
-            {EXPENSE_CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <button
-                key={c.value}
+                key={c.code}
                 type="button"
-                onClick={() => setCategory(c.value)}
+                onClick={() => setCategory(c.code)}
                 className={`chip border ${
-                  category === c.value
+                  category === c.code
                     ? "border-brand-500 bg-brand-50 text-brand-700"
                     : "border-slate-200 bg-white text-slate-600"
                 }`}
               >
                 <span>{c.emoji}</span>
-                {c.label}
+                {c.name}
               </button>
             ))}
           </div>

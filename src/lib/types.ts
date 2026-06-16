@@ -2,13 +2,20 @@
 
 export type SplitType = "equal" | "custom" | "percentage";
 export type SplitStatus = "unpaid" | "paid" | "confirmed";
-export type ExpenseCategory =
-  | "rent"
-  | "bills"
-  | "groceries"
-  | "cleaning"
-  | "furniture"
-  | "other";
+// Category is a per-house code (the defaults below, or a custom one the house
+// added). Stored as free text; resolved for display via house_categories.
+export type ExpenseCategory = string;
+
+export interface HouseCategory {
+  id: string;
+  house_id: string;
+  code: string;
+  name: string;
+  emoji: string;
+  color: string;
+  sort: number;
+  archived: boolean;
+}
 export type BillFrequency = "weekly" | "monthly" | "quarterly" | "yearly";
 export type ChoreRepeat = "once" | "weekly" | "fortnightly" | "monthly";
 export type ChoreStatus = "todo" | "done" | "missed";

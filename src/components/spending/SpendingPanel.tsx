@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { formatMoney } from "@/lib/format";
-import { catColor, catLabel } from "@/lib/categories";
+import { buildCatLookup } from "@/lib/categories";
 
 export type SpendExpense = { id: string; amount: number; category: string; date: string };
 export type SpendSplit = { expense_id: string; user_id: string; amount_owed: number };
 export type SpendMember = { id: string; name: string; color: string };
+export type SpendCategory = { code: string; name: string; emoji: string; color: string };
 
 type Period = "month" | "week" | "custom";
 const DAY = 86_400_000;
@@ -70,15 +71,18 @@ export function SpendingPanel({
   expenses,
   splits,
   members,
+  categories,
   meId,
   currency,
 }: {
   expenses: SpendExpense[];
   splits: SpendSplit[];
   members: SpendMember[];
+  categories: SpendCategory[];
   meId: string;
   currency: string;
 }) {
+  const lookup = useMemo(() => buildCatLookup(categories), [categories]);
   const scopes = useMemo(
     () => [
       { key: "house", label: "Whole house", color: "#6f53f5" },
@@ -135,7 +139,10 @@ export function SpendingPanel({
     const total = series.reduce((s, x) => s + x.total, 0);
     const max = Math.max(0.01, ...series.map((s) => s.total));
     const cats = Object.entries(byCat)
-      .map(([code, amount]) => ({ code, amount, label: catLabel(code), color: catColor(code) }))
+      .map(([code, amount]) => {
+        const m = lookup(code);
+        return { code, amount, label: m.name, color: m.color };
+      })
       .sort((a, b) => b.amount - a.amount);
     return { series, total, max, cats };
     // eslint-disable-next-line react-hooks/exhaustive-deps

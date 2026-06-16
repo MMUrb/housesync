@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { getBills, getSplitsForExpenses, getVisiblePaymentDetails, requireHouse } from "@/lib/data";
+import {
+  getBills,
+  getHouseCategories,
+  getSplitsForExpenses,
+  getVisiblePaymentDetails,
+  requireHouse,
+} from "@/lib/data";
+import { buildCatLookup } from "@/lib/categories";
 import { createClient } from "@/lib/supabase/server";
 import { PageTitle } from "@/components/app/PageTitle";
 import { LogBillButton } from "@/components/bills/LogBillButton";
@@ -8,12 +15,10 @@ import { Avatar } from "@/components/Avatar";
 import { IconPlus } from "@/components/icons";
 import { formatMoney } from "@/lib/format";
 import { splitEqually } from "@/lib/balances";
-import { EXPENSE_CATEGORIES, type Expense, type ExpenseSplit, type SplitStatus } from "@/lib/types";
+import { type Expense, type ExpenseSplit, type SplitStatus } from "@/lib/types";
 
 export const metadata = { title: "Bills" };
 export const dynamic = "force-dynamic";
-
-const EMOJI = Object.fromEntries(EXPENSE_CATEGORIES.map((c) => [c.value, c.emoji]));
 
 function dueLabel(next: string | null): { text: string; tone: "muted" | "soon" | "over" } {
   if (!next) return { text: "", tone: "muted" };
@@ -33,7 +38,12 @@ function dueLabel(next: string | null): { text: string; tone: "muted" | "soon" |
 
 export default async function BillsPage() {
   const { user, house, members } = await requireHouse();
-  const [bills, payMap] = await Promise.all([getBills(house.id), getVisiblePaymentDetails()]);
+  const [bills, payMap, houseCats] = await Promise.all([
+    getBills(house.id),
+    getVisiblePaymentDetails(),
+    getHouseCategories(house.id),
+  ]);
+  const catLookup = buildCatLookup(houseCats);
   const memberIds = members.map((m) => m.user_id);
   const profileOf = (id: string | null) => members.find((m) => m.user_id === id)?.profile ?? null;
   const nameOf = (id: string | null) =>
@@ -106,7 +116,7 @@ export default async function BillsPage() {
                 {/* Header */}
                 <div className="flex items-start gap-3">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-lg">
-                    {EMOJI[b.category] ?? "💡"}
+                    {catLookup(b.category).emoji}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">

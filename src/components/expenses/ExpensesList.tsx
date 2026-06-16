@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import { formatMoney, formatDate } from "@/lib/format";
-import { EXPENSE_CATEGORIES, type ExpenseCategory } from "@/lib/types";
+import { buildCatLookup } from "@/lib/categories";
+
+type Cat = { code: string; name: string; emoji: string; color: string };
 
 export interface ExpenseVM {
   id: string;
   title: string;
   amount: number;
-  category: ExpenseCategory;
+  category: string;
   date: string;
   paidByName: string;
   paidByYou: boolean;
@@ -16,17 +18,22 @@ export interface ExpenseVM {
   impactAmount: number;
 }
 
-const CAT_META: Record<ExpenseCategory, { emoji: string; label: string }> = Object.fromEntries(
-  EXPENSE_CATEGORIES.map((c) => [c.value, { emoji: c.emoji, label: c.label }]),
-) as Record<ExpenseCategory, { emoji: string; label: string }>;
-
-export function ExpensesList({ rows, currency }: { rows: ExpenseVM[]; currency: string }) {
-  const [cat, setCat] = useState<"all" | ExpenseCategory>("all");
+export function ExpensesList({
+  rows,
+  currency,
+  categories,
+}: {
+  rows: ExpenseVM[];
+  currency: string;
+  categories: Cat[];
+}) {
+  const lookup = buildCatLookup(categories);
+  const [cat, setCat] = useState<string>("all");
   const filtered = cat === "all" ? rows : rows.filter((r) => r.category === cat);
 
-  const tabs: ("all" | ExpenseCategory)[] = [
+  const tabs: string[] = [
     "all",
-    ...EXPENSE_CATEGORIES.map((c) => c.value).filter((v) => rows.some((r) => r.category === v)),
+    ...categories.map((c) => c.code).filter((code) => rows.some((r) => r.category === code)),
   ];
 
   return (
@@ -42,7 +49,7 @@ export function ExpensesList({ rows, currency }: { rows: ExpenseVM[]; currency: 
                 : "border-slate-200 bg-white text-slate-600"
             }`}
           >
-            {t === "all" ? "All" : `${CAT_META[t].emoji} ${CAT_META[t].label}`}
+            {t === "all" ? "All" : `${lookup(t).emoji} ${lookup(t).name}`}
           </button>
         ))}
       </div>
@@ -54,7 +61,7 @@ export function ExpensesList({ rows, currency }: { rows: ExpenseVM[]; currency: 
           {filtered.map((r) => (
             <li key={r.id} className="flex items-center gap-3 p-3.5">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-lg">
-                {CAT_META[r.category]?.emoji ?? "📦"}
+                {lookup(r.category).emoji}
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-slate-900">{r.title}</p>

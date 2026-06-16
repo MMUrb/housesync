@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getExpensesAndSplits, requireHouse } from "@/lib/data";
+import { getExpensesAndSplits, getHouseCategories, requireHouse } from "@/lib/data";
 import { PageTitle } from "@/components/app/PageTitle";
 import { ExpensesList, type ExpenseVM } from "@/components/expenses/ExpensesList";
 import { IconPlus } from "@/components/icons";
@@ -9,7 +9,16 @@ export const dynamic = "force-dynamic";
 
 export default async function ExpensesPage() {
   const { user, house, members } = await requireHouse();
-  const { expenses, splits } = await getExpensesAndSplits(house.id);
+  const [{ expenses, splits }, houseCats] = await Promise.all([
+    getExpensesAndSplits(house.id),
+    getHouseCategories(house.id),
+  ]);
+  const categories = houseCats.map((c) => ({
+    code: c.code,
+    name: c.name,
+    emoji: c.emoji,
+    color: c.color,
+  }));
 
   const nameOf = (id: string | null) =>
     members.find((m) => m.user_id === id)?.profile?.name ?? "Someone";
@@ -58,7 +67,7 @@ export default async function ExpensesPage() {
       {rows.length === 0 ? (
         <EmptyExpenses />
       ) : (
-        <ExpensesList rows={rows} currency={house.currency} />
+        <ExpensesList rows={rows} currency={house.currency} categories={categories} />
       )}
     </div>
   );

@@ -11,6 +11,7 @@ import type {
   Expense,
   ExpenseSplit,
   House,
+  HouseCategory,
   MemberWithProfile,
   Message,
   PaymentDetails,
@@ -105,6 +106,18 @@ export const getChatUnread = cache(async (houseId: string, userId: string): Prom
     .neq("user_id", userId)
     .gt("created_at", since);
   return (count ?? 0) > 0;
+});
+
+/** The house's editable expense categories (active only), in display order. */
+export const getHouseCategories = cache(async (houseId: string): Promise<HouseCategory[]> => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("house_categories")
+    .select("*")
+    .eq("house_id", houseId)
+    .eq("archived", false)
+    .order("sort", { ascending: true });
+  return (data ?? []) as HouseCategory[];
 });
 
 /** Members of a house, each with their profile, oldest first. */

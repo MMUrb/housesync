@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getAccountSettings, getVisiblePaymentDetails, requireHouse } from "@/lib/data";
 import { PageTitle } from "@/components/app/PageTitle";
 import { InviteBox } from "@/components/house/InviteBox";
@@ -78,6 +79,17 @@ export default async function SettingsPage() {
         </div>
 
         <HouseSettingsForm house={house} />
+
+        <Link
+          href="/categories"
+          className="card flex items-center justify-between p-4 transition hover:bg-slate-50 dark:hover:bg-white/[0.04]"
+        >
+          <div>
+            <p className="text-sm font-medium text-slate-800">Expense categories</p>
+            <p className="text-xs text-slate-500">Rename, recolour, or add your own</p>
+          </div>
+          <span className="text-slate-300">→</span>
+        </Link>
 
         <div className="card p-4">
           <p className="mb-2 text-sm font-medium text-slate-800">Invite link</p>
