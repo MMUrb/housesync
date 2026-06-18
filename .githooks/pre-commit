@@ -1,0 +1,50 @@
+#!/bin/sh
+# ============================================================================
+# HouseSync secret guard (pre-commit).
+# Blocks a commit if it stages a real env file or content that looks like an
+# API key / private key, so a secret can never reach GitHub — the public-repo,
+# leaked-key, $55k-cloud-bill scenario. Activated via:
+#   git config core.hooksPath .githooks
+# A genuine false positive can be overridden with:
+#   git commit --no-verify
+# ============================================================================
+
+fail=0
+
+# 1) Block real env files (templates ending in .example are fine).
+for f in $(git diff --cached --name-only --diff-filter=ACM); do
+  case "$f" in
+    *.example) : ;;
+    .env|.env.*|*/.env|*/.env.*)
+      echo "BLOCKED: staging an env file -> $f"
+      echo "         Secrets belong in .env.local (gitignored), never in the repo."
+      fail=1
+      ;;
+  esac
+done
+
+# 2) Scan the ADDED lines of staged changes for secret-looking values.
+# Exclude the hooks dir itself (it contains these very patterns as text).
+added=$(git diff --cached --diff-filter=ACM -U0 -- . ':(exclude).githooks/**' | grep '^+' | grep -v '^+++')
+
+check() {
+  if printf '%s' "$added" | grep -nE -- "$1" >/dev/null 2>&1; then
+    echo "BLOCKED: a staged change looks like $2:"
+    printf '%s' "$added" | grep -nE -- "$1" | head -3
+    fail=1
+  fi
+}
+
+check 'sb_secret_[A-Za-z0-9]{8,}'                 'a Supabase secret key'
+check 'xkeysib-[A-Za-z0-9]{16,}'                  'a Brevo API key'
+check '-----BEGIN [A-Z ]*PRIVATE KEY-----'         'a private key'
+check 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'      'a JWT (possible Supabase service-role key)'
+check 'AKIA[0-9A-Z]{16}'                          'an AWS access key'
+
+if [ "$fail" -ne 0 ]; then
+  echo ""
+  echo "Commit aborted by .githooks/pre-commit."
+  echo "If you are certain this is a false positive: git commit --no-verify"
+  exit 1
+fi
+exit 0

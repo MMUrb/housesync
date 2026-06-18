@@ -1,0 +1,2 @@
+# Keep shell hooks as LF so the shebang isn't broken by CRLF on Windows.
+.githooks/** text eol=lf
