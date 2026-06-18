@@ -193,25 +193,25 @@ Fill in `[OPT-IN LINK]` once the closed track is rolled out.
 
 **Chat groups (Telegram / Discord / WhatsApp testing groups):**
 ```
-Hi all! 👋 Looking for ~12 testers for my Android app, HouseSync — it helps housemates split rent, bills & the food shop, track chores, and settle up without the awkward money chats.
+Hi all! 👋 Looking for ~12 testers for my Android app, HouseSync. It helps housemates split rent, bills and the food shop, track chores, and settle up without the awkward money chats.
 
-It's a Google Play closed test, so all I need is:
+It's a Google Play closed test, so all I need from you is:
 1) Join here: [OPT-IN LINK]
 2) Install HouseSync from the Play Store
-3) Keep it installed for 14 days (open it now and then — feedback welcome but optional)
+3) Keep it installed for 14 days (open it now and then; feedback welcome but not required)
 
-Happy to test yours back — drop your link and I'll join 🙌 (Android only, cheers!)
+Happy to test yours back, just drop your link and I'll join 🙌 (Android only, cheers!)
 ```
 
 **Reddit (r/AndroidAppTesting / r/GooglePlayDeveloper):**
-Title: `[Android] HouseSync – split bills & chores with housemates (I'll test back ↔️)`
+Title: `[Android] HouseSync: split bills & chores with housemates (I'll test back ↔️)`
 ```
-Hey! Looking for 12 testers to clear Google's closed-testing requirement for my app, HouseSync — it helps housemates split rent, bills and groceries, track chores, and settle up.
+Hey! Looking for 12 testers to clear Google's closed-testing requirement for my app, HouseSync. It helps housemates split rent, bills and groceries, track chores, and settle up.
 
 What I need:
 - Join the test: [OPT-IN LINK]
 - Install from the Play Store and keep it for 14 days
 - Open it occasionally; feedback welcome but not required
 
-I'll happily test your app back — comment your link and I'll opt in. Android only. Thanks a ton! 🙏
+I'll happily test your app back, comment your link and I'll opt in. Android only. Thanks a ton! 🙏
 ```
