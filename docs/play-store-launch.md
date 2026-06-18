@@ -153,7 +153,35 @@ one at housesync.co.uk and don't change its password before review).
 6. Install via the internal-test opt-in link on your phone and sanity-check the
    signed build.
 
-When happy → **promote the release to Production**, complete any remaining
-listing tasks, and **set `WAITLIST_ENABLED=false` in Vercel + redeploy** so the
-public can actually use it.
-```
+When the build checks out, **do NOT jump to Production** — a new personal
+account must clear closed testing first (below).
+
+---
+
+## 7) Closed testing — REQUIRED before Production (12 testers / 14 days)
+A personal Play account must run a **closed test with at least 12 testers opted
+in for at least 14 continuous days** before it can publish to Production. Start
+this ASAP so the 14-day clock runs in the background.
+
+1. **Testing → Closed testing → Create track** (or use the default "Alpha").
+2. **Create new release** → upload the same **`Desktop\HouseSync-release.aab`**
+   (or promote the internal-testing release into this track) → release notes →
+   **Save → Review → Roll out**.
+3. **Testers** — use a **Google Group** (easiest to manage + grow):
+   - Create a group at https://groups.google.com (e.g. `housesync-testers`),
+     set "Who can join the group" so testers can join themselves.
+   - In the track's **Testers** tab, add that **group email address**.
+   - Testers join the group, then open the **opt-in link** (Play reveals it once
+     the release is live) on their Android phone and install from Play.
+     *(Email-list alternative: upload `Desktop\play-testers.csv`, one Gmail per line.)*
+4. **Get 12 real testers opted in** — housemates/friends + 1–2 of your own
+   devices + tester-exchange communities (r/AndroidAppTesting). Each must **stay
+   opted in** for the full 14 days; don't pad it with alt emails (Google checks).
+5. Watch **Testing → Closed testing → [your track]** — it shows the opted-in
+   count. After **12 testers for 14 continuous days**, **"Apply for production
+   access"** unlocks.
+
+## 8) Production (after closed testing clears)
+1. Apply for and receive production access (post the 12/14 closed test).
+2. Promote the release to **Production**; finish any remaining listing tasks.
+3. **Set `WAITLIST_ENABLED=false` in Vercel + redeploy** so the public can use it.
