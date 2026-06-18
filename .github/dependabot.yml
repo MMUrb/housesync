@@ -1,0 +1,14 @@
+# Automatic dependency vulnerability + version updates.
+# Dependabot opens PRs (grouped, weekly) when a dependency has an update or a
+# security fix, so patches don't pile up unnoticed.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      npm-dependencies:
+        patterns:
+          - "*"
