@@ -14,7 +14,7 @@ export const metadata = { title: "User", robots: { index: false, follow: false }
 const DAY = 86_400_000;
 
 function ageLabel(iso?: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / DAY);
   if (days < 1) return "today";
   if (days < 60) return `${days} day${days === 1 ? "" : "s"}`;
@@ -24,7 +24,7 @@ function ageLabel(iso?: string | null): string {
 }
 
 const fmt = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "—";
+  iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "-";
 
 type ProfileRow = {
   name: string | null;
@@ -76,8 +76,8 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
     houseNames = new Map(((data ?? []) as { id: string; name: string }[]).map((h) => [h.id, h.name]));
   }
 
-  const email = authUser?.email ?? profile?.email ?? "—";
-  const name = profile?.name ?? "—";
+  const email = authUser?.email ?? profile?.email ?? "-";
+  const name = profile?.name ?? "-";
 
   return (
     <AdminShell email={gate.user.email} active="users">
@@ -151,10 +151,10 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
             <span className="text-sm text-slate-400">No billing connected yet</span>
           </div>
           <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Field label="Plan" value="—" />
-            <Field label="Price" value="—" />
-            <Field label="Renews" value="—" />
-            <Field label="Status" value="—" />
+            <Field label="Plan" value="-" />
+            <Field label="Price" value="-" />
+            <Field label="Renews" value="-" />
+            <Field label="Status" value="-" />
           </dl>
           <p className="mt-3 text-xs text-slate-400">
             This section fills in once payments are added (e.g. Stripe or RevenueCat).

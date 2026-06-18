@@ -231,7 +231,7 @@ export default async function AdminOverviewPage() {
 
 function SignupsTable({ rows, nameById }: { rows: AdminUserRow[]; nameById: Map<string, string> }) {
   const fmt = (iso?: string | null) =>
-    iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "—";
+    iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "-";
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -258,10 +258,10 @@ function SignupsTable({ rows, nameById }: { rows: AdminUserRow[]; nameById: Map<
                     href={`${ADMIN_BASE}/users/${u.id}`}
                     className="font-medium text-brand-700 hover:underline"
                   >
-                    {u.email ?? "—"}
+                    {u.email ?? "-"}
                   </Link>
                 </td>
-                <td className="px-4 py-2.5 text-slate-500">{nameById.get(u.id) ?? "—"}</td>
+                <td className="px-4 py-2.5 text-slate-500">{nameById.get(u.id) ?? "-"}</td>
                 <td className="px-4 py-2.5 text-slate-500">{fmt(u.created_at)}</td>
                 <td className="px-4 py-2.5 text-slate-500">{fmt(u.last_sign_in_at)}</td>
               </tr>

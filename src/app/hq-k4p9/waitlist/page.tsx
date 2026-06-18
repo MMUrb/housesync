@@ -129,7 +129,7 @@ export default async function WaitlistAdminPage() {
                       <td className="px-4 py-2.5 text-slate-400">{signups.length - i}</td>
                       <td className="px-4 py-2.5 font-medium text-slate-700">{s.email}</td>
                       <td className="px-4 py-2.5 text-slate-500">{fmt(s.created_at)}</td>
-                      <td className="px-4 py-2.5 text-slate-500">{s.source ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-slate-500">{s.source ?? "-"}</td>
                     </tr>
                   ))
                 )}
@@ -172,7 +172,7 @@ export default async function WaitlistAdminPage() {
                     >
                       <td className="px-4 py-2.5 text-slate-500">{fmt(u.created_at)}</td>
                       <td className="px-4 py-2.5 text-slate-500">
-                        {[u.city, u.country].filter(Boolean).join(", ") || "—"}
+                        {[u.city, u.country].filter(Boolean).join(", ") || "-"}
                       </td>
                       <td className="px-4 py-2.5 text-slate-500">{deviceLabel(u.user_agent)}</td>
                     </tr>

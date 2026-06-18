@@ -117,7 +117,7 @@ export default async function ErrorsAdminPage() {
                       <td className="max-w-md px-4 py-2.5 text-slate-700">
                         <span className="line-clamp-2 break-words">{r.message}</span>
                       </td>
-                      <td className="px-4 py-2.5 text-slate-500">{r.url ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-slate-500">{r.url ?? "-"}</td>
                       <td className="px-4 py-2.5 text-right">
                         {r.resolved_at ? (
                           <span className="text-xs text-slate-300">resolved</span>

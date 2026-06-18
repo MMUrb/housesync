@@ -60,7 +60,7 @@ export default async function UsersPage({
   rows.sort((a, b) => msOf(b.created_at) - msOf(a.created_at));
 
   const fmt = (iso?: string | null) =>
-    iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "—";
+    iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "-";
 
   return (
     <AdminShell email={gate.user.email} active="users">
@@ -109,10 +109,10 @@ export default async function UsersPage({
                           href={`${ADMIN_BASE}/users/${u.id}`}
                           className="font-medium text-brand-700 hover:underline"
                         >
-                          {u.email ?? "—"}
+                          {u.email ?? "-"}
                         </Link>
                       </td>
-                      <td className="px-4 py-2.5 text-slate-500">{u.name || "—"}</td>
+                      <td className="px-4 py-2.5 text-slate-500">{u.name || "-"}</td>
                       <td className="px-4 py-2.5 text-slate-500">{fmt(u.created_at)}</td>
                       <td className="px-4 py-2.5 text-slate-500">{fmt(u.last_sign_in_at)}</td>
                       <td className="px-4 py-2.5 text-slate-500">{u.houses}</td>
