@@ -1,0 +1,59 @@
+# Cloud-Mac iOS build for HouseSync. Lets you build + sign + ship the iOS app
+# from Windows, with no local Mac. Runs on Codemagic (https://codemagic.io).
+#
+# ONE-TIME setup in the Codemagic web UI before this runs:
+#   1. Sign up and connect this GitHub repo (MMUrb/housesync).
+#   2. Team settings -> Integrations -> App Store Connect: add an API key
+#      (App Store Connect -> Users and Access -> Integrations -> App Store
+#      Connect API -> generate a key). Give it a name, and put that name in
+#      `integrations.app_store_connect` below.
+#   3. Create the app in App Store Connect (bundle id uk.co.housesync), then put
+#      its numeric Apple ID into APP_STORE_APPLE_ID below.
+#
+# After that, start a build in Codemagic (or push to main) and it builds, signs,
+# and uploads to TestFlight automatically.
+
+workflows:
+  ios-housesync:
+    name: HouseSync iOS (TestFlight)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: HouseSync ASC Key   # <- the name of your API key in Codemagic
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: uk.co.housesync
+      vars:
+        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+        APP_STORE_APPLE_ID: 0000000000        # <- your app's Apple ID from App Store Connect
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install node dependencies
+        script: npm ci
+      - name: Sync Capacitor iOS
+        script: npx cap sync ios
+      - name: Install CocoaPods
+        script: cd ios/App && pod install
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Auto-increment build number
+        script: |
+          cd ios/App
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          agvtool new-version -all $(($LATEST + 1))
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
