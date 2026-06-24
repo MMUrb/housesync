@@ -9,6 +9,7 @@ import { HouseSettingsForm } from "@/components/settings/HouseSettingsForm";
 import { DangerZone } from "@/components/settings/DangerZone";
 import { ThemeToggle } from "@/components/settings/ThemeToggle";
 import { PushToggle } from "@/components/push/PushToggle";
+import { EmailToggle } from "@/components/settings/EmailToggle";
 
 export const metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
@@ -67,6 +68,18 @@ export default async function SettingsPage() {
             paid: account?.notify_push_paid ?? true,
             chore: account?.notify_push_chore ?? true,
             member: account?.notify_push_member ?? true,
+          }}
+        />
+
+        <EmailToggle
+          userId={user.id}
+          initialPrefs={{
+            bills: account?.notify_email_bills ?? true,
+            nudges: account?.notify_email_nudges ?? true,
+            product: account?.notify_email_product ?? true,
+            tips: account?.notify_email_tips ?? true,
+            surveys: account?.notify_email_surveys ?? true,
+            offers: account?.notify_email_offers ?? true,
           }}
         />
 

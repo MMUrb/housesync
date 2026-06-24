@@ -87,17 +87,23 @@ export async function GET(request: Request) {
       .in("id", userIds);
     const { data: settings } = await supabase
       .from("account_settings")
-      .select("user_id, notify_email")
+      .select("user_id, notify_email, notify_email_bills, notify_email_nudges")
       .in("user_id", userIds);
 
     const profileById = new Map(((profiles ?? []) as any[]).map((p) => [p.id, p]));
-    const optInById = new Map(((settings ?? []) as any[]).map((s) => [s.user_id, s.notify_email]));
+    const settingsById = new Map(((settings ?? []) as any[]).map((s) => [s.user_id, s]));
 
-    // notify_email defaults to ON when there's no settings row yet.
-    const recipient = (uid: string): { email: string; name: string } | null => {
+    // Every flag defaults to ON when there's no settings row yet. A user is
+    // emailed only if the master (notify_email) AND the category are both on.
+    const recipient = (
+      uid: string,
+      category: "notify_email_bills" | "notify_email_nudges",
+    ): { email: string; name: string } | null => {
       const p = profileById.get(uid);
-      const optedIn = optInById.has(uid) ? optInById.get(uid) : true;
-      if (!optedIn || !p?.email) return null;
+      const s = settingsById.get(uid);
+      const masterOn = s ? s.notify_email !== false : true;
+      const categoryOn = s ? s[category] !== false : true;
+      if (!masterOn || !categoryOn || !p?.email) return null;
       return { email: p.email as string, name: (p.name as string) || "there" };
     };
 
@@ -108,7 +114,7 @@ export async function GET(request: Request) {
       for (let i = 0; i < userIds.length; i++) {
         const uid = userIds[i];
         if (uid === bill.paid_by) continue; // payer doesn't owe themselves
-        const r = recipient(uid);
+        const r = recipient(uid, "notify_email_bills");
         if (!r) continue;
         const due = relativeDay(bill.next_due_date);
         try {
@@ -149,7 +155,7 @@ export async function GET(request: Request) {
       for (const uid of userIds) {
         const net = balances.netByUser[uid] ?? 0;
         if (net >= -0.5) continue; // only nudge people who actually owe
-        const r = recipient(uid);
+        const r = recipient(uid, "notify_email_nudges");
         if (!r) continue;
         const owe = Math.round(-net * 100) / 100;
         try {
