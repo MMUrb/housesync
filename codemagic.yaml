@@ -28,7 +28,7 @@ workflows:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
         APP_STORE_APPLE_ID: 0000000000        # <- your app's Apple ID from App Store Connect
-      node: 20
+      node: 22
       xcode: latest
       cocoapods: default
     scripts:
@@ -65,7 +65,7 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 45
     environment:
-      node: 20
+      node: 22
       xcode: latest
       cocoapods: default
     scripts:
