@@ -57,3 +57,31 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
+
+  # Run THIS one now (before Apple enrolment) to confirm the iOS project
+  # compiles cleanly on a Mac. No Apple account, signing or upload involved.
+  ios-build-check:
+    name: HouseSync iOS build check (unsigned)
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install node dependencies
+        script: npm ci
+      - name: Sync Capacitor iOS
+        script: npx cap sync ios
+      - name: Install CocoaPods
+        script: cd ios/App && pod install
+      - name: Build without signing
+        script: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            build \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
