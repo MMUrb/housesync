@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageTitle } from "@/components/app/PageTitle";
 import { LogBillButton } from "@/components/bills/LogBillButton";
 import { BillPay } from "@/components/bills/BillPay";
+import { BillDetailsButton } from "@/components/bills/BillDetailsButton";
 import { Avatar } from "@/components/Avatar";
 import { IconPlus } from "@/components/icons";
 import { formatMoney } from "@/lib/format";
@@ -145,6 +146,19 @@ export default async function BillsPage() {
                         </>
                       ) : null}
                     </p>
+                    <BillDetailsButton
+                      title={b.title}
+                      amount={Number(b.amount)}
+                      currency={house.currency}
+                      emoji={catLookup(b.category).emoji}
+                      categoryName={catLookup(b.category).name}
+                      frequency={b.frequency}
+                      nextDue={b.next_due_date}
+                      paidByName={nameOf(b.paid_by)}
+                      reminderEnabled={b.reminder_enabled}
+                      memberCount={memberIds.length}
+                      perShare={perShare}
+                    />
                   </div>
                 </div>
 

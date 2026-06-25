@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getExpensesAndSplits, getHouseCategories, requireHouse } from "@/lib/data";
+import { createClient } from "@/lib/supabase/server";
 import { PageTitle } from "@/components/app/PageTitle";
 import { ExpensesList, type ExpenseVM } from "@/components/expenses/ExpensesList";
 import { IconPlus } from "@/components/icons";
@@ -23,6 +24,23 @@ export default async function ExpensesPage() {
   const nameOf = (id: string | null) =>
     members.find((m) => m.user_id === id)?.profile?.name ?? "Someone";
 
+  // Receipts live in a private bucket, so pre-sign a short-lived view URL for any
+  // expense that has one (the user can only sign receipts for their own houses).
+  const supabase = await createClient();
+  const receiptUrlById = new Map<string, string>();
+  await Promise.all(
+    expenses
+      .filter((e) => e.receipt_url)
+      .map(async (e) => {
+        const stored = e.receipt_url as string;
+        const marker = "/receipts/";
+        const i = stored.indexOf(marker);
+        const path = i >= 0 ? stored.slice(i + marker.length) : stored;
+        const { data } = await supabase.storage.from("receipts").createSignedUrl(path, 3600);
+        if (data?.signedUrl) receiptUrlById.set(e.id, data.signedUrl);
+      }),
+  );
+
   const rows: ExpenseVM[] = expenses.map((e) => {
     const mySplit = splits.find((s) => s.expense_id === e.id && s.user_id === user.id);
     const paidByYou = e.paid_by === user.id;
@@ -41,6 +59,16 @@ export default async function ExpensesPage() {
       impactKind = mySplit.status === "confirmed" ? "settled" : "owe";
     }
 
+    const breakdown = splits
+      .filter((s) => s.expense_id === e.id)
+      .map((s) => ({
+        name: s.user_id === user.id ? "You" : nameOf(s.user_id),
+        you: s.user_id === user.id,
+        amount: Number(s.amount_owed),
+        status: s.status,
+      }))
+      .sort((a, b) => (a.you === b.you ? b.amount - a.amount : a.you ? -1 : 1));
+
     return {
       id: e.id,
       title: e.title,
@@ -51,6 +79,11 @@ export default async function ExpensesPage() {
       paidByYou,
       impactKind,
       impactAmount,
+      splitType: e.split_type,
+      notes: e.notes,
+      createdAt: e.created_at,
+      receiptUrl: receiptUrlById.get(e.id) ?? null,
+      breakdown,
     };
   });
 
