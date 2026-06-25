@@ -59,8 +59,10 @@ export default async function ExpensesPage() {
       impactKind = mySplit.status === "confirmed" ? "settled" : "owe";
     }
 
-    const breakdown = splits
-      .filter((s) => s.expense_id === e.id)
+    const expSplits = splits.filter((s) => s.expense_id === e.id);
+    // Settled = nobody still owes (every split confirmed). Otherwise ongoing.
+    const settled = expSplits.length === 0 || expSplits.every((s) => s.status === "confirmed");
+    const breakdown = expSplits
       .map((s) => ({
         name: s.user_id === user.id ? "You" : nameOf(s.user_id),
         you: s.user_id === user.id,
@@ -83,6 +85,7 @@ export default async function ExpensesPage() {
       notes: e.notes,
       createdAt: e.created_at,
       receiptUrl: receiptUrlById.get(e.id) ?? null,
+      settled,
       breakdown,
     };
   });

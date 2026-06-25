@@ -17,6 +17,7 @@ export interface ExpenseVM {
   paidByYou: boolean;
   impactKind: "owe" | "owed" | "settled" | "none";
   impactAmount: number;
+  settled: boolean;
   // Detail (shown when a row is tapped):
   splitType: string;
   notes: string | null;
@@ -41,17 +42,44 @@ export function ExpensesList({
   categories: Cat[];
 }) {
   const lookup = buildCatLookup(categories);
+  const [status, setStatus] = useState<"ongoing" | "settled">(
+    rows.some((r) => !r.settled) ? "ongoing" : "settled",
+  );
   const [cat, setCat] = useState<string>("all");
   const [selected, setSelected] = useState<ExpenseVM | null>(null);
-  const filtered = cat === "all" ? rows : rows.filter((r) => r.category === cat);
+
+  const ongoingCount = rows.filter((r) => !r.settled).length;
+  const settledCount = rows.length - ongoingCount;
+
+  const byStatus = rows.filter((r) => (status === "settled" ? r.settled : !r.settled));
+  const filtered = cat === "all" ? byStatus : byStatus.filter((r) => r.category === cat);
 
   const tabs: string[] = [
     "all",
-    ...categories.map((c) => c.code).filter((code) => rows.some((r) => r.category === code)),
+    ...categories.map((c) => c.code).filter((code) => byStatus.some((r) => r.category === code)),
   ];
 
   return (
     <div>
+      <div className="mb-3 flex rounded-lg bg-slate-100 p-0.5 text-sm font-semibold dark:bg-white/[0.06]">
+        {(["ongoing", "settled"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => {
+              setStatus(s);
+              setCat("all");
+            }}
+            className={`flex-1 rounded-md px-3 py-1.5 capitalize transition ${
+              status === s
+                ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.12]"
+                : "text-slate-500"
+            }`}
+          >
+            {s} ({s === "ongoing" ? ongoingCount : settledCount})
+          </button>
+        ))}
+      </div>
+
       <div className="no-scrollbar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4">
         {tabs.map((t) => (
           <button
@@ -69,7 +97,11 @@ export function ExpensesList({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="card p-6 text-center text-sm text-slate-500">No expenses here yet.</div>
+        <div className="card p-6 text-center text-sm text-slate-500">
+          {status === "ongoing"
+            ? "Nothing ongoing here, all settled up 🎉"
+            : "No settled expenses here yet."}
+        </div>
       ) : (
         <ul className="card divide-y divide-slate-100">
           {filtered.map((r) => (
