@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatMoney } from "@/lib/format";
 import { buildReminderMessage } from "@/lib/reminders";
 import { Avatar } from "@/components/Avatar";
+import { FEATURES } from "@/lib/features";
 
 export interface SettleVM {
   userId: string;
@@ -39,10 +40,14 @@ export function SettleActions({
     );
   }
 
+  // FEATURES.smoothSettle picks the redesigned row; flip it off in lib/features.ts
+  // to revert to the original compact layout (SettleRowClassic) instantly.
+  const Row = FEATURES.smoothSettle ? SettleRow : SettleRowClassic;
+
   return (
     <ul className="space-y-3">
       {items.map((item) => (
-        <SettleRow
+        <Row
           key={item.userId}
           item={item}
           houseId={houseId}
@@ -54,17 +59,15 @@ export function SettleActions({
   );
 }
 
-function SettleRow({
-  item,
-  houseId,
-  currentUserId,
-  currency,
-}: {
+type RowProps = {
   item: SettleVM;
   houseId: string;
   currentUserId: string;
   currency: string;
-}) {
+};
+
+/** Shared mark-paid / confirm / reminder handlers + state for a settle row. */
+function useSettle(item: SettleVM, houseId: string, currentUserId: string, currency: string) {
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState<"" | "pay" | "confirm">("");
@@ -145,6 +148,96 @@ function SettleRow({
       /* cancelled */
     }
   }
+
+  return { loading, copied, error, markPaid, confirmReceived, copyReminder };
+}
+
+/** Redesigned (default): big colour-coded amount + prominent primary action. */
+function SettleRow({ item, houseId, currentUserId, currency }: RowProps) {
+  const { loading, copied, error, markPaid, confirmReceived, copyReminder } = useSettle(
+    item,
+    houseId,
+    currentUserId,
+    currency,
+  );
+  const youOwe = item.owe > 0;
+  const theyOwe = item.owed > 0;
+  const canConfirm = item.owedPending > 0 && item.confirmIds.length > 0;
+
+  return (
+    <li className="card p-4">
+      <div className="flex items-center gap-3">
+        <Avatar name={item.name} color={item.color} size="md" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-slate-900">{item.name}</p>
+          <p className="text-xs text-slate-500">
+            {youOwe ? "You owe them" : theyOwe ? "They owe you" : "Pending confirmation"}
+          </p>
+        </div>
+        {(youOwe || theyOwe) && (
+          <p className={`shrink-0 text-xl font-bold ${youOwe ? "text-red-600" : "text-mint-600"}`}>
+            {formatMoney(youOwe ? item.owe : item.owed, currency)}
+          </p>
+        )}
+      </div>
+
+      {item.owePending > 0 && (
+        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+          {formatMoney(item.owePending, currency)} marked paid, waiting for {item.name} to confirm.
+        </p>
+      )}
+
+      {/* The confirm action is the one people miss, so make it the headline. */}
+      {canConfirm && (
+        <button
+          onClick={confirmReceived}
+          disabled={loading !== ""}
+          className="btn-primary btn-block mt-3"
+        >
+          {loading === "confirm"
+            ? "Confirming…"
+            : `Confirm ${formatMoney(item.owedPending, currency)} received`}
+        </button>
+      )}
+
+      {youOwe && (
+        <div className="mt-3 space-y-2">
+          {item.pay && (
+            <div className="flex flex-wrap gap-2">
+              <PayLinks pay={item.pay} amount={item.owe} />
+            </div>
+          )}
+          {item.markPaidIds.length > 0 && (
+            <button
+              onClick={markPaid}
+              disabled={loading !== ""}
+              className="btn-secondary btn-block"
+            >
+              {loading === "pay" ? "Saving…" : "I've paid them"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {theyOwe && (
+        <button onClick={copyReminder} className="btn-ghost btn-block mt-2 text-sm">
+          {copied ? "Copied!" : "Send a reminder"}
+        </button>
+      )}
+
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+    </li>
+  );
+}
+
+/** Original compact layout, kept for instant revert via FEATURES.smoothSettle. */
+function SettleRowClassic({ item, houseId, currentUserId, currency }: RowProps) {
+  const { loading, copied, error, markPaid, confirmReceived, copyReminder } = useSettle(
+    item,
+    houseId,
+    currentUserId,
+    currency,
+  );
 
   return (
     <li className="card p-4">
