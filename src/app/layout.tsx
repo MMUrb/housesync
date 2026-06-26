@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Analytics } from "@/components/Analytics";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeWatcher } from "@/components/ThemeWatcher";
 import { ErrorReporter } from "@/components/ErrorReporter";
 
@@ -89,6 +90,7 @@ export default function RootLayout({
         />
         {children}
         <Analytics />
+        <SpeedInsights />
         <ThemeWatcher />
         <ErrorReporter />
       </body>
