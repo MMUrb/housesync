@@ -32,14 +32,24 @@ workflows:
         script: npm ci
       - name: Sync Capacitor iOS
         script: npx cap sync ios
-      - name: Set up code signing
+      - name: Initialize keychain
+        script: keychain initialize
+      - name: Create / fetch iOS signing files
         script: |
-          keychain initialize
+          set -x
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
+            --platform IOS \
             --create
-          keychain add-certificates
+      - name: Add signing certificate to keychain
+        script: keychain add-certificates
+      - name: Apply provisioning profile to the Xcode project
+        script: |
+          set -x
           xcode-project use-profiles
+          echo "==== signing build settings after use-profiles ===="
+          xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -showBuildSettings 2>/dev/null \
+            | grep -iE "CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|CODE_SIGN_IDENTITY" || true
       - name: Auto-increment build number
         script: |
           LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
