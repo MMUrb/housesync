@@ -26,7 +26,7 @@ workflows:
       vars:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
-        APP_STORE_APPLE_ID: 0000000000        # <- your app's Apple ID from App Store Connect
+        APP_STORE_APPLE_ID: 6783905558        # HouseSync app's Apple ID (App Store Connect)
       node: 22
       xcode: latest
     scripts:
