@@ -20,12 +20,10 @@ workflows:
     integrations:
       app_store_connect: HouseSync ASC Key   # <- the name of your API key in Codemagic
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: uk.co.housesync
       vars:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
+        BUNDLE_ID: "uk.co.housesync"
         APP_STORE_APPLE_ID: 6783905558        # HouseSync app's Apple ID (App Store Connect)
       node: 22
       xcode: latest
@@ -35,7 +33,13 @@ workflows:
       - name: Sync Capacitor iOS
         script: npx cap sync ios
       - name: Set up code signing
-        script: xcode-project use-profiles
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Auto-increment build number
         script: |
           LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
