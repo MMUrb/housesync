@@ -7,6 +7,7 @@ import { currencySymbol, formatMoney } from "@/lib/format";
 import { defaultNextDue } from "@/lib/recurrence";
 import { BILL_FREQUENCIES, type BillFrequency, type MemberWithProfile } from "@/lib/types";
 import { CategoryPicker } from "@/components/categories/CategoryPicker";
+import { Select } from "@/components/Select";
 
 type Cat = { code: string; name: string; emoji: string; color: string };
 
@@ -125,22 +126,17 @@ export function AddBillForm({
             <label className="label" htmlFor="frequency">
               Frequency
             </label>
-            <select
+            <Select
               id="frequency"
-              className="input"
+              ariaLabel="Frequency"
               value={frequency}
-              onChange={(e) => {
-                const f = e.target.value as BillFrequency;
+              onChange={(v) => {
+                const f = v as BillFrequency;
                 setFrequency(f);
                 setNextDue(defaultNextDue(f));
               }}
-            >
-              {BILL_FREQUENCIES.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
+              options={BILL_FREQUENCIES.map((f) => ({ value: f.value, label: f.label }))}
+            />
           </div>
         </div>
 
@@ -161,18 +157,16 @@ export function AddBillForm({
             <label className="label" htmlFor="paidby">
               Usually paid by
             </label>
-            <select
+            <Select
               id="paidby"
-              className="input"
+              ariaLabel="Usually paid by"
               value={paidBy}
-              onChange={(e) => setPaidBy(e.target.value)}
-            >
-              {members.map((m) => (
-                <option key={m.user_id} value={m.user_id}>
-                  {m.user_id === currentUserId ? "You" : m.profile?.name ?? "Housemate"}
-                </option>
-              ))}
-            </select>
+              onChange={setPaidBy}
+              options={members.map((m) => ({
+                value: m.user_id,
+                label: m.user_id === currentUserId ? "You" : m.profile?.name ?? "Housemate",
+              }))}
+            />
           </div>
         </div>
 

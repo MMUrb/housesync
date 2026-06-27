@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { todayISO } from "@/lib/recurrence";
 import { CHORE_REPEATS, type ChoreRepeat, type MemberWithProfile } from "@/lib/types";
+import { Select } from "@/components/Select";
 
 export function AddChoreForm({
   houseId,
@@ -93,19 +94,19 @@ export function AddChoreForm({
           <label className="label" htmlFor="assigned">
             Assigned to
           </label>
-          <select
+          <Select
             id="assigned"
-            className="input"
+            ariaLabel="Assigned to"
             value={assignedTo}
-            onChange={(e) => setAssignedTo(e.target.value)}
-          >
-            <option value="">Anyone</option>
-            {members.map((m) => (
-              <option key={m.user_id} value={m.user_id}>
-                {m.user_id === currentUserId ? "You" : m.profile?.name ?? "Housemate"}
-              </option>
-            ))}
-          </select>
+            onChange={setAssignedTo}
+            options={[
+              { value: "", label: "Anyone" },
+              ...members.map((m) => ({
+                value: m.user_id,
+                label: m.user_id === currentUserId ? "You" : m.profile?.name ?? "Housemate",
+              })),
+            ]}
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -125,18 +126,13 @@ export function AddChoreForm({
             <label className="label" htmlFor="repeat">
               Repeat
             </label>
-            <select
+            <Select
               id="repeat"
-              className="input"
+              ariaLabel="Repeat"
               value={repeat}
-              onChange={(e) => setRepeat(e.target.value as ChoreRepeat)}
-            >
-              {CHORE_REPEATS.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setRepeat(v as ChoreRepeat)}
+              options={CHORE_REPEATS.map((r) => ({ value: r.value, label: r.label }))}
+            />
           </div>
         </div>
         {repeat !== "once" && (

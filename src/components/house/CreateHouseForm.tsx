@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { setActiveHouse } from "@/lib/activeHouse";
 import { setLeaveGuard } from "@/lib/leaveGuard";
 import { CURRENCIES } from "@/lib/constants";
+import { Select } from "@/components/Select";
 import { InviteBox } from "@/components/house/InviteBox";
 import type { House } from "@/lib/types";
 
@@ -99,18 +100,13 @@ export function CreateHouseForm() {
           <label className="label" htmlFor="currency">
             Currency
           </label>
-          <select
+          <Select
             id="currency"
-            className="input"
+            ariaLabel="Currency"
             value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-          >
-            {CURRENCIES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
+            onChange={setCurrency}
+            options={CURRENCIES.map((c) => ({ value: c.value, label: c.label }))}
+          />
         </div>
         <div>
           <label className="label" htmlFor="rent-day">

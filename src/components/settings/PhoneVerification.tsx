@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { COUNTRIES } from "@/lib/countries";
+import { Select } from "@/components/Select";
 
 function buildE164(dial: string, national: string): string {
   const digits = national.replace(/\D/g, "").replace(/^0+/, "");
@@ -106,18 +107,15 @@ export function PhoneVerification({
     <div className="space-y-2 rounded-xl border border-slate-200 p-3">
       {step === "enter" ? (
         <>
-          <select
+          <Select
             value={dial}
-            onChange={(e) => setDial(e.target.value)}
-            aria-label="Country code"
-            className="input"
-          >
-            {COUNTRIES.map((c) => (
-              <option key={c.iso} value={c.dial}>
-                {c.flag} {c.name} ({c.dial})
-              </option>
-            ))}
-          </select>
+            onChange={setDial}
+            ariaLabel="Country code"
+            options={COUNTRIES.map((c) => ({
+              value: c.dial,
+              label: `${c.flag} ${c.name} (${c.dial})`,
+            }))}
+          />
           <input
             type="tel"
             inputMode="tel"

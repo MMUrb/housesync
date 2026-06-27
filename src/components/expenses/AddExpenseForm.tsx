@@ -11,6 +11,7 @@ type Cat = { code: string; name: string; emoji: string; color: string };
 import type { MemberWithProfile } from "@/lib/types";
 import { Avatar } from "@/components/Avatar";
 import { CategoryPicker } from "@/components/categories/CategoryPicker";
+import { Select } from "@/components/Select";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -224,18 +225,16 @@ export function AddExpenseForm({
             <label className="label" htmlFor="paidby">
               Paid by
             </label>
-            <select
+            <Select
               id="paidby"
-              className="input"
+              ariaLabel="Paid by"
               value={paidBy}
-              onChange={(e) => setPaidBy(e.target.value)}
-            >
-              {members.map((m) => (
-                <option key={m.user_id} value={m.user_id}>
-                  {m.user_id === currentUserId ? "You" : m.profile?.name ?? "Housemate"}
-                </option>
-              ))}
-            </select>
+              onChange={setPaidBy}
+              options={members.map((m) => ({
+                value: m.user_id,
+                label: m.user_id === currentUserId ? "You" : m.profile?.name ?? "Housemate",
+              }))}
+            />
           </div>
           <div>
             <label className="label" htmlFor="date">

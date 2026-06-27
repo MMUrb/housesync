@@ -158,6 +158,13 @@
 .dark .bg-slate-100 {
   background-color: var(--surface-2);
 }
+/* Hover backgrounds: the .bg-slate-* remaps above only match the base class,
+   not the hover: variant, so neutral hovers would flash light grey in dark
+   mode. Remap them to the same subtle white tint the dropdowns use. */
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-100:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
 .dark .bg-slate-200 {
   background-color: #2c2c4a;
 }
