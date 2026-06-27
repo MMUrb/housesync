@@ -1,37 +1,30 @@
 import Link from "next/link";
 import { getChores, requireHouse } from "@/lib/data";
 import { PageTitle } from "@/components/app/PageTitle";
-import { ChoreItem } from "@/components/chores/ChoreItem";
+import { ChoresList } from "@/components/chores/ChoresList";
 import { IconPlus } from "@/components/icons";
-import { todayISO } from "@/lib/recurrence";
-import type { Chore } from "@/lib/types";
 
 export const metadata = { title: "Chores" };
 export const dynamic = "force-dynamic";
+
+// yyyy-mm-dd from a date's local parts (avoids the UTC shift toISOString can
+// introduce near midnight).
+function isoLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
+}
 
 export default async function ChoresPage() {
   const { user, house, members } = await requireHouse();
   const chores = await getChores(house.id);
 
-  const today = todayISO();
-  const weekAhead = new Date();
-  weekAhead.setDate(weekAhead.getDate() + 7);
-  const weekISO = weekAhead.toISOString().slice(0, 10);
-
-  const todo = chores.filter((c) => c.status === "todo");
-  const groups: { label: string; items: Chore[] }[] = [
-    { label: "Overdue", items: todo.filter((c) => c.due_date && c.due_date < today) },
-    { label: "Today", items: todo.filter((c) => c.due_date === today) },
-    {
-      label: "This week",
-      items: todo.filter((c) => c.due_date && c.due_date > today && c.due_date <= weekISO),
-    },
-    {
-      label: "Later",
-      items: todo.filter((c) => !c.due_date || c.due_date > weekISO),
-    },
-  ];
-  const completed = chores.filter((c) => c.status === "done").slice(0, 10);
+  const now = new Date();
+  const today = isoLocal(now);
+  const week = new Date(now);
+  week.setDate(now.getDate() + 7);
+  const weekISO = isoLocal(week);
+  const monthISO = isoLocal(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
   const hasAny = chores.length > 0;
 
@@ -60,40 +53,14 @@ export default async function ChoresPage() {
           </Link>
         </div>
       ) : (
-        <div className="space-y-5">
-          {groups.map(
-            (g) =>
-              g.items.length > 0 && (
-                <section key={g.label} className="space-y-2">
-                  <h2 className="px-1 text-sm font-semibold text-slate-900">
-                    {g.label}{" "}
-                    <span className="font-normal text-slate-400">({g.items.length})</span>
-                  </h2>
-                  <ul className="card divide-y divide-slate-100">
-                    {g.items.map((c) => (
-                      <ChoreItem
-                        key={c.id}
-                        chore={c}
-                        members={members}
-                        currentUserId={user.id}
-                      />
-                    ))}
-                  </ul>
-                </section>
-              ),
-          )}
-
-          {completed.length > 0 && (
-            <section className="space-y-2">
-              <h2 className="px-1 text-sm font-semibold text-slate-900">Completed</h2>
-              <ul className="card divide-y divide-slate-100">
-                {completed.map((c) => (
-                  <ChoreItem key={c.id} chore={c} members={members} currentUserId={user.id} />
-                ))}
-              </ul>
-            </section>
-          )}
-        </div>
+        <ChoresList
+          chores={chores}
+          members={members}
+          currentUserId={user.id}
+          today={today}
+          weekISO={weekISO}
+          monthISO={monthISO}
+        />
       )}
     </div>
   );
