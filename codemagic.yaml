@@ -17,11 +17,12 @@ workflows:
     name: HouseSync iOS (TestFlight)
     instance_type: mac_mini_m2
     max_build_duration: 60
+    cache:
+      cache_paths:
+        - $HOME/.signing      # persist the generated signing key across builds
     integrations:
       app_store_connect: HouseSync ASC Key   # <- the name of your API key in Codemagic
     environment:
-      groups:
-        - appstore            # holds CERTIFICATE_PRIVATE_KEY (added in Codemagic UI)
       vars:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
@@ -38,14 +39,22 @@ workflows:
         script: keychain initialize
       - name: Create / fetch iOS signing files
         script: |
-          echo "SIGNING_TEST=[${SIGNING_TEST:-EMPTY}]  (does the appstore group load at all?)"
-          echo "CERTIFICATE_PRIVATE_KEY (base64) length: ${#CERTIFICATE_PRIVATE_KEY} (expect ~2300, 0 = not loaded)"
-          echo "$CERTIFICATE_PRIVATE_KEY" | openssl base64 -d -A > /tmp/cert_key.pem
-          openssl pkey -in /tmp/cert_key.pem -noout && echo "decoded cert key: VALID" || echo "decoded cert key: INVALID"
+          # The signing certificate key is generated and kept in the build cache
+          # (Codemagic env vars were unusable from this machine's clipboard).
+          # First run generates it; later runs reuse it, so fetch-signing-files
+          # reuses the same distribution certificate instead of making new ones.
+          KEY="$HOME/.signing/cert_key.pem"
+          mkdir -p "$HOME/.signing"
+          if [ -s "$KEY" ] && openssl pkey -in "$KEY" -noout 2>/dev/null; then
+            echo "reusing cached signing key"
+          else
+            echo "generating a new signing key"
+            openssl genrsa -out "$KEY" 2048
+          fi
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --platform IOS \
-            --certificate-key=@file:/tmp/cert_key.pem \
+            --certificate-key=@file:"$KEY" \
             --create
       - name: Add signing certificate to keychain
         script: keychain add-certificates
