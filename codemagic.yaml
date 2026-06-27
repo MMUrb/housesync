@@ -20,6 +20,8 @@ workflows:
     integrations:
       app_store_connect: HouseSync ASC Key   # <- the name of your API key in Codemagic
     environment:
+      groups:
+        - appstore            # holds CERTIFICATE_PRIVATE_KEY (added in Codemagic UI)
       vars:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
@@ -40,6 +42,7 @@ workflows:
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --platform IOS \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
             --create
       - name: Add signing certificate to keychain
         script: keychain add-certificates
