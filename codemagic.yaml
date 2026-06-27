@@ -38,12 +38,13 @@ workflows:
         script: keychain initialize
       - name: Create / fetch iOS signing files
         script: |
-          echo "CERTIFICATE_PRIVATE_KEY length: ${#CERTIFICATE_PRIVATE_KEY} (expect ~1732, 0 = not loaded)"
-          set -x
+          echo "CERTIFICATE_PRIVATE_KEY (base64) length: ${#CERTIFICATE_PRIVATE_KEY} (expect ~2300, 0 = not loaded)"
+          echo "$CERTIFICATE_PRIVATE_KEY" | openssl base64 -d -A > /tmp/cert_key.pem
+          openssl pkey -in /tmp/cert_key.pem -noout && echo "decoded cert key: VALID" || echo "decoded cert key: INVALID"
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --platform IOS \
-            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --certificate-key=@file:/tmp/cert_key.pem \
             --create
       - name: Add signing certificate to keychain
         script: keychain add-certificates
