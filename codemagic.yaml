@@ -38,6 +38,7 @@ workflows:
         script: keychain initialize
       - name: Create / fetch iOS signing files
         script: |
+          echo "SIGNING_TEST=[${SIGNING_TEST:-EMPTY}]  (does the appstore group load at all?)"
           echo "CERTIFICATE_PRIVATE_KEY (base64) length: ${#CERTIFICATE_PRIVATE_KEY} (expect ~2300, 0 = not loaded)"
           echo "$CERTIFICATE_PRIVATE_KEY" | openssl base64 -d -A > /tmp/cert_key.pem
           openssl pkey -in /tmp/cert_key.pem -noout && echo "decoded cert key: VALID" || echo "decoded cert key: INVALID"
