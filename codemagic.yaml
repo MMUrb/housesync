@@ -81,7 +81,11 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
+        # Upload to App Store Connect only. Internal TestFlight testers can use
+        # the build immediately. External testing needs Beta App Review (test
+        # info + a demo login), set that up in the App Store Connect UI and flip
+        # this back to true when ready for outside testers.
+        submit_to_testflight: false
 
   # Run THIS one now (before Apple enrolment) to confirm the iOS project
   # compiles cleanly on a Mac. No Apple account, signing or upload involved.
