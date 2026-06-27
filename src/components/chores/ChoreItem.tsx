@@ -23,10 +23,14 @@ export function ChoreItem({
   chore,
   members,
   currentUserId,
+  today,
 }: {
   chore: Chore;
   members: MemberWithProfile[];
   currentUserId: string;
+  // Server's yyyy-mm-dd, so the overdue check is a string compare (no Date math
+  // at render time, hence no SSR/hydration mismatch).
+  today: string;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -34,8 +38,7 @@ export function ChoreItem({
 
   const assignee = members.find((m) => m.user_id === chore.assigned_to);
   const done = chore.status === "done";
-  const overdue =
-    !done && chore.due_date && new Date(chore.due_date) < new Date(new Date().toDateString());
+  const overdue = !done && !!chore.due_date && chore.due_date < today;
 
   async function markDone() {
     setLoading(true);

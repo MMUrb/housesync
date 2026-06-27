@@ -144,6 +144,7 @@ export function ChoresList({
                             chore={c}
                             members={members}
                             currentUserId={currentUserId}
+                            today={today}
                           />
                         ))}
                       </ul>
@@ -160,7 +161,13 @@ export function ChoresList({
       ) : (
         <ul className="card divide-y divide-slate-100">
           {completed.map((c) => (
-            <ChoreItem key={c.id} chore={c} members={members} currentUserId={currentUserId} />
+            <ChoreItem
+              key={c.id}
+              chore={c}
+              members={members}
+              currentUserId={currentUserId}
+              today={today}
+            />
           ))}
         </ul>
       )}
