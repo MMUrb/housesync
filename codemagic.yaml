@@ -38,6 +38,7 @@ workflows:
         script: keychain initialize
       - name: Create / fetch iOS signing files
         script: |
+          echo "CERTIFICATE_PRIVATE_KEY length: ${#CERTIFICATE_PRIVATE_KEY} (expect ~1732, 0 = not loaded)"
           set -x
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
