@@ -36,5 +36,8 @@ next-env.d.ts
 /test-*.png
 /app-*.png
 
+# play store upload pack (screenshots, listing copy, local build tool — not app source)
+/play-store-assets/
+
 # claude code local config / launch configs
 /.claude/
