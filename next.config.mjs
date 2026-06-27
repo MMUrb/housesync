@@ -41,6 +41,15 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  // Keep tab switching snappy. By default every app screen is `force-dynamic`,
+  // so navigating back to a tab refetches it from the server even if you were
+  // just there. Caching a visited segment in the client router cache for a short
+  // window makes "Home -> Expenses -> Home" instant. Live changes still arrive
+  // through Supabase realtime, and the data refreshes after the window or on a
+  // hard reload, so the staleness is only ever a few seconds on a quick revisit.
+  experimental: {
+    staleTimes: { dynamic: 30, static: 300 },
+  },
   images: {
     remotePatterns: [
       // Allow Supabase Storage public URLs (avatars; receipts are private).
