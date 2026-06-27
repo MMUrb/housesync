@@ -1,40 +1,51 @@
-// Generates PNG source assets for @capacitor/assets from the HouseSync SVG logo.
+// Generates PNG source assets for @capacitor/assets from the HouseSync logo.
 // Outputs into ./assets which `npx capacitor-assets generate` then consumes.
+// The artwork is the brand icon: white house + undo arrow glyph on a purple
+// gradient. The glyph is the exact artwork in assets/glyph-source.png (white on
+// transparent); the gradient below matches the brand icon.
 import sharp from 'sharp';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 
 mkdirSync('assets', { recursive: true });
 
+// Brand gradient (sampled from the icon: top-left light -> bottom-right deep).
+const TL = '#6f5cf0', BR = '#4b36de';
 const GRAD = `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-  <stop offset="0" stop-color="#8f7bff"/><stop offset="1" stop-color="#5f3fe0"/>
+  <stop offset="0" stop-color="${TL}"/><stop offset="1" stop-color="${BR}"/>
 </linearGradient></defs>`;
 
-// The white house + sync glyph (from public/icon.svg).
-const GLYPH = `
-  <path d="M256 120 L392 232 V392 a16 16 0 0 1 -16 16 H136 a16 16 0 0 1 -16 -16 V232 Z"
-        fill="none" stroke="#ffffff" stroke-width="26" stroke-linejoin="round"/>
-  <path d="M212 300 a44 44 0 1 1 13 53" fill="none" stroke="#ffffff" stroke-width="22"
-        stroke-linecap="round"/>
-  <path d="M214 268 v34 h34" fill="none" stroke="#ffffff" stroke-width="22"
-        stroke-linecap="round" stroke-linejoin="round"/>`;
+// White glyph (house + undo arrow), exact artwork, white-on-transparent PNG.
+const GLYPH_B64 = readFileSync('assets/glyph-source.png').toString('base64');
+const GW = 524, GH = 594; // native trimmed size of the glyph
+
+// Places the glyph centred on a `size` canvas at `hFrac` of the canvas height.
+const glyph = (size, hFrac) => {
+  const gh = size * hFrac, gw = gh * (GW / GH);
+  const gx = (size - gw) / 2, gy = (size - gh) / 2;
+  return `<image x="${gx.toFixed(1)}" y="${gy.toFixed(1)}" width="${gw.toFixed(1)}" height="${gh.toFixed(1)}" href="data:image/png;base64,${GLYPH_B64}"/>`;
+};
+
+const SVG = (inner, size = 1024) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${inner}</svg>`;
 
 // Full square icon (rounded) — used for iOS/legacy + as the icon-only source.
-const iconOnly = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  ${GRAD}<rect width="512" height="512" rx="112" fill="url(#g)"/>${GLYPH}</svg>`;
+const iconOnly = SVG(`${GRAD}<rect width="1024" height="1024" rx="224" fill="url(#g)"/>${glyph(1024, 0.615)}`);
 
 // Adaptive background: full-bleed gradient (Android applies its own mask).
-const iconBg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  ${GRAD}<rect width="512" height="512" fill="url(#g)"/></svg>`;
+const iconBg = SVG(`${GRAD}<rect width="1024" height="1024" fill="url(#g)"/>`);
 
-// Adaptive foreground: transparent, white glyph scaled to 0.8 inside the safe zone.
-const iconFg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <g transform="translate(256,256) scale(0.8) translate(-256,-256)">${GLYPH}</g></svg>`;
+// Adaptive foreground: transparent, glyph sized to sit inside the safe zone.
+const iconFg = SVG(glyph(1024, 0.46));
 
-// Splash: full image = background + centered icon (~30%).
-const splash = (bg) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2732 2732">
-  ${GRAD}<rect width="2732" height="2732" fill="${bg}"/>
-  <g transform="translate(956,956) scale(1.6)">
-    <rect width="512" height="512" rx="112" fill="url(#g)"/>${GLYPH}</g></svg>`;
+// Splash: full image = background + centered icon (~26%).
+const splash = (bg) => {
+  const S = 2732, icon = S * 0.26, ix = (S - icon) / 2, iy = (S - icon) / 2, rx = icon * 0.219;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">
+    ${GRAD}<rect width="${S}" height="${S}" fill="${bg}"/>
+    <svg x="${ix.toFixed(0)}" y="${iy.toFixed(0)}" width="${icon.toFixed(0)}" height="${icon.toFixed(0)}" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" rx="${rx.toFixed(0)}" fill="url(#g)"/>${glyph(1024, 0.615)}
+    </svg></svg>`;
+};
 
 const jobs = [
   ['assets/icon-only.png', iconOnly, 1024],
