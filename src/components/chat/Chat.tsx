@@ -42,11 +42,18 @@ export function Chat({
   const [error, setError] = useState<string | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  // Times are formatted in the viewer's locale/timezone, which the server can't
+  // know — rendering them during SSR caused a hydration mismatch (React #418).
+  // Gate them on mount so the server and first client paint render the same
+  // placeholder, then fill in the real local time once we're on the client.
+  const [mounted, setMounted] = useState(false);
 
   const endRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const emojiBtnRef = useRef<HTMLButtonElement | null>(null);
   const pickerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => setMounted(true), []);
 
   const profileOf = (userId: string) =>
     members.find((m) => m.user_id === userId)?.profile ?? null;
@@ -182,8 +189,11 @@ export function Chat({
               <Fragment key={m.id}>
                 {showSep && (
                   <div className="my-3 text-center">
-                    <span className="text-[11px] font-medium text-slate-400">
-                      {formatSeparator(m.created_at)}
+                    <span
+                      className="text-[11px] font-medium text-slate-400"
+                      suppressHydrationWarning
+                    >
+                      {mounted ? formatSeparator(m.created_at) : " "}
                     </span>
                   </div>
                 )}
