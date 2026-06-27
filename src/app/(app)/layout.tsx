@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/env";
 import { NotConfigured } from "@/components/NotConfigured";
-import { getChatUnread, getMyHouses, getProfile, requireHouse } from "@/lib/data";
+import { getChatUnreadCount, getMyHouses, getProfile, requireHouse } from "@/lib/data";
 import { AppHeader } from "@/components/app/AppHeader";
 import { TopNav } from "@/components/app/TopNav";
 import { FollowUs } from "@/components/SocialLinks";
@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [houses, profile, chatUnread] = await Promise.all([
     getMyHouses(),
     getProfile(),
-    getChatUnread(house.id, user.id),
+    getChatUnreadCount(house.id, user.id),
   ]);
 
   return (
@@ -24,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {/* Sticky top bar: house switcher + profile, then the main nav tabs. */}
       <div className="safe-top sticky top-0 z-30 border-b border-slate-200 bg-[var(--background)]/90 backdrop-blur">
         <AppHeader house={house} houses={houses} profile={profile} />
-        <TopNav houseId={house.id} userId={user.id} initialUnread={chatUnread} />
+        <TopNav houseId={house.id} userId={user.id} initialUnreadCount={chatUnread} />
       </div>
       <main className="flex-1 px-4 pb-8 pt-4">{children}</main>
       <PushInit />

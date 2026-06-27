@@ -25,14 +25,14 @@ const ITEMS = [
 export function TopNav({
   houseId,
   userId,
-  initialUnread,
+  initialUnreadCount,
 }: {
   houseId: string;
   userId: string;
-  initialUnread: boolean;
+  initialUnreadCount: number;
 }) {
   const pathname = usePathname();
-  const [unread, setUnread] = useState(initialUnread);
+  const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
 
   const onChat = pathname === "/chat" || pathname.startsWith("/chat/");
   // Keep the latest "am I on chat?" readable inside the realtime callback
@@ -40,8 +40,8 @@ export function TopNav({
   const onChatRef = useRef(onChat);
   useEffect(() => {
     onChatRef.current = onChat;
-    // Opening the chat clears the dot immediately (the chat page marks it read).
-    if (onChat) setUnread(false);
+    // Opening the chat clears the badge immediately (the chat page marks it read).
+    if (onChat) setUnreadCount(0);
   }, [onChat]);
 
   // Live: light the dot when a message from someone else lands while you're
@@ -60,7 +60,7 @@ export function TopNav({
         },
         (payload) => {
           const m = payload.new as { user_id: string };
-          if (m.user_id !== userId && !onChatRef.current) setUnread(true);
+          if (m.user_id !== userId && !onChatRef.current) setUnreadCount((c) => c + 1);
         },
       )
       .subscribe();
@@ -74,7 +74,7 @@ export function TopNav({
       <div className="mx-auto flex max-w-2xl items-stretch justify-around">
         {ITEMS.map(({ href, label, Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
-          const showDot = href === "/chat" && unread && !active;
+          const showBadge = href === "/chat" && unreadCount > 0 && !active;
           return (
             <Link
               key={href}
@@ -87,11 +87,13 @@ export function TopNav({
             >
               <span className="relative">
                 <Icon className="h-5 w-5" />
-                {showDot && (
+                {showBadge && (
                   <span
-                    aria-label="Unread messages"
-                    className="absolute -right-1 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[var(--background)]"
-                  />
+                    aria-label={`${unreadCount} unread message${unreadCount === 1 ? "" : "s"}`}
+                    className="absolute -right-2 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white ring-2 ring-[var(--background)]"
+                  >
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
                 )}
               </span>
               {label}

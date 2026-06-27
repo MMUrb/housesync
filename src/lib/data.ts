@@ -86,27 +86,29 @@ export const getVisiblePaymentDetails = cache(async (): Promise<Map<string, Paym
 });
 
 /**
- * Whether the active house chat has messages the user hasn't seen yet (from
- * someone else, after their last read). Drives the red dot on the Chat tab.
- * Read state lives in the DB, so it's consistent across web + native.
+ * How many chat messages the user hasn't seen yet (from someone else, after
+ * their last read). Drives the count badge on the Chat tab. Read state lives in
+ * the DB, so it's consistent across web + native.
  */
-export const getChatUnread = cache(async (houseId: string, userId: string): Promise<boolean> => {
-  const supabase = await createClient();
-  const { data: read } = await supabase
-    .from("message_reads")
-    .select("last_read_at")
-    .eq("user_id", userId)
-    .eq("house_id", houseId)
-    .maybeSingle();
-  const since = read?.last_read_at ?? "1970-01-01T00:00:00Z";
-  const { count } = await supabase
-    .from("messages")
-    .select("id", { count: "exact", head: true })
-    .eq("house_id", houseId)
-    .neq("user_id", userId)
-    .gt("created_at", since);
-  return (count ?? 0) > 0;
-});
+export const getChatUnreadCount = cache(
+  async (houseId: string, userId: string): Promise<number> => {
+    const supabase = await createClient();
+    const { data: read } = await supabase
+      .from("message_reads")
+      .select("last_read_at")
+      .eq("user_id", userId)
+      .eq("house_id", houseId)
+      .maybeSingle();
+    const since = read?.last_read_at ?? "1970-01-01T00:00:00Z";
+    const { count } = await supabase
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("house_id", houseId)
+      .neq("user_id", userId)
+      .gt("created_at", since);
+    return count ?? 0;
+  },
+);
 
 /** The house's editable expense categories (active only), in display order. */
 export const getHouseCategories = cache(async (houseId: string): Promise<HouseCategory[]> => {

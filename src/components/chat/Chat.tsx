@@ -89,11 +89,16 @@ export function Chat({
   }, [messages]);
 
   // Mark the chat read server-side whenever it's open and as new messages
-  // arrive while viewing. Stored per (user, house), so the unread dot clears
-  // on this account's other devices/platforms too.
+  // arrive while viewing. Stored per (user, house), so the unread badge clears
+  // on this account's other devices/platforms too. We mark read up to the
+  // newest loaded message's own server timestamp (not the device clock) — using
+  // Date.now() let clock skew leave already-read messages counted as unread.
   useEffect(() => {
+    const lastReadAt = messages.length
+      ? messages[messages.length - 1].created_at
+      : new Date().toISOString();
     void supabase.from("message_reads").upsert(
-      { user_id: currentUserId, house_id: houseId, last_read_at: new Date().toISOString() },
+      { user_id: currentUserId, house_id: houseId, last_read_at: lastReadAt },
       { onConflict: "user_id,house_id" },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
