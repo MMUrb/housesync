@@ -110,6 +110,39 @@ export const getChatUnreadCount = cache(
   },
 );
 
+/**
+ * Unread chat counts for several houses at once, keyed by house id. Powers the
+ * per-house badges in the house switcher. Each house's read threshold differs,
+ * so we read all of the user's thresholds in one query, then count per house
+ * (houses per user are few, so a handful of count queries is fine).
+ */
+export const getChatUnreadCounts = cache(
+  async (houseIds: string[], userId: string): Promise<Record<string, number>> => {
+    if (houseIds.length === 0) return {};
+    const supabase = await createClient();
+    const { data: reads } = await supabase
+      .from("message_reads")
+      .select("house_id, last_read_at")
+      .eq("user_id", userId)
+      .in("house_id", houseIds);
+    const readBy = new Map((reads ?? []).map((r) => [r.house_id, r.last_read_at]));
+
+    const entries = await Promise.all(
+      houseIds.map(async (houseId) => {
+        const since = readBy.get(houseId) ?? "1970-01-01T00:00:00Z";
+        const { count } = await supabase
+          .from("messages")
+          .select("id", { count: "exact", head: true })
+          .eq("house_id", houseId)
+          .neq("user_id", userId)
+          .gt("created_at", since);
+        return [houseId, count ?? 0] as const;
+      }),
+    );
+    return Object.fromEntries(entries);
+  },
+);
+
 /** The house's editable expense categories (active only), in display order. */
 export const getHouseCategories = cache(async (houseId: string): Promise<HouseCategory[]> => {
   const supabase = await createClient();

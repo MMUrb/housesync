@@ -8,14 +8,16 @@ export function AppHeader({
   house,
   houses,
   profile,
+  unreadByHouse,
 }: {
   house: House;
   houses: House[];
   profile: Profile | null;
+  unreadByHouse: Record<string, number>;
 }) {
   return (
     <div className="flex items-center justify-between px-4 py-3">
-      <HouseSwitcher current={house} houses={houses} />
+      <HouseSwitcher current={house} houses={houses} unreadByHouse={unreadByHouse} />
       <div className="flex shrink-0 items-center gap-1">
         <ThemeIconButton />
         <Link

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/env";
 import { NotConfigured } from "@/components/NotConfigured";
-import { getChatUnreadCount, getMyHouses, getProfile, requireHouse } from "@/lib/data";
+import { getChatUnreadCounts, getMyHouses, getProfile, requireHouse } from "@/lib/data";
 import { AppHeader } from "@/components/app/AppHeader";
 import { TopNav } from "@/components/app/TopNav";
 import { FollowUs } from "@/components/SocialLinks";
@@ -13,17 +13,25 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // Ensures the user is signed in and has a house (redirects otherwise).
   const { user, house } = await requireHouse();
-  const [houses, profile, chatUnread] = await Promise.all([
-    getMyHouses(),
-    getProfile(),
-    getChatUnreadCount(house.id, user.id),
-  ]);
+  const [houses, profile] = await Promise.all([getMyHouses(), getProfile()]);
+  // One pass over every house the user is in powers both the Chat-tab badge
+  // (active house) and the per-house badges in the switcher.
+  const unreadByHouse = await getChatUnreadCounts(
+    houses.map((h) => h.id),
+    user.id,
+  );
+  const chatUnread = unreadByHouse[house.id] ?? 0;
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col">
       {/* Sticky top bar: house switcher + profile, then the main nav tabs. */}
       <div className="safe-top sticky top-0 z-30 border-b border-slate-200 bg-[var(--background)]/90 backdrop-blur">
-        <AppHeader house={house} houses={houses} profile={profile} />
+        <AppHeader
+          house={house}
+          houses={houses}
+          profile={profile}
+          unreadByHouse={unreadByHouse}
+        />
         <TopNav houseId={house.id} userId={user.id} initialUnreadCount={chatUnread} />
       </div>
       <main className="flex-1 px-4 pb-8 pt-4">{children}</main>

@@ -7,16 +7,36 @@ import { setActiveHouse } from "@/lib/activeHouse";
 import { IconChevronDown, IconCheck, IconPlus } from "@/components/icons";
 import type { House } from "@/lib/types";
 
+function UnreadBadge({ count }: { count: number }) {
+  return (
+    <span
+      aria-label={`${count} unread message${count === 1 ? "" : "s"}`}
+      className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-none text-white"
+    >
+      {count > 9 ? "9+" : count}
+    </span>
+  );
+}
+
 export function HouseSwitcher({
   current,
   houses,
+  unreadByHouse,
 }: {
   current: House;
   houses: House[];
+  unreadByHouse: Record<string, number>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Surface unread that's waiting in the user's OTHER houses (the active house's
+  // unread is shown live on the Chat tab). These counts are a snapshot from page
+  // load — they refresh on navigation/reload, not in real time.
+  const otherUnread = houses
+    .filter((h) => h.id !== current.id)
+    .reduce((sum, h) => sum + (unreadByHouse[h.id] ?? 0), 0);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -43,6 +63,12 @@ export function HouseSwitcher({
       >
         <span className="truncate text-lg font-bold text-slate-900">{current.name}</span>
         <IconChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+        {otherUnread > 0 && (
+          <span
+            aria-label="Unread messages in another house"
+            className="h-2 w-2 shrink-0 rounded-full bg-red-500"
+          />
+        )}
       </button>
 
       {open && (
@@ -51,19 +77,26 @@ export function HouseSwitcher({
             Your houses
           </p>
           <ul className="py-1">
-            {houses.map((h) => (
-              <li key={h.id}>
-                <button
-                  onClick={() => choose(h.id)}
-                  className={`flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-white/[0.06] ${
-                    h.id === current.id ? "bg-slate-50 dark:bg-white/[0.04]" : ""
-                  }`}
-                >
-                  <span className="truncate text-slate-800">{h.name}</span>
-                  {h.id === current.id && <IconCheck className="h-4 w-4 text-brand-600" />}
-                </button>
-              </li>
-            ))}
+            {houses.map((h) => {
+              const count = unreadByHouse[h.id] ?? 0;
+              return (
+                <li key={h.id}>
+                  <button
+                    onClick={() => choose(h.id)}
+                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-white/[0.06] ${
+                      h.id === current.id ? "bg-slate-50 dark:bg-white/[0.04]" : ""
+                    }`}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-slate-800">{h.name}</span>
+                    {h.id === current.id ? (
+                      <IconCheck className="h-4 w-4 shrink-0 text-brand-600" />
+                    ) : (
+                      count > 0 && <UnreadBadge count={count} />
+                    )}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
           <Link
             href="/house/create"
