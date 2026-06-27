@@ -55,7 +55,7 @@ export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
   const [cat, setCat] = useState(0);
 
   return (
-    <div className="absolute bottom-full left-0 right-0 mb-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+    <div className="absolute bottom-full left-0 right-0 mb-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-[#15152b]">
       {/* Category tabs */}
       <div className="flex items-center gap-1 border-b border-slate-100 px-2 py-1.5">
         {CATEGORIES.map((c, i) => (
@@ -65,7 +65,7 @@ export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
             aria-label={c.id}
             onClick={() => setCat(i)}
             className={`grid h-8 w-8 place-items-center rounded-lg text-lg transition ${
-              i === cat ? "bg-brand-100" : "hover:bg-slate-100"
+              i === cat ? "bg-brand-100" : "hover:bg-slate-100 dark:hover:bg-white/[0.06]"
             }`}
           >
             {c.icon}
@@ -79,7 +79,7 @@ export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
             key={`${e}-${i}`}
             type="button"
             onClick={() => onPick(e)}
-            className="grid h-9 w-9 place-items-center rounded-lg text-xl hover:bg-slate-100"
+            className="grid h-9 w-9 place-items-center rounded-lg text-xl hover:bg-slate-100 dark:hover:bg-white/[0.06]"
           >
             {e}
           </button>
