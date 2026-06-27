@@ -4,6 +4,7 @@ import { Analytics } from "@/components/Analytics";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeWatcher } from "@/components/ThemeWatcher";
 import { ErrorReporter } from "@/components/ErrorReporter";
+import { ServiceWorker } from "@/components/ServiceWorker";
 
 const siteName = "HouseSync";
 const description =
@@ -93,6 +94,7 @@ export default function RootLayout({
         <SpeedInsights />
         <ThemeWatcher />
         <ErrorReporter />
+        <ServiceWorker />
       </body>
     </html>
   );
