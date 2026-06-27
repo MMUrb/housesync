@@ -2,7 +2,8 @@ import "server-only";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { adminGate } from "@/components/admin/guard";
 import { AdminShell, Section, Grid, StatCard } from "@/components/admin/AdminUI";
-import { ResolveAllButton, ResolveOneButton } from "@/components/admin/ErrorActions";
+import { ResolveAllButton } from "@/components/admin/ErrorActions";
+import { ErrorsTable, type ErrorRowView } from "@/components/admin/ErrorsTable";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Errors", robots: { index: false, follow: false } };
@@ -16,6 +17,9 @@ type ErrorRow = {
   message: string;
   url: string | null;
   user_id: string | null;
+  user_agent: string | null;
+  stack: string | null;
+  digest: string | null;
   resolved_at: string | null;
 };
 
@@ -44,7 +48,7 @@ export default async function ErrorsAdminPage() {
   const [recentRes, c24, c7, cUnres] = await Promise.all([
     admin
       .from("error_logs")
-      .select("id, created_at, source, message, url, user_id, resolved_at")
+      .select("id, created_at, source, message, url, user_id, user_agent, stack, digest, resolved_at")
       .order("created_at", { ascending: false })
       .limit(100),
     admin.from("error_logs").select("id", { count: "exact", head: true }).gte("created_at", since24),
@@ -54,6 +58,22 @@ export default async function ErrorsAdminPage() {
 
   const rows = (recentRes.data ?? []) as ErrorRow[];
   const unresolved = cUnres.count ?? 0;
+
+  // Format dates here on the server so the table (a client component) never
+  // formats locale-dependent times during hydration.
+  const rowViews: ErrorRowView[] = rows.map((r) => ({
+    id: r.id,
+    whenLabel: fmt(r.created_at),
+    source: r.source,
+    message: r.message,
+    url: r.url,
+    user_id: r.user_id,
+    user_agent: r.user_agent,
+    stack: r.stack,
+    digest: r.digest,
+    resolved: r.resolved_at != null,
+    resolvedLabel: r.resolved_at ? fmt(r.resolved_at) : null,
+  }));
 
   return (
     <AdminShell email={user.email} active="errors">
@@ -73,65 +93,7 @@ export default async function ErrorsAdminPage() {
           Server errors also email the admins (the first of each 15-minute burst). Newest first,
           last 100.
         </p>
-        <div className="card p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-                  <th className="px-4 py-2.5 font-medium">When</th>
-                  <th className="px-4 py-2.5 font-medium">Source</th>
-                  <th className="px-4 py-2.5 font-medium">Message</th>
-                  <th className="px-4 py-2.5 font-medium">Path</th>
-                  <th className="px-4 py-2.5 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-4 text-slate-400">
-                      No errors logged. 🎉
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((r) => (
-                    <tr
-                      key={r.id}
-                      className={`border-b border-slate-50 last:border-0 hover:bg-slate-50 ${
-                        r.resolved_at ? "opacity-50" : ""
-                      }`}
-                    >
-                      <td className="whitespace-nowrap px-4 py-2.5 text-slate-500">
-                        {fmt(r.created_at)}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span
-                          className={`chip ${
-                            r.source === "server"
-                              ? "bg-red-50 text-red-600"
-                              : "bg-amber-50 text-amber-700"
-                          }`}
-                        >
-                          {r.source}
-                        </span>
-                      </td>
-                      <td className="max-w-md px-4 py-2.5 text-slate-700">
-                        <span className="line-clamp-2 break-words">{r.message}</span>
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-500">{r.url ?? "-"}</td>
-                      <td className="px-4 py-2.5 text-right">
-                        {r.resolved_at ? (
-                          <span className="text-xs text-slate-300">resolved</span>
-                        ) : (
-                          <ResolveOneButton id={r.id} />
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ErrorsTable rows={rowViews} />
       </Section>
     </AdminShell>
   );
