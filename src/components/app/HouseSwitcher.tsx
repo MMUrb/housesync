@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { setActiveHouse } from "@/lib/activeHouse";
+import { createClient } from "@/lib/supabase/client";
+import { CHAT_READ_EVENT, type ChatReadDetail } from "@/lib/chatRead";
 import { IconChevronDown, IconCheck, IconPlus } from "@/components/icons";
 import type { House } from "@/lib/types";
 
@@ -21,22 +23,27 @@ function UnreadBadge({ count }: { count: number }) {
 export function HouseSwitcher({
   current,
   houses,
+  userId,
   unreadByHouse,
 }: {
   current: House;
   houses: House[];
+  userId: string;
   unreadByHouse: Record<string, number>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Surface unread that's waiting in the user's OTHER houses (the active house's
-  // unread is shown live on the Chat tab). These counts are a snapshot from page
-  // load — they refresh on navigation/reload, not in real time.
+  // Surface unread waiting in the user's OTHER houses (the active house's unread
+  // is shown live on the Chat tab). Seeded from the server snapshot, then kept
+  // live: cleared when its chat is read, bumped when a message lands.
+  const [counts, setCounts] = useState(unreadByHouse);
+  useEffect(() => setCounts(unreadByHouse), [unreadByHouse]);
+
   const otherUnread = houses
     .filter((h) => h.id !== current.id)
-    .reduce((sum, h) => sum + (unreadByHouse[h.id] ?? 0), 0);
+    .reduce((sum, h) => sum + (counts[h.id] ?? 0), 0);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -45,6 +52,42 @@ export function HouseSwitcher({
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
+
+  // Reading a house's chat clears its badge straight away.
+  useEffect(() => {
+    function onRead(e: Event) {
+      const id = (e as CustomEvent<ChatReadDetail>).detail?.houseId;
+      if (id) setCounts((c) => ({ ...c, [id]: 0 }));
+    }
+    window.addEventListener(CHAT_READ_EVENT, onRead);
+    return () => window.removeEventListener(CHAT_READ_EVENT, onRead);
+  }, []);
+
+  // Live: bump a house's badge when a message from someone else lands there
+  // while you're elsewhere. The active house is handled by the Chat tab. RLS
+  // means we only receive messages for houses this user belongs to.
+  const currentIdRef = useRef(current.id);
+  useEffect(() => {
+    currentIdRef.current = current.id;
+  }, [current.id]);
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`switcher-unread:${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          const m = payload.new as { user_id: string; house_id: string };
+          if (m.user_id === userId || m.house_id === currentIdRef.current) return;
+          setCounts((c) => ({ ...c, [m.house_id]: (c[m.house_id] ?? 0) + 1 }));
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [userId]);
 
   function choose(id: string) {
     setOpen(false);
@@ -78,7 +121,7 @@ export function HouseSwitcher({
           </p>
           <ul className="py-1">
             {houses.map((h) => {
-              const count = unreadByHouse[h.id] ?? 0;
+              const count = counts[h.id] ?? 0;
               return (
                 <li key={h.id}>
                   <button

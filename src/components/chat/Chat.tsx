@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { emitChatRead } from "@/lib/chatRead";
 import { Avatar } from "@/components/Avatar";
 import { EmojiPicker } from "@/components/chat/EmojiPicker";
 import type { MemberWithProfile, Message } from "@/lib/types";
@@ -101,6 +102,9 @@ export function Chat({
       { user_id: currentUserId, house_id: houseId, last_read_at: lastReadAt },
       { onConflict: "user_id,house_id" },
     );
+    // Clear this house's badge in the switcher right away (don't wait for the
+    // next server render of the layout).
+    emitChatRead(houseId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [houseId, currentUserId, messages.length]);
 

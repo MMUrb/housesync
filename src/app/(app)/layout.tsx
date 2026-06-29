@@ -30,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           house={house}
           houses={houses}
           profile={profile}
+          userId={user.id}
           unreadByHouse={unreadByHouse}
         />
         <TopNav houseId={house.id} userId={user.id} initialUnreadCount={chatUnread} />

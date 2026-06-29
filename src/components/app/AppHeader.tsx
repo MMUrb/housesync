@@ -8,16 +8,23 @@ export function AppHeader({
   house,
   houses,
   profile,
+  userId,
   unreadByHouse,
 }: {
   house: House;
   houses: House[];
   profile: Profile | null;
+  userId: string;
   unreadByHouse: Record<string, number>;
 }) {
   return (
     <div className="flex items-center justify-between px-4 py-3">
-      <HouseSwitcher current={house} houses={houses} unreadByHouse={unreadByHouse} />
+      <HouseSwitcher
+        current={house}
+        houses={houses}
+        userId={userId}
+        unreadByHouse={unreadByHouse}
+      />
       <div className="flex shrink-0 items-center gap-1">
         <ThemeIconButton />
         <Link
