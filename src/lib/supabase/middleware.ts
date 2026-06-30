@@ -15,8 +15,10 @@ const PROTECTED_PREFIXES = [
   "/house",
 ];
 
-export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+export async function updateSession(request: NextRequest, requestHeaders?: Headers) {
+  // Carry any forwarded request headers (e.g. the CSP nonce) through to render.
+  const headers = requestHeaders ?? new Headers(request.headers);
+  let response = NextResponse.next({ request: { headers } });
 
   // Before the app is configured, don't try to talk to Supabase.
   if (!isSupabaseConfigured) return response;
@@ -28,7 +30,7 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet: CookieToSet[]) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
+        response = NextResponse.next({ request: { headers } });
         cookiesToSet.forEach(({ name, value, options }) =>
           response.cookies.set(name, value, options),
         );
