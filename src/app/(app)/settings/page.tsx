@@ -119,6 +119,20 @@ export default async function SettingsPage() {
           <InviteBox code={house.invite_code} houseName={house.name} />
         </div>
 
+        <div className="card flex items-center justify-between gap-3 p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-slate-800">Your data</p>
+            <p className="text-xs text-slate-500">Download a copy of your HouseSync data (JSON).</p>
+          </div>
+          <a
+            href="/api/account/export"
+            download
+            className="btn-secondary shrink-0 px-3 py-2 text-sm"
+          >
+            Download
+          </a>
+        </div>
+
         <DangerZone
           houseId={house.id}
           userId={user.id}
