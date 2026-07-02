@@ -6,8 +6,10 @@ import {
   getChores,
   getExpensesAndSplits,
   getHouseCategories,
+  getNotices,
   requireHouse,
 } from "@/lib/data";
+import { NoticeBoard } from "@/components/notices/NoticeBoard";
 import { computeBalances } from "@/lib/balances";
 import { formatMoney, relativeDay, firstName, timeAgo } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
@@ -27,14 +29,16 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const { user, profile, house, members } = await requireHouse();
-  const [{ expenses, splits }, bills, chores, activity, categories, account] = await Promise.all([
-    getExpensesAndSplits(house.id),
-    getBills(house.id),
-    getChores(house.id),
-    getActivity(house.id, 8),
-    getHouseCategories(house.id),
-    getAccountSettings(),
-  ]);
+  const [{ expenses, splits }, bills, chores, activity, categories, account, notices] =
+    await Promise.all([
+      getExpensesAndSplits(house.id),
+      getBills(house.id),
+      getChores(house.id),
+      getActivity(house.id, 8),
+      getHouseCategories(house.id),
+      getAccountSettings(),
+      getNotices(house.id),
+    ]);
 
   // The user's own share spent in the current calendar month (for the budget).
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
@@ -174,6 +178,14 @@ export default async function DashboardPage() {
         <QuickAction href="/bills/new" label="Add bill" Icon={IconRepeat} />
         <QuickAction href="/chores/new" label="Add chore" Icon={IconBroom} />
       </section>
+
+      {/* House noticeboard */}
+      <NoticeBoard
+        houseId={house.id}
+        currentUserId={user.id}
+        initialNotices={notices}
+        members={members}
+      />
 
       {/* Upcoming bills */}
       <Section title="Upcoming bills" href="/bills" linkLabel="All bills">

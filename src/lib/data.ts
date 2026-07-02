@@ -14,6 +14,7 @@ import type {
   HouseCategory,
   MemberWithProfile,
   Message,
+  Notice,
   PaymentDetails,
   Profile,
   RecurringBill,
@@ -275,6 +276,19 @@ export async function getActivity(houseId: string, limit = 20): Promise<Activity
     .order("created_at", { ascending: false })
     .limit(limit);
   return (data ?? []) as Activity[];
+}
+
+/** House noticeboard entries, pinned first then newest first. */
+export async function getNotices(houseId: string, limit = 50): Promise<Notice[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("notices")
+    .select("*")
+    .eq("house_id", houseId)
+    .order("pinned", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as Notice[];
 }
 
 /** Recent house chat messages, oldest first (capped at `limit`). */

@@ -8,7 +8,7 @@ import type { Message } from "@/lib/types";
 
 // House tables that carry a house_id, so we can subscribe scoped to this house.
 // (messages + expense_splits are handled separately below.)
-const SCOPED_TABLES = ["expenses", "recurring_bills", "chores", "activity", "house_members"] as const;
+const SCOPED_TABLES = ["expenses", "recurring_bills", "chores", "activity", "house_members", "notices"] as const;
 
 /**
  * The app's single Supabase Realtime channel, mounted once in the app layout.
