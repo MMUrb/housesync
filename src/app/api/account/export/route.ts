@@ -57,7 +57,7 @@ export async function GET() {
     grab("expenses", "created_by"),
     grab("expenses", "paid_by"),
     grab("expense_splits", "user_id"),
-    grab("bills", "created_by"),
+    grab("recurring_bills", "created_by"),
     grab("chores", "assigned_to"),
     grab("chores", "created_by"),
     grab("messages", "user_id"),
