@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { onHouseMessage } from "@/lib/houseMessages";
 import {
   IconBroom,
   IconChat,
@@ -44,29 +44,15 @@ export function TopNav({
     if (onChat) setUnreadCount(0);
   }, [onChat]);
 
-  // Live: light the dot when a message from someone else lands while you're
-  // looking at another tab. Same-account other devices clear it on next load.
+  // Live: light the dot when a message from someone else lands in THIS house
+  // while you're looking at another tab. Fed by the shared house channel (see
+  // houseMessages.ts). Same-account other devices clear it on next load.
   useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`nav-unread:${houseId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `house_id=eq.${houseId}`,
-        },
-        (payload) => {
-          const m = payload.new as { user_id: string };
-          if (m.user_id !== userId && !onChatRef.current) setUnreadCount((c) => c + 1);
-        },
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
+    return onHouseMessage((m) => {
+      if (m.house_id === houseId && m.user_id !== userId && !onChatRef.current) {
+        setUnreadCount((c) => c + 1);
+      }
+    });
   }, [houseId, userId]);
 
   return (
