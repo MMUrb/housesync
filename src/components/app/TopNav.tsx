@@ -65,6 +65,7 @@ export function TopNav({
             <Link
               key={href}
               href={href}
+              aria-current={active ? "page" : undefined}
               className={`flex flex-1 flex-col items-center gap-0.5 border-b-2 py-2 text-[11px] font-medium transition-colors ${
                 active
                   ? "border-brand-600 text-brand-600"

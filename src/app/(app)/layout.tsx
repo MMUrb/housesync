@@ -1,5 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/env";
+
+// The signed-in app is private user data — never index it.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 import { NotConfigured } from "@/components/NotConfigured";
 import { getChatUnreadCounts, getMyHouses, getProfile, requireHouse } from "@/lib/data";
 import { AppHeader } from "@/components/app/AppHeader";
