@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getSiteUrl, OAUTH_PROVIDERS } from "@/lib/env";
+import { safeNextPath } from "@/lib/safeRedirect";
 import { setLeaveGuard } from "@/lib/leaveGuard";
 import { reportClientError } from "@/components/ErrorReporter";
 
@@ -50,7 +51,7 @@ async function offerToSaveCredentials(email: string, password: string) {
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/dashboard";
+  const next = safeNextPath(searchParams.get("next"));
 
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
@@ -108,7 +109,7 @@ export function LoginForm() {
         if (!url || !url.startsWith(`${nativeSchemeRef.current}://`)) return;
         const params = new URLSearchParams(url.slice(url.indexOf("?") + 1));
         const code = params.get("code");
-        const dest = params.get("next") || next;
+        const dest = safeNextPath(params.get("next") || next);
         try {
           await Browser.close();
         } catch {

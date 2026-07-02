@@ -358,6 +358,52 @@ create policy "members_delete" on public.house_members for delete to authenticat
     or house_id in (select id from public.houses where created_by = auth.uid())
   );
 
+-- ----------------------------------------------------------------------------
+-- OWNERSHIP / ROLE ARE IMMUTABLE VIA THE MEMBER UPDATE POLICIES
+-- houses.created_by is the owner (it gates house delete + member removal), and
+-- house_members.role is set only by create_house / join_house. The UPDATE
+-- policies above intentionally let members edit descriptive fields (house name,
+-- their own move dates), but WITHOUT these triggers a member could also flip
+-- houses.created_by to themselves (seizing ownership) or self-promote role to
+-- 'admin'. Pin those columns to their previous values on every UPDATE so they
+-- can only ever change through the SECURITY DEFINER RPCs (which INSERT, so the
+-- BEFORE UPDATE triggers don't fire on them). invite_code is pinned too: nothing
+-- in the app rotates it, and freezing it stops a member griefing outstanding
+-- invites.
+-- ----------------------------------------------------------------------------
+create or replace function public.pin_house_owner()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.created_by := old.created_by;
+  new.invite_code := old.invite_code;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_pin_house_owner on public.houses;
+create trigger trg_pin_house_owner
+  before update on public.houses
+  for each row execute function public.pin_house_owner();
+
+create or replace function public.pin_member_role()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.role := old.role;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_pin_member_role on public.house_members;
+create trigger trg_pin_member_role
+  before update on public.house_members
+  for each row execute function public.pin_member_role();
+
 -- expenses ------------------------------------------------------------------
 drop policy if exists "expenses_select" on public.expenses;
 create policy "expenses_select" on public.expenses for select to authenticated
@@ -422,27 +468,52 @@ create policy "notices_all" on public.notices for all to authenticated
   with check (house_id in (select public.user_house_ids()));
 
 -- ----------------------------------------------------------------------------
--- STORAGE: receipts bucket (public read, authenticated write)
+-- STORAGE: receipts bucket (PRIVATE — read/write scoped to the owning house)
+-- Receipts can show names, addresses and card digits, so the bucket must NOT be
+-- public. Objects are stored as "<house_id>/<file>", so the first path segment
+-- is matched against the caller's memberships. Viewing is done via short-lived
+-- signed URLs (storage.createSignedUrl). Keep this in lockstep with
+-- migrations/0022_private_receipts.sql — never revert it to a public bucket.
 -- ----------------------------------------------------------------------------
 insert into storage.buckets (id, name, public)
-values ('receipts', 'receipts', true)
-on conflict (id) do nothing;
+values ('receipts', 'receipts', false)
+on conflict (id) do update set public = false;
 
 drop policy if exists "receipts_read" on storage.objects;
-create policy "receipts_read" on storage.objects for select
-  using (bucket_id = 'receipts');
+create policy "receipts_read" on storage.objects for select to authenticated
+  using (
+    bucket_id = 'receipts'
+    and (storage.foldername(name))[1] in (
+      select house_id::text from public.house_members where user_id = auth.uid()
+    )
+  );
 
 drop policy if exists "receipts_insert" on storage.objects;
 create policy "receipts_insert" on storage.objects for insert to authenticated
-  with check (bucket_id = 'receipts');
+  with check (
+    bucket_id = 'receipts'
+    and (storage.foldername(name))[1] in (
+      select house_id::text from public.house_members where user_id = auth.uid()
+    )
+  );
 
 drop policy if exists "receipts_update" on storage.objects;
 create policy "receipts_update" on storage.objects for update to authenticated
-  using (bucket_id = 'receipts');
+  using (
+    bucket_id = 'receipts'
+    and (storage.foldername(name))[1] in (
+      select house_id::text from public.house_members where user_id = auth.uid()
+    )
+  );
 
 drop policy if exists "receipts_delete" on storage.objects;
 create policy "receipts_delete" on storage.objects for delete to authenticated
-  using (bucket_id = 'receipts');
+  using (
+    bucket_id = 'receipts'
+    and (storage.foldername(name))[1] in (
+      select house_id::text from public.house_members where user_id = auth.uid()
+    )
+  );
 
 -- ----------------------------------------------------------------------------
 -- ACCOUNT SETTINGS (private per-user: phone + reminder opt-ins)

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { randomInt } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { isSmsConfigured, sendSms } from "@/lib/sms";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const code = String(Math.floor(100000 + Math.random() * 900000)); // 6 digits
+  const code = String(randomInt(100000, 1000000)); // 6 digits, CSPRNG
   const expires = new Date(Date.now() + 10 * 60_000).toISOString();
 
   const { error: upErr } = await admin.from("phone_verifications").upsert(

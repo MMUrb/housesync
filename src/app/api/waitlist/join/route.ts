@@ -47,9 +47,18 @@ export async function POST(request: Request) {
       }
     }
     // If this submission fixes an earlier typo, drop the old (wrong) entry so
-    // only the corrected email stays on the list.
+    // only the corrected email stays on the list. This endpoint is
+    // unauthenticated, so scope the delete narrowly to a just-added, never-
+    // contacted row: you can only clean up a typo you made in the last 24h,
+    // not remove an established subscriber by guessing their address.
     if (replaces && replaces !== email && EMAIL_RE.test(replaces)) {
-      await admin.from("waitlist").delete().eq("email", replaces);
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      await admin
+        .from("waitlist")
+        .delete()
+        .eq("email", replaces)
+        .is("notified_at", null)
+        .gt("created_at", dayAgo);
     }
   }
 

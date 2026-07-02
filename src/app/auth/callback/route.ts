@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { safeNextPath } from "@/lib/safeRedirect";
 
 // Handles the redirect back from OAuth (Google) and email-confirmation links.
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  // Sanitised: `next` is attacker-controllable, so only allow in-app paths
+  // (never an absolute/protocol-relative URL that could redirect off-site).
+  const next = safeNextPath(searchParams.get("next"));
 
   if (code) {
     const supabase = await createClient();
