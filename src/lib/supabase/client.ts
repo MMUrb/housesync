@@ -65,32 +65,6 @@ export function createClient() {
   if (token) rt.accessTokenValue = token;
   rt.accessToken = async () => sessionAccessToken() ?? SUPABASE_ANON_KEY;
 
-  if (typeof window !== "undefined") {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    const w = window as any;
-    w.__hsRealtimeAuth = token ? "jwt" : "anon";
-    w.__hsClient = supabase;
-    w.__hsDbg = [];
-    const snap = (label: string) => {
-      try {
-        w.__hsDbg.push({
-          label,
-          t: Date.now(),
-          atv: String(rt.accessTokenValue ?? "").slice(0, 10),
-          connected: (supabase.realtime as any).isConnected?.() ?? null,
-          channels: (supabase.getChannels?.() ?? []).map((c: any) => ({ topic: c.topic, state: c.state })),
-        });
-      } catch (e) {
-        w.__hsDbg.push({ label, err: String(e) });
-      }
-    };
-    snap("create");
-    setTimeout(() => snap("t150"), 150);
-    setTimeout(() => snap("t1500"), 1500);
-    setTimeout(() => snap("t4000"), 4000);
-    /* eslint-enable @typescript-eslint/no-explicit-any */
-  }
-
   client = supabase;
   return supabase;
 }

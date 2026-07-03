@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { setActiveHouse } from "@/lib/activeHouse";
-import { createClient } from "@/lib/supabase/client";
+import { onHouseMessage } from "@/lib/houseMessages";
 import { CHAT_READ_EVENT, type ChatReadDetail } from "@/lib/chatRead";
 import { IconChevronDown, IconCheck, IconPlus } from "@/components/icons";
 import type { House } from "@/lib/types";
@@ -71,22 +71,10 @@ export function HouseSwitcher({
     currentIdRef.current = current.id;
   }, [current.id]);
   useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`switcher-unread:${userId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
-          const m = payload.new as { user_id: string; house_id: string };
-          if (m.user_id === userId || m.house_id === currentIdRef.current) return;
-          setCounts((c) => ({ ...c, [m.house_id]: (c[m.house_id] ?? 0) + 1 }));
-        },
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
+    return onHouseMessage((m) => {
+      if (m.user_id === userId || m.house_id === currentIdRef.current) return;
+      setCounts((c) => ({ ...c, [m.house_id]: (c[m.house_id] ?? 0) + 1 }));
+    });
   }, [userId]);
 
   function choose(id: string) {
