@@ -56,10 +56,15 @@ export function createClient() {
   // are actually delivered instead of silently dropped as the anon role.
   const token = sessionAccessToken();
   if (token) supabase.realtime.setAuth(token);
+  if (typeof window !== "undefined") {
+    (window as unknown as { __hsRealtimeAuth?: string }).__hsRealtimeAuth = token ? "jwt" : "anon";
+  }
 
-  // Keep it current on refresh / sign-in / sign-out.
+  // Keep it current on refresh / sign-in. NEVER fall back to the anon key here:
+  // an early null-session event would otherwise clobber the JWT we just set and
+  // leave channels joined as the anon role.
   supabase.auth.onAuthStateChange((_event, session) => {
-    supabase.realtime.setAuth(session?.access_token ?? SUPABASE_ANON_KEY);
+    if (session?.access_token) supabase.realtime.setAuth(session.access_token);
   });
 
   client = supabase;
