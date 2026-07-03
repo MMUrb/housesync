@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AVATAR_COLORS } from "@/lib/constants";
+import { initials } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 
 const PRESET_AVATARS = Array.from({ length: 10 }, (_, i) => `/avatars/preset-${i + 1}.svg`);
@@ -95,7 +96,7 @@ export function ProfileForm({
             style={{ backgroundColor: color }}
             title="Use your initials"
           >
-            {(name.trim()[0] || "?").toUpperCase()}
+            {initials(name)}
           </button>
         </div>
       </div>
