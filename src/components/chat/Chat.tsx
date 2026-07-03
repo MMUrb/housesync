@@ -3,7 +3,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { emitChatRead } from "@/lib/chatRead";
-import { onHouseMessage } from "@/lib/houseMessages";
 import { Avatar } from "@/components/Avatar";
 import { EmojiPicker } from "@/components/chat/EmojiPicker";
 import type { MemberWithProfile, Message } from "@/lib/types";
@@ -64,12 +63,24 @@ export function Chat({
     setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
   }
 
-  // Stream new messages for this house live, off the shared house channel (see
-  // houseMessages.ts) rather than opening a second Realtime channel here.
+  // Stream new messages for this house live.
   useEffect(() => {
-    return onHouseMessage((m) => {
-      if (m.house_id === houseId) addMessage(m);
-    });
+    const channel = supabase
+      .channel(`house-chat:${houseId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `house_id=eq.${houseId}`,
+        },
+        (payload) => addMessage(payload.new as Message),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [houseId]);
 
