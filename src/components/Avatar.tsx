@@ -20,11 +20,15 @@ export function Avatar({
   size?: keyof typeof SIZES;
   className?: string;
 }) {
-  if (avatarUrl) {
+  // Custom photo upload was removed — only the ready-made preset avatars
+  // (/avatars/preset-N.svg) are honoured. Any legacy uploaded-photo URLs are
+  // ignored, so those profiles fall back to their coloured initials.
+  const isPreset = typeof avatarUrl === "string" && avatarUrl.startsWith("/avatars/preset-");
+  if (isPreset) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={avatarUrl}
+        src={avatarUrl as string}
         alt={name ?? "Avatar"}
         className={`inline-block shrink-0 rounded-full object-cover ${SIZES[size]} ${className}`}
       />

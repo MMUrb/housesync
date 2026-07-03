@@ -26,56 +26,17 @@ export function ProfileForm({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Please choose an image file.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError("That image is too large (max 5 MB).");
-      return;
-    }
-    setError(null);
-    setUploading(true);
-    try {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const path = `${userId}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("avatars")
-        .upload(path, file, { upsert: true, contentType: file.type });
-      if (upErr) throw upErr;
-      const url = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
-      const { error: updErr } = await supabase
-        .from("profiles")
-        .update({ avatar_url: url })
-        .eq("id", userId);
-      if (updErr) throw updErr;
-      setAvatarUrl(url);
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed — please try again.");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function removePhoto() {
-    setError(null);
-    setAvatarUrl(null);
-    await supabase.from("profiles").update({ avatar_url: null }).eq("id", userId);
+  async function choosePreset(url: string) {
+    setAvatarUrl(url);
+    await supabase.from("profiles").update({ avatar_url: url }).eq("id", userId);
     router.refresh();
   }
 
-  async function choosePreset(url: string) {
-    setError(null);
-    setAvatarUrl(url);
-    await supabase.from("profiles").update({ avatar_url: url }).eq("id", userId);
+  // Clear the avatar back to the coloured initials.
+  async function useInitials() {
+    setAvatarUrl(null);
+    await supabase.from("profiles").update({ avatar_url: null }).eq("id", userId);
     router.refresh();
   }
 
@@ -98,43 +59,16 @@ export function ProfileForm({
 
   return (
     <form onSubmit={save} className="card space-y-4 p-5">
-      {/* Profile photo */}
+      {/* Avatar preview + ready-made choices */}
       <div className="flex items-center gap-4">
         <Avatar name={name} color={color} avatarUrl={avatarUrl} size="xl" />
         <div className="min-w-0 flex-1">
-          <span className="label">Profile photo</span>
-          <div className="flex flex-wrap gap-2">
-            <label
-              className={`btn-secondary cursor-pointer px-3 py-1.5 text-xs ${
-                uploading ? "pointer-events-none opacity-60" : ""
-              }`}
-            >
-              {uploading ? "Uploading…" : avatarUrl ? "Change photo" : "Upload photo"}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={onFile}
-                disabled={uploading}
-              />
-            </label>
-            {avatarUrl && (
-              <button
-                type="button"
-                onClick={removePhoto}
-                className="btn-secondary px-3 py-1.5 text-xs"
-              >
-                Remove
-              </button>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-slate-400">JPG or PNG, up to 5 MB.</p>
+          <span className="label">Your avatar</span>
+          <p className="text-xs text-slate-400">Pick one of the ready-made avatars below.</p>
         </div>
       </div>
 
-      {/* Or pick a ready-made cartoon avatar */}
       <div>
-        <span className="label">Or pick an avatar</span>
         <div className="flex flex-wrap gap-2">
           {PRESET_AVATARS.map((p) => (
             <button
@@ -150,12 +84,21 @@ export function ProfileForm({
               <img src={p} alt="" className="h-12 w-12" />
             </button>
           ))}
+          {/* Use your coloured initials instead of a ready-made avatar. */}
+          <button
+            type="button"
+            onClick={useInitials}
+            aria-label="Use your initials"
+            className={`grid h-12 w-12 place-items-center rounded-full font-semibold text-white ring-offset-2 transition ${
+              avatarUrl === null ? "ring-2 ring-brand-600" : "hover:opacity-80"
+            }`}
+            style={{ backgroundColor: color }}
+            title="Use your initials"
+          >
+            {(name.trim()[0] || "?").toUpperCase()}
+          </button>
         </div>
       </div>
-
-      {error && (
-        <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-      )}
 
       {/* Name */}
       <div>
@@ -170,12 +113,9 @@ export function ProfileForm({
         />
       </div>
 
-      {/* Colour — used as a fallback when there's no photo */}
+      {/* Colour — used for the initials avatar. */}
       <div>
-        <span className="label">
-          Your colour{" "}
-          {avatarUrl && <span className="font-normal text-slate-400">(used when no photo)</span>}
-        </span>
+        <span className="label">Your colour</span>
         <div className="flex flex-wrap gap-2">
           {AVATAR_COLORS.map((c) => (
             <button
