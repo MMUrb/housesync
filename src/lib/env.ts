@@ -9,12 +9,12 @@ export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 /**
  * Which social sign-in buttons to show on the login screen.
- * Set NEXT_PUBLIC_OAUTH_PROVIDERS (comma-separated) to control this — e.g.
- * "google,azure" while Apple is still being set up. Defaults to all three.
- * Each provider must ALSO be enabled + configured in the Supabase dashboard.
+ * Set NEXT_PUBLIC_OAUTH_PROVIDERS (comma-separated) to override. Defaults to
+ * "google,apple" (both configured in Supabase). A Vercel env var, if set, wins
+ * over this default. Each provider must ALSO be enabled in the Supabase dashboard.
  */
 export const OAUTH_PROVIDERS = (
-  process.env.NEXT_PUBLIC_OAUTH_PROVIDERS ?? "google"
+  process.env.NEXT_PUBLIC_OAUTH_PROVIDERS ?? "google,apple"
 )
   .split(",")
   .map((p) => p.trim().toLowerCase())
