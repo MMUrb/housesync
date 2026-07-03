@@ -35,6 +35,8 @@ export function HouseRealtime({ houseId }: { houseId: string }) {
     // Coalesce bursts (an expense insert fires expense + splits + activity rows)
     // into a single refresh.
     const refresh = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (typeof window !== "undefined") (window as any).__hsDataRx = (((window as any).__hsDataRx as number) || 0) + 1;
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => router.refresh(), 400);
     };
@@ -56,7 +58,11 @@ export function HouseRealtime({ houseId }: { houseId: string }) {
     channel.on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "messages" },
-      (payload) => emitHouseMessage(payload.new as Message),
+      (payload) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (typeof window !== "undefined") (window as any).__hsMsgRx = (((window as any).__hsMsgRx as number) || 0) + 1;
+        emitHouseMessage(payload.new as Message);
+      },
     );
     channel.subscribe();
 
