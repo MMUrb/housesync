@@ -630,4 +630,318 @@ drop policy if exists "avatars_delete" on storage.objects;
 create policy "avatars_delete" on storage.objects for delete to authenticated
   using (bucket_id = 'avatars');
 
+-- ============================================================================
+-- CONSOLIDATED FROM LATER MIGRATIONS (0004-0027)
+-- Everything below was added by incremental migrations after the original
+-- schema. It is folded in here so this single file provisions a complete,
+-- CURRENT database. All statements are idempotent (IF NOT EXISTS /
+-- CREATE OR REPLACE / DROP ... IF EXISTS), matching the migrations. One-off data
+-- backfills and the superseded profiles.pay_* columns (replaced by
+-- payment_details) are intentionally omitted.
+-- ============================================================================
+
+-- --- Extra columns on existing tables --------------------------------------
+alter table public.profiles add column if not exists welcomed_at timestamptz; -- 0007
+
+-- Link a logged payment back to its recurring bill (0009).
+alter table public.expenses
+  add column if not exists bill_id uuid references public.recurring_bills (id) on delete set null;
+create index if not exists idx_expenses_bill on public.expenses (bill_id);
+
+-- Categories are now per-house + editable (see house_categories below), so the
+-- fixed category CHECK constraints are dropped to allow custom codes (0019).
+alter table public.expenses drop constraint if exists expenses_category_check;
+alter table public.recurring_bills drop constraint if exists recurring_bills_category_check;
+
+-- account_settings: email verification (0008), monthly budget (0020), and
+-- granular push (0021) + email (0025) notification preferences.
+alter table public.account_settings
+  add column if not exists email_verified_at    timestamptz,
+  add column if not exists email_verify_token   text,
+  add column if not exists email_verify_expires timestamptz,
+  add column if not exists monthly_budget        numeric(12, 2),
+  add column if not exists notify_push_message   boolean not null default true,
+  add column if not exists notify_push_expense   boolean not null default true,
+  add column if not exists notify_push_bill      boolean not null default true,
+  add column if not exists notify_push_paid      boolean not null default true,
+  add column if not exists notify_push_chore     boolean not null default true,
+  add column if not exists notify_push_member    boolean not null default true,
+  add column if not exists notify_email_bills    boolean not null default true,
+  add column if not exists notify_email_nudges   boolean not null default true,
+  add column if not exists notify_email_product  boolean not null default true,
+  add column if not exists notify_email_tips     boolean not null default true,
+  add column if not exists notify_email_surveys  boolean not null default true,
+  add column if not exists notify_email_offers   boolean not null default true;
+
+-- --- Payment details (0012): per-user, with a share-with-house consent switch
+create table if not exists public.payment_details (
+  user_id          uuid primary key references auth.users (id) on delete cascade,
+  monzo            text,
+  paypal           text,
+  revolut          text,
+  bank             text,
+  share_with_house boolean not null default true,
+  updated_at       timestamptz not null default now()
+);
+alter table public.payment_details enable row level security;
+drop policy if exists "payment_details_select" on public.payment_details;
+create policy "payment_details_select" on public.payment_details for select to authenticated
+  using (
+    user_id = auth.uid()
+    or (
+      share_with_house
+      and user_id in (
+        select hm.user_id from public.house_members hm
+        where hm.house_id in (select public.user_house_ids())
+      )
+    )
+  );
+drop policy if exists "payment_details_insert" on public.payment_details;
+create policy "payment_details_insert" on public.payment_details for insert to authenticated
+  with check (user_id = auth.uid());
+drop policy if exists "payment_details_update" on public.payment_details;
+create policy "payment_details_update" on public.payment_details for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists "payment_details_delete" on public.payment_details;
+create policy "payment_details_delete" on public.payment_details for delete to authenticated
+  using (user_id = auth.uid());
+
+-- --- Per-user chat read state (0014) ---------------------------------------
+create table if not exists public.message_reads (
+  user_id      uuid not null references auth.users (id) on delete cascade,
+  house_id     uuid not null references public.houses (id) on delete cascade,
+  last_read_at timestamptz not null default now(),
+  primary key (user_id, house_id)
+);
+alter table public.message_reads enable row level security;
+drop policy if exists "message_reads_select" on public.message_reads;
+create policy "message_reads_select" on public.message_reads for select to authenticated
+  using (user_id = auth.uid());
+drop policy if exists "message_reads_insert" on public.message_reads;
+create policy "message_reads_insert" on public.message_reads for insert to authenticated
+  with check (user_id = auth.uid());
+drop policy if exists "message_reads_update" on public.message_reads;
+create policy "message_reads_update" on public.message_reads for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- --- Push notification targets (0016) --------------------------------------
+create table if not exists public.push_subscriptions (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  kind       text not null check (kind in ('web', 'native')),
+  endpoint   text,
+  p256dh     text,
+  auth       text,
+  token      text,
+  created_at timestamptz not null default now(),
+  unique (user_id, endpoint),
+  unique (user_id, token)
+);
+create index if not exists idx_push_subs_user on public.push_subscriptions (user_id);
+alter table public.push_subscriptions enable row level security;
+drop policy if exists "push_subs_select" on public.push_subscriptions;
+create policy "push_subs_select" on public.push_subscriptions for select to authenticated
+  using (user_id = auth.uid());
+drop policy if exists "push_subs_insert" on public.push_subscriptions;
+create policy "push_subs_insert" on public.push_subscriptions for insert to authenticated
+  with check (user_id = auth.uid());
+drop policy if exists "push_subs_update" on public.push_subscriptions;
+create policy "push_subs_update" on public.push_subscriptions for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists "push_subs_delete" on public.push_subscriptions;
+create policy "push_subs_delete" on public.push_subscriptions for delete to authenticated
+  using (user_id = auth.uid());
+
+-- --- Per-house editable expense categories (0019) --------------------------
+create table if not exists public.house_categories (
+  id         uuid primary key default gen_random_uuid(),
+  house_id   uuid not null references public.houses (id) on delete cascade,
+  code       text not null,
+  name       text not null,
+  emoji      text not null default '📦',
+  color      text not null default '#94a3b8',
+  sort       int  not null default 0,
+  archived   boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique (house_id, code)
+);
+create index if not exists idx_house_categories_house on public.house_categories (house_id);
+alter table public.house_categories enable row level security;
+drop policy if exists "house_categories_select" on public.house_categories;
+create policy "house_categories_select" on public.house_categories for select to authenticated
+  using (house_id in (select public.user_house_ids()));
+drop policy if exists "house_categories_insert" on public.house_categories;
+create policy "house_categories_insert" on public.house_categories for insert to authenticated
+  with check (house_id in (select public.user_house_ids()));
+drop policy if exists "house_categories_update" on public.house_categories;
+create policy "house_categories_update" on public.house_categories for update to authenticated
+  using (house_id in (select public.user_house_ids())) with check (house_id in (select public.user_house_ids()));
+drop policy if exists "house_categories_delete" on public.house_categories;
+create policy "house_categories_delete" on public.house_categories for delete to authenticated
+  using (house_id in (select public.user_house_ids()));
+
+create or replace function public.seed_house_categories(p_house uuid)
+returns void language sql security definer set search_path = public as $$
+  insert into public.house_categories (house_id, code, name, emoji, color, sort) values
+    (p_house, 'rent', 'Rent', '🏠', '#6f53f5', 1),
+    (p_house, 'bills', 'Bills', '💡', '#3f9fe0', 2),
+    (p_house, 'groceries', 'Groceries', '🛒', '#1bb27e', 3),
+    (p_house, 'streaming', 'Streaming services', '🎬', '#e0567f', 4),
+    (p_house, 'cleaning', 'Cleaning', '🧽', '#e0b53f', 5),
+    (p_house, 'furniture', 'Furniture', '🛋️', '#9b5fe0', 6),
+    (p_house, 'other', 'Other', '📦', '#94a3b8', 7)
+  on conflict (house_id, code) do nothing;
+$$;
+
+create or replace function public.handle_new_house()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  perform public.seed_house_categories(new.id);
+  return new;
+end;
+$$;
+drop trigger if exists on_house_created on public.houses;
+create trigger on_house_created after insert on public.houses
+  for each row execute function public.handle_new_house();
+
+-- (The ownership/role-lock triggers — pin_house_owner / pin_member_role, from
+-- migration 0026 — are already defined earlier in this file, next to the
+-- houses / house_members policies.)
+
+-- --- Service-role-only tables (RLS on, NO policies) -------------------------
+-- Cookieless page-view analytics (0004).
+create table if not exists public.page_views (
+  id           bigint generated always as identity primary key,
+  path         text not null,
+  referrer     text,
+  visitor_hash text,
+  country      text,
+  created_at   timestamptz not null default now()
+);
+create index if not exists idx_page_views_created on public.page_views (created_at desc);
+alter table public.page_views enable row level security;
+
+-- Anonymous account-deletion feedback (0005 + 0017 + 0018). No user id/email.
+create table if not exists public.deletion_feedback (
+  id             bigint generated always as identity primary key,
+  reason         text,
+  comment        text,
+  days_active    int,
+  platform       text,
+  houses_joined  int,
+  messages_sent  int,
+  expenses_added int,
+  created_at     timestamptz not null default now()
+);
+create index if not exists idx_deletion_feedback_created on public.deletion_feedback (created_at desc);
+alter table public.deletion_feedback enable row level security;
+
+-- Pre-launch waitlist emails (0010).
+create table if not exists public.waitlist (
+  id          uuid primary key default gen_random_uuid(),
+  email       text not null unique,
+  source      text,
+  created_at  timestamptz not null default now(),
+  notified_at timestamptz
+);
+create index if not exists idx_waitlist_created on public.waitlist (created_at desc);
+alter table public.waitlist enable row level security;
+
+-- Waitlist access-code unlocks, anonymous (0011).
+create table if not exists public.waitlist_unlocks (
+  id           uuid primary key default gen_random_uuid(),
+  created_at   timestamptz not null default now(),
+  country      text,
+  city         text,
+  user_agent   text,
+  visitor_hash text
+);
+create index if not exists idx_waitlist_unlocks_created on public.waitlist_unlocks (created_at desc);
+alter table public.waitlist_unlocks enable row level security;
+
+-- Production error log (0015).
+create table if not exists public.error_logs (
+  id          uuid primary key default gen_random_uuid(),
+  created_at  timestamptz not null default now(),
+  source      text not null default 'server',
+  message     text not null,
+  stack       text,
+  url         text,
+  user_id     uuid,
+  user_agent  text,
+  digest      text,
+  resolved_at timestamptz
+);
+create index if not exists idx_error_logs_created on public.error_logs (created_at desc);
+create index if not exists idx_error_logs_unresolved
+  on public.error_logs (created_at desc) where resolved_at is null;
+alter table public.error_logs enable row level security;
+
+-- Postgres-backed rate limiting (0023).
+create table if not exists public.rate_limits (
+  key          text primary key,
+  count        integer not null default 0,
+  window_start timestamptz not null default now()
+);
+alter table public.rate_limits enable row level security;
+
+create or replace function public.rate_limit_hit(
+  p_key text,
+  p_max integer,
+  p_window_seconds integer
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count integer;
+  v_start timestamptz;
+begin
+  select count, window_start into v_count, v_start
+  from public.rate_limits
+  where key = p_key
+  for update;
+
+  if not found then
+    insert into public.rate_limits (key, count, window_start)
+    values (p_key, 1, now())
+    on conflict (key) do update set count = public.rate_limits.count + 1;
+    return true;
+  end if;
+
+  if v_start < now() - make_interval(secs => p_window_seconds) then
+    update public.rate_limits set count = 1, window_start = now() where key = p_key;
+    return true;
+  end if;
+
+  if v_count >= p_max then
+    return false;
+  end if;
+
+  update public.rate_limits set count = count + 1 where key = p_key;
+  return true;
+end;
+$$;
+
+-- --- Live house data + noticeboard via Realtime (0024 + 0027) --------------
+-- messages was already added to the publication above (0001); add the rest so a
+-- change by one housemate streams to everyone.
+do $$
+declare t text;
+begin
+  foreach t in array array[
+    'expenses', 'expense_splits', 'recurring_bills', 'chores',
+    'activity', 'house_members', 'notices'
+  ] loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
+
 -- Done.
