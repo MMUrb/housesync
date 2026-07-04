@@ -10,6 +10,7 @@ import { AppHeader } from "@/components/app/AppHeader";
 import { TopNav } from "@/components/app/TopNav";
 import { FollowUs } from "@/components/SocialLinks";
 import { PushInit } from "@/components/push/PushInit";
+import { NativeShell } from "@/components/app/NativeShell";
 import { HouseRealtime } from "@/components/app/HouseRealtime";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -27,7 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const chatUnread = unreadByHouse[house.id] ?? 0;
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-2xl flex-col">
+    <div className="app-shell mx-auto flex min-h-dvh max-w-2xl flex-col">
       {/* Sticky top bar: house switcher + profile, then the main nav tabs. */}
       <div className="safe-top sticky top-0 z-30 border-b border-slate-200 bg-[var(--background)]/90 backdrop-blur">
         <AppHeader
@@ -41,6 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </div>
       <main className="flex-1 px-4 pb-8 pt-4">{children}</main>
       <PushInit />
+      <NativeShell />
       <HouseRealtime houseId={house.id} />
       <footer className="border-t border-slate-100 px-4 pt-3 [padding-bottom:calc(0.75rem_+_env(safe-area-inset-bottom))]">
         <div className="flex flex-col items-center gap-1.5">

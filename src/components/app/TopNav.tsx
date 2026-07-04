@@ -132,7 +132,7 @@ export function TopNav({
   }
 
   return (
-    <nav className="border-t border-slate-100">
+    <nav data-app-nav className="border-t border-slate-100">
       <div className="mx-auto flex max-w-2xl items-stretch justify-around">
         {renderTab(TABS[0])}
         {renderTab(TABS[1])}
@@ -149,7 +149,10 @@ export function TopNav({
             <IconPlus className="h-5 w-5" />
           </button>
           {addOpen && (
-            <div className="absolute left-1/2 top-full z-50 mt-1.5 w-56 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft dark:border-white/10 dark:bg-[#15152b]">
+            <div
+              data-quickadd
+              className="absolute left-1/2 top-full z-50 mt-1.5 w-56 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft dark:border-white/10 dark:bg-[#15152b]"
+            >
               {QUICK_ADD.map(({ href, label, Icon }) => (
                 <Link
                   key={label}

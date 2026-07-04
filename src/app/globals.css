@@ -101,6 +101,37 @@
 }
 
 /* ============================================================================
+   NATIVE APP: bottom navigation
+   In the Capacitor app only, <html> gets `.native-app` (see NativeShell), which
+   moves the primary nav out of the top bar and pins it as a fixed bottom tab bar
+   (the phone-native pattern) and flips the quick-add menu to open upward. The
+   website has no such class, so its top-nav layout is completely untouched.
+   ============================================================================ */
+.native-app [data-app-nav] {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  background-color: var(--background);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -2px 14px rgba(2, 6, 23, 0.06);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+/* Reserve room at the bottom of the scroll so content and the footer clear the
+   fixed bar (nav height + home-indicator inset). */
+.native-app .app-shell {
+  padding-bottom: calc(3.75rem + env(safe-area-inset-bottom));
+}
+/* The quick-add menu opens upward from the bottom bar instead of downward. */
+.native-app [data-quickadd] {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 0.375rem;
+}
+
+/* ============================================================================
    NIGHT MODE
    Light mode above is untouched. In .dark we remap the neutral + soft-tint
    utility classes (and the component classes that bake in fixed colours) to the
