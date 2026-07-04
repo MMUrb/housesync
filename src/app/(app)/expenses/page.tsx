@@ -3,6 +3,7 @@ import { getExpensesAndSplits, getHouseCategories, requireHouse } from "@/lib/da
 import { createClient } from "@/lib/supabase/server";
 import { PageTitle } from "@/components/app/PageTitle";
 import { ExpensesList, type ExpenseVM } from "@/components/expenses/ExpensesList";
+import { MoneyTabs } from "@/components/app/MoneyTabs";
 import { IconPlus } from "@/components/icons";
 
 export const metadata = { title: "Expenses" };
@@ -100,6 +101,7 @@ export default async function ExpensesPage() {
           </Link>
         }
       />
+      <MoneyTabs />
       {rows.length === 0 ? (
         <EmptyExpenses />
       ) : (

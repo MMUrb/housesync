@@ -13,6 +13,7 @@ import { LogBillButton } from "@/components/bills/LogBillButton";
 import { BillPay } from "@/components/bills/BillPay";
 import { BillDetailsButton } from "@/components/bills/BillDetailsButton";
 import { Avatar } from "@/components/Avatar";
+import { MoneyTabs } from "@/components/app/MoneyTabs";
 import { IconPlus } from "@/components/icons";
 import { formatMoney } from "@/lib/format";
 import { splitEqually } from "@/lib/balances";
@@ -86,6 +87,7 @@ export default async function BillsPage() {
           </Link>
         }
       />
+      <MoneyTabs />
 
       {bills.length === 0 ? (
         <div className="card mt-2 flex flex-col items-center p-8 text-center">

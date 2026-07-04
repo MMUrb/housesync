@@ -6,6 +6,7 @@ import { PageTitle } from "@/components/app/PageTitle";
 import { Avatar } from "@/components/Avatar";
 import { InviteBox } from "@/components/house/InviteBox";
 import { SettleActions, type SettleVM } from "@/components/housemates/SettleActions";
+import { IconBroom, IconCart } from "@/components/icons";
 
 export const metadata = { title: "Housemates" };
 export const dynamic = "force-dynamic";
@@ -85,6 +86,28 @@ export default async function HousematesPage() {
   return (
     <div className="space-y-6">
       <PageTitle title={house.name} subtitle={`${members.length} housemates`} />
+
+      {/* House hub: quick links to the other shared-house sections */}
+      <section className="grid grid-cols-2 gap-3">
+        <Link
+          href="/chores"
+          className="card flex items-center gap-3 p-4 transition hover:bg-slate-50 dark:hover:bg-white/[0.04]"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-600">
+            <IconBroom className="h-5 w-5" />
+          </span>
+          <span className="text-sm font-medium text-slate-900">Chores</span>
+        </Link>
+        <Link
+          href="/shopping"
+          className="card flex items-center gap-3 p-4 transition hover:bg-slate-50 dark:hover:bg-white/[0.04]"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-600">
+            <IconCart className="h-5 w-5" />
+          </span>
+          <span className="text-sm font-medium text-slate-900">Shopping</span>
+        </Link>
+      </section>
 
       {/* Settle up */}
       <section className="space-y-2">
