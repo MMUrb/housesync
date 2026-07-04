@@ -9,7 +9,6 @@ import {
   IconBroom,
   IconCart,
   IconChat,
-  IconClipboard,
   IconHome,
   IconPlus,
   IconReceipt,
@@ -36,7 +35,6 @@ const QUICK_ADD: { href: string; label: string; Icon: IconType }[] = [
   { href: "/bills/new", label: "Add bill", Icon: IconRepeat },
   { href: "/chores/new", label: "Add chore", Icon: IconBroom },
   { href: "/shopping", label: "Add shopping item", Icon: IconCart },
-  { href: "/dashboard", label: "Post a notice", Icon: IconClipboard },
 ];
 
 function matches(pathname: string, paths: string[]) {
