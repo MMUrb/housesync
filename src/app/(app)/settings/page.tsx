@@ -140,7 +140,18 @@ export default async function SettingsPage() {
         />
       </section>
 
-      <p className="pb-4 text-center text-xs text-slate-400">HouseSync · MVP</p>
+      <div className="flex flex-col items-center gap-1.5 pb-4 text-center">
+        <div className="flex items-center gap-2 text-xs text-slate-400">
+          <Link href="/privacy" className="transition hover:text-slate-600">
+            Privacy Policy
+          </Link>
+          <span>·</span>
+          <Link href="/terms" className="transition hover:text-slate-600">
+            Terms of Use
+          </Link>
+        </div>
+        <p className="text-xs text-slate-400">HouseSync · MVP</p>
+      </div>
     </div>
   );
 }
