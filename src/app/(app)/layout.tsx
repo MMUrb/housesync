@@ -30,7 +30,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="app-shell mx-auto flex min-h-dvh max-w-2xl flex-col">
       {/* Sticky top bar: house switcher + profile, then the main nav tabs. */}
-      <div className="safe-top sticky top-0 z-30 border-b border-slate-200 bg-[var(--background)]/90 backdrop-blur">
+      <div
+        data-app-header
+        className="safe-top sticky top-0 z-30 border-b border-slate-200 bg-[var(--background)]/90 backdrop-blur"
+      >
         <AppHeader
           house={house}
           houses={houses}
