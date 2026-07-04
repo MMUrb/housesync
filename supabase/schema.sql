@@ -135,6 +135,19 @@ create table if not exists public.notices (
   created_at timestamptz not null default now()
 );
 
+-- Shared shopping / grocery list.
+create table if not exists public.shopping_items (
+  id         uuid primary key default gen_random_uuid(),
+  house_id   uuid not null references public.houses (id) on delete cascade,
+  name       text not null,
+  quantity   text,
+  checked    boolean not null default false,
+  added_by   uuid references auth.users (id) on delete set null,
+  checked_by uuid references auth.users (id) on delete set null,
+  checked_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
 -- Helpful indexes.
 create index if not exists idx_house_members_user on public.house_members (user_id);
 create index if not exists idx_house_members_house on public.house_members (house_id);
@@ -145,6 +158,7 @@ create index if not exists idx_bills_house on public.recurring_bills (house_id);
 create index if not exists idx_chores_house on public.chores (house_id);
 create index if not exists idx_activity_house on public.activity (house_id);
 create index if not exists idx_notices_house on public.notices (house_id);
+create index if not exists idx_shopping_items_house on public.shopping_items (house_id);
 
 -- ----------------------------------------------------------------------------
 -- HELPER: which houses does the current user belong to?
@@ -303,6 +317,7 @@ alter table public.recurring_bills enable row level security;
 alter table public.chores         enable row level security;
 alter table public.activity       enable row level security;
 alter table public.notices        enable row level security;
+alter table public.shopping_items enable row level security;
 
 -- profiles ------------------------------------------------------------------
 drop policy if exists "profiles_select" on public.profiles;
@@ -464,6 +479,12 @@ create policy "activity_insert" on public.activity for insert to authenticated
 -- notices -------------------------------------------------------------------
 drop policy if exists "notices_all" on public.notices;
 create policy "notices_all" on public.notices for all to authenticated
+  using (house_id in (select public.user_house_ids()))
+  with check (house_id in (select public.user_house_ids()));
+
+-- shopping_items ------------------------------------------------------------
+drop policy if exists "shopping_items_all" on public.shopping_items;
+create policy "shopping_items_all" on public.shopping_items for all to authenticated
   using (house_id in (select public.user_house_ids()))
   with check (house_id in (select public.user_house_ids()));
 
@@ -679,7 +700,6 @@ create table if not exists public.payment_details (
   monzo            text,
   paypal           text,
   revolut          text,
-  bank             text,
   share_with_house boolean not null default true,
   updated_at       timestamptz not null default now()
 );
@@ -933,7 +953,7 @@ declare t text;
 begin
   foreach t in array array[
     'expenses', 'expense_splits', 'recurring_bills', 'chores',
-    'activity', 'house_members', 'notices'
+    'activity', 'house_members', 'notices', 'shopping_items'
   ] loop
     if not exists (
       select 1 from pg_publication_tables

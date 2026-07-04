@@ -18,6 +18,7 @@ import type {
   PaymentDetails,
   Profile,
   RecurringBill,
+  ShoppingItem,
 } from "@/lib/types";
 
 /** The currently signed-in auth user (deduped per request). */
@@ -289,6 +290,17 @@ export async function getNotices(houseId: string, limit = 50): Promise<Notice[]>
     .order("created_at", { ascending: false })
     .limit(limit);
   return (data ?? []) as Notice[];
+}
+
+/** Shared shopping list for a house, oldest first (stable as items are added). */
+export async function getShoppingItems(houseId: string): Promise<ShoppingItem[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("shopping_items")
+    .select("*")
+    .eq("house_id", houseId)
+    .order("created_at", { ascending: true });
+  return (data ?? []) as ShoppingItem[];
 }
 
 /** Recent house chat messages, oldest first (capped at `limit`). */

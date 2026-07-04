@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   IconBroom,
+  IconCart,
   IconChat,
   IconHome,
   IconReceipt,
@@ -17,6 +18,7 @@ const ITEMS = [
   { href: "/dashboard", label: "Home", Icon: IconHome },
   { href: "/expenses", label: "Expenses", Icon: IconReceipt },
   { href: "/bills", label: "Bills", Icon: IconRepeat },
+  { href: "/shopping", label: "Shop", Icon: IconCart },
   { href: "/chores", label: "Chores", Icon: IconBroom },
   { href: "/housemates", label: "House", Icon: IconUsers },
   { href: "/chat", label: "Chat", Icon: IconChat },

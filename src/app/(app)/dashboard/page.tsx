@@ -7,6 +7,7 @@ import {
   getExpensesAndSplits,
   getHouseCategories,
   getNotices,
+  getShoppingItems,
   requireHouse,
 } from "@/lib/data";
 import { NoticeBoard } from "@/components/notices/NoticeBoard";
@@ -16,6 +17,7 @@ import { Avatar } from "@/components/Avatar";
 import {
   IconArrowRight,
   IconBroom,
+  IconCart,
   IconPlus,
   IconReceipt,
   IconRepeat,
@@ -29,7 +31,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const { user, profile, house, members } = await requireHouse();
-  const [{ expenses, splits }, bills, chores, activity, categories, account, notices] =
+  const [{ expenses, splits }, bills, chores, activity, categories, account, notices, shopping] =
     await Promise.all([
       getExpensesAndSplits(house.id),
       getBills(house.id),
@@ -38,6 +40,7 @@ export default async function DashboardPage() {
       getHouseCategories(house.id),
       getAccountSettings(),
       getNotices(house.id),
+      getShoppingItems(house.id),
     ]);
 
   // The user's own share spent in the current calendar month (for the budget).
@@ -88,6 +91,10 @@ export default async function DashboardPage() {
     .filter((c) => c.status === "todo")
     .sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999"))
     .slice(0, 4);
+
+  // Compact shopping preview: oldest unbought items first (matches /shopping).
+  const shoppingToBuy = shopping.filter((i) => !i.checked);
+  const shoppingPreview = shoppingToBuy.slice(0, 4);
 
   return (
     <div className="space-y-5">
@@ -209,6 +216,56 @@ export default async function DashboardPage() {
                 </p>
               </li>
             ))}
+          </ul>
+        )}
+      </Section>
+
+      {/* Shopping list preview */}
+      <Section
+        title={
+          shoppingToBuy.length > 0 ? `Shopping list (${shoppingToBuy.length} to buy)` : "Shopping list"
+        }
+        href="/shopping"
+        linkLabel="Full list"
+      >
+        {shoppingPreview.length === 0 ? (
+          <Empty icon={<IconCart className="h-5 w-5" />} text="Nothing on the shopping list." />
+        ) : (
+          <ul className="card divide-y divide-slate-100">
+            {shoppingPreview.map((i) => {
+              const m = memberOf(i.added_by);
+              return (
+                <li key={i.id} className="flex items-center gap-3 p-3.5">
+                  <span className="grid h-9 w-9 place-items-center rounded-full bg-mint-100 text-mint-600">
+                    <IconCart className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-2 text-sm font-medium text-slate-800">
+                      <span className="truncate">{i.name}</span>
+                      {i.quantity && (
+                        <span className="chip shrink-0 bg-slate-100 text-slate-500">
+                          {i.quantity}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Added by {m?.profile?.name ?? "a housemate"}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+            {shoppingToBuy.length > shoppingPreview.length && (
+              <li>
+                <Link
+                  href="/shopping"
+                  className="flex items-center justify-center gap-1 p-3 text-sm font-semibold text-brand-600 hover:bg-slate-50"
+                >
+                  {shoppingToBuy.length - shoppingPreview.length} more{" "}
+                  <IconArrowRight className="h-4 w-4" />
+                </Link>
+              </li>
+            )}
           </ul>
         )}
       </Section>

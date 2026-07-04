@@ -72,6 +72,16 @@ export function IconUsers(p: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function IconCart(p: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M3 4h2l2.2 11a1.5 1.5 0 0 0 1.5 1.2h8.1a1.5 1.5 0 0 0 1.5-1.2L21 8H6" />
+      <circle cx="9.5" cy="20" r="1.3" />
+      <circle cx="17.5" cy="20" r="1.3" />
+    </svg>
+  );
+}
+
 export function IconPlus(p: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...p}>

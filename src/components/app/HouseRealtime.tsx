@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 
 // House tables that carry a house_id, so we can subscribe scoped to this house.
 // (messages is handled live by the chat component; expense_splits is below.)
-const SCOPED_TABLES = ["expenses", "recurring_bills", "chores", "activity", "house_members", "notices"] as const;
+const SCOPED_TABLES = ["expenses", "recurring_bills", "chores", "activity", "house_members", "notices", "shopping_items"] as const;
 
 /**
  * Streams the active house's data over Supabase Realtime and does a soft,
