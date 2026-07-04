@@ -47,7 +47,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <PushInit />
       <NativeShell />
       <HouseRealtime houseId={house.id} />
-      <footer className="border-t border-slate-100 px-4 pt-3 [padding-bottom:calc(0.75rem_+_env(safe-area-inset-bottom))]">
+      <footer
+        data-app-footer
+        className="border-t border-slate-100 px-4 pt-3 [padding-bottom:calc(0.75rem_+_env(safe-area-inset-bottom))]"
+      >
         <div className="flex flex-col items-center gap-1.5">
           <FollowUs />
           <div className="flex items-center gap-2 text-[11px] text-slate-400">

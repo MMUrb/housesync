@@ -138,6 +138,18 @@
   -webkit-backdrop-filter: none;
   background-color: var(--background);
 }
+/* The web footer (social + legal links) is dropped in the app for a cleaner,
+   more native feel; those links live in Settings instead. */
+.native-app [data-app-footer] {
+  display: none;
+}
+/* The chat is a fixed-height box tuned for the web layout (tall top bar, footer
+   below). In the app the top bar is shorter, the footer is gone and a bottom bar
+   is reserved, so refit it to fill the space: 100dvh minus the top bar (61px),
+   main's padding (16 + 32) and the reserved bottom bar (60px), plus safe areas. */
+.native-app [data-chat-shell] {
+  height: calc(100dvh - 169px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
 
 /* ============================================================================
    NIGHT MODE
