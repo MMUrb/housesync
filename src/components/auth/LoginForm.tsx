@@ -390,6 +390,20 @@ export function LoginForm() {
           {loading ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
         </button>
       </form>
+
+      {/* Consent notice — sits below every sign-in method (OAuth + email) so
+          agreement is captured at the point of account creation. */}
+      <p className="mt-4 text-center text-xs leading-relaxed text-slate-400">
+        By continuing, you agree to our{" "}
+        <Link href="/terms" className="font-medium text-slate-500 underline hover:text-slate-600">
+          Terms of Use
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="font-medium text-slate-500 underline hover:text-slate-600">
+          Privacy Policy
+        </Link>
+        .
+      </p>
     </div>
   );
 }
