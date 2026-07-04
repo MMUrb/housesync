@@ -45,7 +45,6 @@ export default async function SettingsPage() {
           initialMonzo={pay?.monzo ?? ""}
           initialPaypal={pay?.paypal ?? ""}
           initialRevolut={pay?.revolut ?? ""}
-          initialBank={pay?.bank ?? ""}
           initialShare={pay?.share_with_house ?? true}
         />
 

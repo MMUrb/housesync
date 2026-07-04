@@ -44,7 +44,6 @@ export default async function HousematesPage() {
         monzo: payMap.get(uid)?.monzo ?? null,
         paypal: payMap.get(uid)?.paypal ?? null,
         revolut: payMap.get(uid)?.revolut ?? null,
-        bank: payMap.get(uid)?.bank ?? null,
       },
     });
 

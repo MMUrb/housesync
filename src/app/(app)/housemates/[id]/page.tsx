@@ -35,7 +35,7 @@ export default async function HousemateProfilePage({
   const first = name.trim().split(/\s+/)[0] || "They";
   // RLS already filtered this: a row only comes back if it's mine or shared.
   const pay = payMap.get(id);
-  const hasHandles = Boolean(pay && (pay.monzo || pay.paypal || pay.revolut || pay.bank));
+  const hasHandles = Boolean(pay && (pay.monzo || pay.paypal || pay.revolut));
 
   return (
     <div className="space-y-5">
@@ -96,7 +96,7 @@ export default async function HousemateProfilePage({
             {hasHandles && pay?.share_with_house && (
               <div className="mb-3 flex flex-wrap gap-2">
                 <PayLinks
-                  pay={{ monzo: pay.monzo, paypal: pay.paypal, revolut: pay.revolut, bank: pay.bank }}
+                  pay={{ monzo: pay.monzo, paypal: pay.paypal, revolut: pay.revolut }}
                 />
               </div>
             )}
@@ -116,7 +116,6 @@ export default async function HousemateProfilePage({
                   monzo: pay?.monzo ?? null,
                   paypal: pay?.paypal ?? null,
                   revolut: pay?.revolut ?? null,
-                  bank: pay?.bank ?? null,
                 }}
               />
             </div>

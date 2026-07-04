@@ -207,7 +207,6 @@ export default async function BillsPage() {
                             monzo: (payer && payMap.get(payer)?.monzo) ?? null,
                             paypal: (payer && payMap.get(payer)?.paypal) ?? null,
                             revolut: (payer && payMap.get(payer)?.revolut) ?? null,
-                            bank: (payer && payMap.get(payer)?.bank) ?? null,
                           }}
                           houseId={house.id}
                           currentUserId={user.id}

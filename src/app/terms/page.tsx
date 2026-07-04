@@ -85,7 +85,7 @@ export default function TermsPage() {
               HouseSync is a tool for <strong>tracking</strong> shared costs. We do{" "}
               <strong>not</strong> process, hold, move or transfer money, and we are not a bank or a
               payment service. Any payment details you choose to add (such as a Monzo, PayPal or
-              Revolut link, or bank details) are shared with your housemates at your own discretion so
+              Revolut link) are shared with your housemates at your own discretion so
               you can settle up directly between yourselves.
             </p>
             <p>

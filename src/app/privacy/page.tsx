@@ -67,8 +67,7 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>Payment details</strong>: optionally, payment links (Monzo, PayPal,
-                Revolut) and/or bank details (name, sort code, account number) you add so
-                housemates can pay you back. You control in Settings whether your house can see
+                Revolut) you add so housemates can pay you back. You control in Settings whether your house can see
                 them, we only ever show them to members of your house, we never use them to move
                 money, and you can edit or remove them at any time.
               </li>

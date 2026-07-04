@@ -41,7 +41,6 @@ export interface PaymentDetails {
   monzo: string | null;
   paypal: string | null;
   revolut: string | null;
-  bank: string | null;
   share_with_house: boolean;
   updated_at: string;
 }
@@ -145,6 +144,19 @@ export interface Notice {
   message: string | null;
   posted_by: string | null;
   pinned: boolean;
+  created_at: string;
+}
+
+/** An item on the shared house shopping list. */
+export interface ShoppingItem {
+  id: string;
+  house_id: string;
+  name: string;
+  quantity: string | null;
+  checked: boolean;
+  added_by: string | null;
+  checked_by: string | null;
+  checked_at: string | null;
   created_at: string;
 }
 
