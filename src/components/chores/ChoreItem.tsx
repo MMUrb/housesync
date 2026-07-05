@@ -76,12 +76,54 @@ export function ChoreItem({
     }
   }
 
+  // Undo an accidental tap: put the chore back to "todo". Marking a repeating
+  // chore done also spawns its next occurrence, so remove that spawn too or the
+  // undo would leave a duplicate. Match it on title/repeat and the date the
+  // spawn was given (best-effort; a leftover just means one extra to tidy).
+  async function markUndone() {
+    setLoading(true);
+    try {
+      await supabase
+        .from("chores")
+        .update({ status: "todo", completed_at: null, completed_by: null })
+        .eq("id", chore.id);
+
+      if (chore.repeat !== "once") {
+        const base = chore.due_date ?? chore.completed_at?.slice(0, 10) ?? todayISO();
+        const spawnedDue = advanceDate(base, chore.repeat);
+        const { data: dupes } = await supabase
+          .from("chores")
+          .select("id")
+          .eq("house_id", chore.house_id)
+          .eq("title", chore.title)
+          .eq("repeat", chore.repeat)
+          .eq("status", "todo")
+          .eq("due_date", spawnedDue)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        if (dupes?.[0]) {
+          await supabase.from("chores").delete().eq("id", dupes[0].id);
+        }
+      }
+
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <li className="flex items-center gap-3 p-3.5">
       {done ? (
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-mint-100 text-mint-600">
+        <button
+          onClick={markUndone}
+          disabled={loading}
+          aria-label="Undo, mark as not done"
+          title="Undo"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-mint-100 text-mint-600 transition hover:opacity-80 disabled:opacity-50"
+        >
           <IconCheck className="h-5 w-5" />
-        </span>
+        </button>
       ) : (
         <button
           onClick={markDone}
