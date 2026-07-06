@@ -145,6 +145,14 @@ export function Chat({
     });
   }
 
+  // Delete your own message. RLS only permits deleting your own rows. Other
+  // devices reconcile on their next load (the live channel only streams inserts).
+  async function deleteMessage(id: string) {
+    if (!confirm("Delete this message? This can't be undone.")) return;
+    const { error } = await supabase.from("messages").delete().eq("id", id);
+    if (!error) setMessages((prev) => prev.filter((x) => x.id !== id));
+  }
+
   async function send() {
     const body = text.trim();
     if (!body || sending) return;
@@ -216,6 +224,7 @@ export function Chat({
                   startGroup={startGroup}
                   revealed={revealed.has(m.id)}
                   onTap={() => toggleReveal(m.id)}
+                  onDelete={m.user_id === currentUserId ? () => deleteMessage(m.id) : undefined}
                 />
               </Fragment>
             );
@@ -279,6 +288,7 @@ function Bubble({
   startGroup,
   revealed,
   onTap,
+  onDelete,
 }: {
   mine: boolean;
   name: string;
@@ -289,6 +299,7 @@ function Bubble({
   startGroup: boolean;
   revealed: boolean;
   onTap: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <div className={`mt-1 flex gap-2 ${mine ? "justify-end" : "justify-start"}`}>
@@ -312,7 +323,20 @@ function Bubble({
         >
           <span className="whitespace-pre-wrap break-words">{body}</span>
         </button>
-        {revealed && <span className="mt-0.5 px-1 text-[10px] text-slate-400">{time}</span>}
+        {revealed && (
+          <span className="mt-0.5 flex items-center gap-2 px-1 text-[10px] text-slate-400">
+            {time}
+            {mine && onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="font-medium text-red-500 hover:underline"
+              >
+                Delete
+              </button>
+            )}
+          </span>
+        )}
       </div>
     </div>
   );
