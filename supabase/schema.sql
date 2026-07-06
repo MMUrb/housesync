@@ -593,6 +593,7 @@ create table if not exists public.messages (
   house_id   uuid not null references public.houses (id) on delete cascade,
   user_id    uuid not null references auth.users (id) on delete cascade,
   body       text not null check (char_length(btrim(body)) between 1 and 4000),
+  reply_to   uuid references public.messages (id) on delete set null,
   created_at timestamptz not null default now()
 );
 

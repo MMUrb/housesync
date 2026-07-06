@@ -166,6 +166,7 @@ export interface Message {
   house_id: string;
   user_id: string;
   body: string;
+  reply_to: string | null;
   created_at: string;
 }
 
