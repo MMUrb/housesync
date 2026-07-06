@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDate } from "@/lib/format";
 
 export function BillDetailsButton({
+  billId,
   title,
   amount,
   currency,
@@ -16,6 +20,7 @@ export function BillDetailsButton({
   memberCount,
   perShare,
 }: {
+  billId: string;
   title: string;
   amount: number;
   currency: string;
@@ -29,6 +34,26 @@ export function BillDetailsButton({
   perShare: number;
 }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
+  const [deleting, setDeleting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function handleDelete() {
+    if (!confirm(`Delete the bill “${title}”? This stops it recurring. Past logged expenses are kept.`))
+      return;
+    setDeleting(true);
+    setErr(null);
+    try {
+      const { error } = await supabase.from("recurring_bills").delete().eq("id", billId);
+      if (error) throw error;
+      setOpen(false);
+      router.refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not delete. Please try again.");
+      setDeleting(false);
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -96,6 +121,24 @@ export function BillDetailsButton({
               <Row label="Usually paid by">{paidByName}</Row>
               <Row label="Reminders">{reminderEnabled ? "On" : "Off"}</Row>
             </dl>
+
+            {err && (
+              <p className="mt-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>
+            )}
+
+            <div className="mt-5 flex gap-2 border-t border-slate-100 pt-4">
+              <Link href={`/bills/${billId}/edit`} className="btn-secondary flex-1 text-sm">
+                Edit
+              </Link>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="btn-danger flex-1 text-sm"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
           </div>
         </div>
       )}

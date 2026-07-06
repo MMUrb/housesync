@@ -149,6 +149,7 @@ export default async function BillsPage() {
                       ) : null}
                     </p>
                     <BillDetailsButton
+                      billId={b.id}
                       title={b.title}
                       amount={Number(b.amount)}
                       currency={house.currency}
