@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDate } from "@/lib/format";
 import { buildCatLookup } from "@/lib/categories";
 import type { SplitStatus } from "@/lib/types";
@@ -188,6 +191,27 @@ function ExpenseDetailSheet({
     };
   }, [onClose]);
 
+  const router = useRouter();
+  const supabase = createClient();
+  const [deleting, setDeleting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function handleDelete() {
+    if (!confirm(`Delete “${e.title}”? This removes it for everyone and can't be undone.`)) return;
+    setDeleting(true);
+    setErr(null);
+    try {
+      // Splits cascade-delete with the expense (FK is on delete cascade).
+      const { error } = await supabase.from("expenses").delete().eq("id", e.id);
+      if (error) throw error;
+      onClose();
+      router.refresh();
+    } catch (er) {
+      setErr(er instanceof Error ? er.message : "Could not delete. Please try again.");
+      setDeleting(false);
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
@@ -257,6 +281,24 @@ function ExpenseDetailSheet({
             View receipt
           </a>
         )}
+
+        {err && (
+          <p className="mt-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>
+        )}
+
+        <div className="mt-5 flex gap-2 border-t border-slate-100 pt-4">
+          <Link href={`/expenses/${e.id}/edit`} className="btn-secondary flex-1 text-sm">
+            Edit
+          </Link>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="btn-danger flex-1 text-sm"
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
 
         <p className="mt-4 text-center text-[11px] text-slate-400">
           Added {formatDate(e.createdAt, { day: "numeric", month: "short", year: "numeric" })}
