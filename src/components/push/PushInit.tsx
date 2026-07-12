@@ -21,7 +21,7 @@ export function PushInit() {
               method: "POST",
               headers: { "content-type": "application/json" },
               keepalive: true,
-              body: JSON.stringify({ kind: "native", token: token.value }),
+              body: JSON.stringify({ kind: "native", token: token.value, platform: Capacitor.getPlatform() }),
             });
           } catch {
             /* best-effort */
