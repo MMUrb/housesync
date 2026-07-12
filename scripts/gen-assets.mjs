@@ -28,8 +28,10 @@ const glyph = (size, hFrac) => {
 const SVG = (inner, size = 1024) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${inner}</svg>`;
 
-// Full square icon (rounded) — used for iOS/legacy + as the icon-only source.
-const iconOnly = SVG(`${GRAD}<rect width="1024" height="1024" rx="224" fill="url(#g)"/>${glyph(1024, 0.615)}`);
+// Full-bleed square icon (NO rounding — iOS/Android mask the corners themselves).
+// Kept square so a re-run matches the deployed full-bleed App Store icon instead
+// of regressing it back to a pre-rounded shape.
+const iconOnly = SVG(`${GRAD}<rect width="1024" height="1024" fill="url(#g)"/>${glyph(1024, 0.615)}`);
 
 // Adaptive background: full-bleed gradient (Android applies its own mask).
 const iconBg = SVG(`${GRAD}<rect width="1024" height="1024" fill="url(#g)"/>`);
