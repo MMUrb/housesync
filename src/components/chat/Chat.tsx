@@ -146,14 +146,6 @@ export function Chat({
     });
   }
 
-  // Delete your own message. RLS only permits deleting your own rows. Other
-  // devices reconcile on their next load (the live channel only streams inserts).
-  async function deleteMessage(id: string) {
-    if (!confirm("Delete this message? This can't be undone.")) return;
-    const { error } = await supabase.from("messages").delete().eq("id", id);
-    if (!error) setMessages((prev) => prev.filter((x) => x.id !== id));
-  }
-
   function startReply(m: Message) {
     setReplyingTo(m);
     requestAnimationFrame(() => textareaRef.current?.focus());
@@ -241,7 +233,6 @@ export function Chat({
                   startGroup={startGroup}
                   revealed={revealed.has(m.id)}
                   onTap={() => toggleReveal(m.id)}
-                  onDelete={m.user_id === currentUserId ? () => deleteMessage(m.id) : undefined}
                   quote={quote}
                   onReply={() => startReply(m)}
                 />
@@ -328,7 +319,6 @@ function Bubble({
   startGroup,
   revealed,
   onTap,
-  onDelete,
   quote,
   onReply,
 }: {
@@ -341,7 +331,6 @@ function Bubble({
   startGroup: boolean;
   revealed: boolean;
   onTap: () => void;
-  onDelete?: () => void;
   quote?: { name: string; body: string } | null;
   onReply?: () => void;
 }) {
@@ -446,15 +435,6 @@ function Bubble({
                   className="font-medium text-brand-500 hover:underline"
                 >
                   Reply
-                </button>
-              )}
-              {mine && onDelete && (
-                <button
-                  type="button"
-                  onClick={onDelete}
-                  className="font-medium text-red-500 hover:underline"
-                >
-                  Delete
                 </button>
               )}
             </span>
