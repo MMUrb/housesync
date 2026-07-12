@@ -753,6 +753,7 @@ create table if not exists public.push_subscriptions (
   p256dh     text,
   auth       text,
   token      text,
+  platform   text,
   created_at timestamptz not null default now(),
   unique (user_id, endpoint),
   unique (user_id, token)

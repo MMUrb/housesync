@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
-  let body: { kind?: string; subscription?: { endpoint?: string; keys?: { p256dh?: string; auth?: string } }; token?: string } = {};
+  let body: { kind?: string; subscription?: { endpoint?: string; keys?: { p256dh?: string; auth?: string } }; token?: string; platform?: string } = {};
   try {
     body = await request.json();
   } catch {
@@ -37,8 +37,9 @@ export async function POST(request: Request) {
   }
 
   if (body.kind === "native" && typeof body.token === "string" && body.token) {
+    const platform = body.platform === "ios" || body.platform === "android" ? body.platform : null;
     const { error } = await supabase.from("push_subscriptions").upsert(
-      { user_id: user.id, kind: "native", token: body.token },
+      { user_id: user.id, kind: "native", token: body.token, platform },
       { onConflict: "user_id,token" },
     );
     if (error) return NextResponse.json({ error: "Couldn't save." }, { status: 500 });
