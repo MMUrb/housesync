@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { disablePush, enablePush, getPushEnabled } from "@/components/push/pushClient";
+import { disablePush, enablePush, getPushEnabled, getPlatform } from "@/components/push/pushClient";
 import { createClient } from "@/lib/supabase/client";
 import { IconChevronDown } from "@/components/icons";
 
@@ -59,12 +59,20 @@ export function PushToggle({ userId, initialPrefs }: { userId: string; initialPr
 
   const [prefs, setPrefs] = useState<Prefs>(initialPrefs);
   const [open, setOpen] = useState(false);
+  const [hideForIos, setHideForIos] = useState(false);
 
   useEffect(() => {
-    getPushEnabled().then((v) => {
-      setEnabled(v);
+    (async () => {
+      // iOS native push (APNs) isn't wired up yet, so the toggle would switch on
+      // but never deliver a notification. Hide it on iPhone until that's built.
+      // Web push and Android FCM both work, so only iOS is hidden.
+      if ((await getPlatform()) === "ios") {
+        setHideForIos(true);
+        return;
+      }
+      setEnabled(await getPushEnabled());
       setReady(true);
-    });
+    })();
   }, []);
 
   async function toggle() {
@@ -93,6 +101,9 @@ export function PushToggle({ userId, initialPrefs }: { userId: string; initialPr
       setError("Couldn't save that preference. Please try again.");
     }
   }
+
+  // iOS native: push isn't wired, so don't render a toggle that does nothing.
+  if (hideForIos) return null;
 
   return (
     <div className="card p-5">
