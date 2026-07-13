@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { setActiveHouse } from "@/lib/activeHouse";
 import { setLeaveGuard } from "@/lib/leaveGuard";
-import { CURRENCIES } from "@/lib/constants";
+import { CURRENCIES } from "@/lib/currencies";
 import { Select } from "@/components/Select";
 import { InviteBox } from "@/components/house/InviteBox";
 import type { House } from "@/lib/types";
@@ -105,7 +105,7 @@ export function CreateHouseForm() {
             ariaLabel="Currency"
             value={currency}
             onChange={setCurrency}
-            options={CURRENCIES.map((c) => ({ value: c.value, label: c.label }))}
+            options={CURRENCIES.map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))}
           />
         </div>
         <div>
