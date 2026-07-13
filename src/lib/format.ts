@@ -24,6 +24,21 @@ export function currencySymbol(currency = "GBP"): string {
   return map[currency] ?? currency;
 }
 
+/**
+ * Secondary "≈ $63.00" string in the viewer's own currency, or null when there
+ * is nothing to add (no display currency set, it matches the house currency, or
+ * no rate is available). `display.rate` converts 1 unit of the house currency
+ * into the display currency.
+ */
+export function formatConverted(
+  amount: number,
+  houseCurrency: string,
+  display: { currency: string; rate: number } | null | undefined,
+): string | null {
+  if (!display || !display.rate || display.currency === houseCurrency) return null;
+  return `≈ ${formatMoney(amount * display.rate, display.currency)}`;
+}
+
 export function formatDate(value: string | Date, opts?: Intl.DateTimeFormatOptions): string {
   const d = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(d.getTime())) return "";

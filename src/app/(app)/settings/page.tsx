@@ -8,6 +8,7 @@ import { AccountSettingsForm } from "@/components/settings/AccountSettingsForm";
 import { HouseSettingsForm } from "@/components/settings/HouseSettingsForm";
 import { DangerZone } from "@/components/settings/DangerZone";
 import { ThemeToggle } from "@/components/settings/ThemeToggle";
+import { DisplayCurrencyForm } from "@/components/settings/DisplayCurrencyForm";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { ShareAppButton } from "@/components/settings/ShareAppButton";
 import { PushToggle } from "@/components/push/PushToggle";
@@ -86,6 +87,11 @@ export default async function SettingsPage() {
         />
 
         <ThemeToggle />
+
+        <DisplayCurrencyForm
+          userId={user.id}
+          initial={account?.display_currency ?? null}
+        />
 
         <SignOutButton />
       </section>
