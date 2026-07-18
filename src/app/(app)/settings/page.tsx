@@ -139,6 +139,22 @@ export default async function SettingsPage() {
           </a>
         </div>
 
+        <div className="card flex items-center justify-between gap-3 p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-slate-800">Expenses statement</p>
+            <p className="text-xs text-slate-500">
+              Export {house.name}&apos;s expenses as a spreadsheet (CSV).
+            </p>
+          </div>
+          <a
+            href={`/api/house/statement?house=${house.id}`}
+            download
+            className="btn-secondary shrink-0 px-3 py-2 text-sm"
+          >
+            Export
+          </a>
+        </div>
+
         <DangerZone
           houseId={house.id}
           userId={user.id}
