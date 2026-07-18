@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/settings/ThemeToggle";
 import { DisplayCurrencyForm } from "@/components/settings/DisplayCurrencyForm";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { ShareAppButton } from "@/components/settings/ShareAppButton";
+import { RateButton } from "@/components/settings/RateButton";
 import { PushToggle } from "@/components/push/PushToggle";
 import { EmailToggle } from "@/components/settings/EmailToggle";
 import { SocialLinks } from "@/components/SocialLinks";
@@ -153,6 +154,8 @@ export default async function SettingsPage() {
         </div>
 
         <ShareAppButton />
+
+        <RateButton />
 
         <Link
           href="/help"
