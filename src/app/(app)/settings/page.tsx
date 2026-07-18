@@ -154,6 +154,17 @@ export default async function SettingsPage() {
 
         <ShareAppButton />
 
+        <Link
+          href="/help"
+          className="card flex items-center justify-between p-4 transition hover:bg-slate-50 dark:hover:bg-white/[0.04]"
+        >
+          <div>
+            <p className="text-sm font-medium text-slate-800">Help &amp; FAQ</p>
+            <p className="text-xs text-slate-500">How HouseSync works, answered</p>
+          </div>
+          <span className="text-slate-300">→</span>
+        </Link>
+
         <a
           href="mailto:hello@housesync.co.uk?subject=HouseSync%20feedback"
           className="card flex items-center justify-between p-4 transition hover:bg-slate-50 dark:hover:bg-white/[0.04]"
