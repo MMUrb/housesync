@@ -8,6 +8,7 @@ import { advanceDate, todayISO } from "@/lib/recurrence";
 import { relativeDay, timeAgo } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { IconCheck } from "@/components/icons";
+import { haptic } from "@/lib/haptics";
 import { CHORE_REPEATS, type Chore, type MemberWithProfile } from "@/lib/types";
 
 const REPEAT_LABEL = Object.fromEntries(CHORE_REPEATS.map((r) => [r.value, r.label]));
@@ -55,6 +56,7 @@ export function ChoreItem({
 
   async function markDone() {
     setLoading(true);
+    void haptic("success");
     try {
       const now = new Date().toISOString();
       await supabase
