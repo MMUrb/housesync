@@ -166,6 +166,7 @@ export interface Message {
   house_id: string;
   user_id: string;
   body: string;
+  reply_to: string | null;
   created_at: string;
 }
 
@@ -181,6 +182,7 @@ export interface AccountSettings {
   email_verify_token: string | null;
   email_verify_expires: string | null;
   monthly_budget: number | null;
+  display_currency: string | null;
   notify_push_message: boolean;
   notify_push_expense: boolean;
   notify_push_bill: boolean;

@@ -13,6 +13,12 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Light-mode status / navigation bar tinted to the app chrome, with dark
+             icons. The values-night variant flips these for dark mode. -->
+        <item name="android:statusBarColor">#F6F7FB</item>
+        <item name="android:navigationBarColor">#F6F7FB</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
 

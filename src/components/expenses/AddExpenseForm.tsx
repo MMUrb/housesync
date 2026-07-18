@@ -17,35 +17,61 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// When present, the form edits an existing expense instead of creating one.
+export type ExpenseEditInit = {
+  expenseId: string;
+  title: string;
+  amount: number;
+  paidBy: string;
+  category: string;
+  date: string;
+  splitType: SplitType;
+  selectedIds: string[];
+  custom: Record<string, string>;
+  notes: string;
+  receiptPath: string | null;
+  originalShares: Record<string, number>;
+};
+
+// Stable signature of a member→amount map (in pennies) for detecting real changes.
+function shareSig(m: Record<string, number>): string {
+  return Object.entries(m)
+    .map(([k, v]) => `${k}:${Math.round(v * 100)}`)
+    .sort()
+    .join("|");
+}
+
 export function AddExpenseForm({
   houseId,
   currentUserId,
   currency,
   members,
   categories,
+  edit,
 }: {
   houseId: string;
   currentUserId: string;
   currency: string;
   members: MemberWithProfile[];
   categories: Cat[];
+  edit?: ExpenseEditInit;
 }) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [title, setTitle] = useState("");
-  const [amount, setAmount] = useState("");
-  const [paidBy, setPaidBy] = useState(currentUserId);
+  const [title, setTitle] = useState(edit?.title ?? "");
+  const [amount, setAmount] = useState(edit ? String(edit.amount) : "");
+  const [paidBy, setPaidBy] = useState(edit?.paidBy ?? currentUserId);
   const [category, setCategory] = useState<string>(
-    (categories.find((c) => c.code === "bills") ?? categories[0])?.code ?? "bills",
+    edit?.category ?? (categories.find((c) => c.code === "bills") ?? categories[0])?.code ?? "bills",
   );
-  const [date, setDate] = useState(today());
+  const [date, setDate] = useState(edit?.date ?? today());
   const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(members.map((m) => m.user_id)),
+    () => new Set(edit?.selectedIds ?? members.map((m) => m.user_id)),
   );
-  const [splitType, setSplitType] = useState<SplitType>("equal");
-  const [custom, setCustom] = useState<Record<string, string>>({});
-  const [notes, setNotes] = useState("");
+  const [splitType, setSplitType] = useState<SplitType>(edit?.splitType ?? "equal");
+  const [custom, setCustom] = useState<Record<string, string>>(edit?.custom ?? {});
+  const [notes, setNotes] = useState(edit?.notes ?? "");
   const [receipt, setReceipt] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,8 +132,9 @@ export function AddExpenseForm({
 
     setLoading(true);
     try {
-      // 1. Optional receipt upload.
-      let receiptUrl: string | null = null;
+      // 1. Optional receipt upload (in edit mode, keep the existing one unless a
+      //    new file is chosen).
+      let receiptUrl: string | null = edit?.receiptPath ?? null;
       if (receipt) {
         const safe = receipt.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
         const path = `${houseId}/${Date.now()}-${safe}`;
@@ -116,6 +143,56 @@ export function AddExpenseForm({
         // Receipts live in a PRIVATE bucket, so store the storage path (not a
         // public URL). View it later via a short-lived signed URL.
         receiptUrl = path;
+      }
+
+      // Edit mode: update the row in place. Only rebuild the splits when the
+      // amounts / payer / people actually changed, so editing just the title,
+      // date, category or note doesn't reset who has already paid.
+      if (edit) {
+        const { error: updErr } = await supabase
+          .from("expenses")
+          .update({
+            title: title.trim(),
+            amount: amountNum,
+            category,
+            paid_by: paidBy,
+            split_type: splitType,
+            date,
+            receipt_url: receiptUrl,
+            notes: notes.trim() || null,
+          })
+          .eq("id", edit.expenseId);
+        if (updErr) throw updErr;
+
+        const newShares: Record<string, number> = {};
+        selectedIds.forEach((id) => (newShares[id] = shares[id] ?? 0));
+        const splitsChanged =
+          paidBy !== edit.paidBy || shareSig(newShares) !== shareSig(edit.originalShares);
+        if (splitsChanged) {
+          await supabase.from("expense_splits").delete().eq("expense_id", edit.expenseId);
+          const now = new Date().toISOString();
+          const rows = selectedIds.map((id) => ({
+            expense_id: edit.expenseId,
+            user_id: id,
+            amount_owed: shares[id] ?? 0,
+            status: id === paidBy ? "confirmed" : "unpaid",
+            paid_at: id === paidBy ? now : null,
+            confirmed_at: id === paidBy ? now : null,
+          }));
+          const { error: splitErr } = await supabase.from("expense_splits").insert(rows);
+          if (splitErr) throw splitErr;
+        }
+
+        await supabase.from("activity").insert({
+          house_id: houseId,
+          user_id: currentUserId,
+          type: "expense_edited",
+          message: `edited “${title.trim()}”`,
+        });
+
+        router.push("/expenses");
+        router.refresh();
+        return;
       }
 
       // 2. Create the expense.
@@ -343,6 +420,12 @@ export function AddExpenseForm({
               : `Total: ${formatMoney(sharesTotal, currency)} of ${formatMoney(amountNum, currency)}`}
           </p>
         )}
+
+        {edit && (
+          <p className="text-xs text-slate-400">
+            Changing the amount, split or who paid will reset who&apos;s marked as paid.
+          </p>
+        )}
       </div>
 
       {/* Extras */}
@@ -377,7 +460,7 @@ export function AddExpenseForm({
 
       <div className="sticky bottom-4 z-10">
         <button type="submit" disabled={loading} className="btn-primary btn-block shadow-soft">
-          {loading ? "Saving…" : "Add expense"}
+          {loading ? "Saving…" : edit ? "Save changes" : "Add expense"}
         </button>
       </div>
     </form>

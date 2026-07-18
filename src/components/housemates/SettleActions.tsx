@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatMoney } from "@/lib/format";
 import { buildReminderMessage } from "@/lib/reminders";
 import { Avatar } from "@/components/Avatar";
+import { haptic } from "@/lib/haptics";
 import { FEATURES } from "@/lib/features";
 
 export interface SettleVM {
@@ -77,6 +78,7 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
   async function markPaid() {
     setError(null);
     setLoading("pay");
+    void haptic("light");
     try {
       const now = new Date().toISOString();
       const { error } = await supabase
@@ -113,6 +115,7 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
   async function confirmReceived() {
     setError(null);
     setLoading("confirm");
+    void haptic("success");
     try {
       const now = new Date().toISOString();
       const { error } = await supabase

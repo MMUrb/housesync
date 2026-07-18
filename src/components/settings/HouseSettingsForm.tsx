@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { CURRENCIES } from "@/lib/constants";
+import { CURRENCIES } from "@/lib/currencies";
 import { Select } from "@/components/Select";
 import type { House } from "@/lib/types";
 
@@ -65,7 +65,7 @@ export function HouseSettingsForm({ house }: { house: House }) {
             ariaLabel="Currency"
             value={currency}
             onChange={setCurrency}
-            options={CURRENCIES.map((c) => ({ value: c.value, label: c.label }))}
+            options={CURRENCIES.map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))}
           />
         </div>
         <div>
@@ -83,6 +83,10 @@ export function HouseSettingsForm({ house }: { house: House }) {
           />
         </div>
       </div>
+      <p className="-mt-1 text-xs text-slate-500">
+        Currency applies to the whole house. Existing amounts aren&apos;t converted, they&apos;re
+        just shown in the new currency.
+      </p>
       <div>
         <label className="label" htmlFor="nickname">
           Address nickname

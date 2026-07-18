@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { emitChatRead } from "@/lib/chatRead";
 import { Avatar } from "@/components/Avatar";
@@ -39,6 +39,7 @@ export function Chat({
   const supabase = createClient();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [text, setText] = useState("");
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
@@ -145,6 +146,11 @@ export function Chat({
     });
   }
 
+  function startReply(m: Message) {
+    setReplyingTo(m);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }
+
   async function send() {
     const body = text.trim();
     if (!body || sending) return;
@@ -154,12 +160,13 @@ export function Chat({
     try {
       const { data, error } = await supabase
         .from("messages")
-        .insert({ house_id: houseId, user_id: currentUserId, body })
+        .insert({ house_id: houseId, user_id: currentUserId, body, reply_to: replyingTo?.id ?? null })
         .select()
         .single();
       if (error) throw error;
       if (data) addMessage(data as Message);
       setText("");
+      setReplyingTo(null);
       // Notify the other housemates (best-effort; server decides who's opted in).
       void fetch("/api/push/notify", {
         method: "POST",
@@ -194,6 +201,16 @@ export function Chat({
             const showSep = gap >= GROUP_GAP_MS;
             const startGroup = showSep || !prev || prev.user_id !== m.user_id;
             const prof = profileOf(m.user_id);
+            const repliedTo = m.reply_to ? messages.find((x) => x.id === m.reply_to) : null;
+            const quote = repliedTo
+              ? {
+                  name:
+                    repliedTo.user_id === currentUserId
+                      ? "You"
+                      : profileOf(repliedTo.user_id)?.name ?? "Housemate",
+                  body: repliedTo.body,
+                }
+              : null;
             return (
               <Fragment key={m.id}>
                 {showSep && (
@@ -216,6 +233,8 @@ export function Chat({
                   startGroup={startGroup}
                   revealed={revealed.has(m.id)}
                   onTap={() => toggleReveal(m.id)}
+                  quote={quote}
+                  onReply={() => startReply(m)}
                 />
               </Fragment>
             );
@@ -225,6 +244,27 @@ export function Chat({
       </div>
 
       <div className="border-t border-slate-100 pt-3">
+        {replyingTo && (
+          <div className="mb-2 flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 dark:bg-white/[0.06]">
+            <div className="min-w-0 flex-1 border-l-2 border-brand-400 pl-2">
+              <p className="text-xs font-semibold text-slate-600">
+                Replying to{" "}
+                {replyingTo.user_id === currentUserId
+                  ? "yourself"
+                  : profileOf(replyingTo.user_id)?.name ?? "Housemate"}
+              </p>
+              <p className="truncate text-xs text-slate-500">{replyingTo.body}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyingTo(null)}
+              aria-label="Cancel reply"
+              className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-200 dark:hover:bg-white/[0.1]"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <div className="relative flex items-end gap-2">
           {showEmoji && (
             <div ref={pickerRef}>
@@ -279,6 +319,8 @@ function Bubble({
   startGroup,
   revealed,
   onTap,
+  quote,
+  onReply,
 }: {
   mine: boolean;
   name: string;
@@ -289,30 +331,115 @@ function Bubble({
   startGroup: boolean;
   revealed: boolean;
   onTap: () => void;
+  quote?: { name: string; body: string } | null;
+  onReply?: () => void;
 }) {
+  // Swipe a message to the right to reply (iMessage/WhatsApp style). We move the
+  // row imperatively during the drag to avoid re-rendering, and only lock onto
+  // the horizontal axis once it clearly dominates so vertical scrolling still
+  // works. Past the threshold on release, fire the reply.
+  const slideRef = useRef<HTMLDivElement>(null);
+  const iconRef = useRef<HTMLSpanElement>(null);
+  const start = useRef({ x: 0, y: 0 });
+  const axis = useRef<"h" | "v" | null>(null);
+  const dx = useRef(0);
+
+  function onTouchStart(e: ReactTouchEvent<HTMLDivElement>) {
+    start.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    axis.current = null;
+    dx.current = 0;
+  }
+  function onTouchMove(e: ReactTouchEvent<HTMLDivElement>) {
+    const mx = e.touches[0].clientX - start.current.x;
+    const my = e.touches[0].clientY - start.current.y;
+    if (axis.current === null && (Math.abs(mx) > 8 || Math.abs(my) > 8)) {
+      axis.current = Math.abs(mx) > Math.abs(my) ? "h" : "v";
+    }
+    if (axis.current !== "h") return;
+    const d = Math.max(0, Math.min(mx, 88));
+    dx.current = d;
+    if (slideRef.current) slideRef.current.style.transform = `translateX(${d}px)`;
+    if (iconRef.current) iconRef.current.style.opacity = String(Math.min(d / 52, 1));
+  }
+  function onTouchEnd() {
+    const trigger = dx.current > 50;
+    const el = slideRef.current;
+    if (el) {
+      el.style.transition = "transform 0.16s ease-out";
+      el.style.transform = "translateX(0)";
+      window.setTimeout(() => (el.style.transition = ""), 180);
+    }
+    if (iconRef.current) iconRef.current.style.opacity = "0";
+    dx.current = 0;
+    axis.current = null;
+    if (trigger) onReply?.();
+  }
+
   return (
-    <div className={`mt-1 flex gap-2 ${mine ? "justify-end" : "justify-start"}`}>
-      {!mine && (
-        <div className="w-7 shrink-0 self-end">
-          {startGroup && <Avatar name={name} color={color} avatarUrl={avatarUrl} size="sm" />}
-        </div>
-      )}
-      <div className={`flex max-w-[78%] flex-col ${mine ? "items-end" : "items-start"}`}>
-        {!mine && startGroup && (
-          <span className="mb-0.5 px-1 text-[11px] font-medium text-slate-500">{name}</span>
+    <div className="relative">
+      <span
+        ref={iconRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-brand-500 opacity-0"
+      >
+        <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M9 5 4 10l5 5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M4.5 10H12a4 4 0 0 1 4 4v1" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+
+      <div
+        ref={slideRef}
+        onTouchStart={onReply ? onTouchStart : undefined}
+        onTouchMove={onReply ? onTouchMove : undefined}
+        onTouchEnd={onReply ? onTouchEnd : undefined}
+        className={`mt-1 flex touch-pan-y gap-2 ${mine ? "justify-end" : "justify-start"}`}
+      >
+        {!mine && (
+          <div className="w-7 shrink-0 self-end">
+            {startGroup && <Avatar name={name} color={color} avatarUrl={avatarUrl} size="sm" />}
+          </div>
         )}
-        <button
-          type="button"
-          onClick={onTap}
-          className={`max-w-full rounded-2xl px-3.5 py-2 text-left text-sm leading-snug ${
-            mine
-              ? "rounded-br-md bg-brand-600 text-white"
-              : "rounded-bl-md bg-slate-100 text-slate-900"
-          }`}
-        >
-          <span className="whitespace-pre-wrap break-words">{body}</span>
-        </button>
-        {revealed && <span className="mt-0.5 px-1 text-[10px] text-slate-400">{time}</span>}
+        <div className={`flex max-w-[78%] flex-col ${mine ? "items-end" : "items-start"}`}>
+          {!mine && startGroup && (
+            <span className="mb-0.5 px-1 text-[11px] font-medium text-slate-500">{name}</span>
+          )}
+          <button
+            type="button"
+            onClick={onTap}
+            className={`max-w-full rounded-2xl px-3.5 py-2 text-left text-sm leading-snug ${
+              mine
+                ? "rounded-br-md bg-brand-600 text-white"
+                : "rounded-bl-md bg-slate-100 text-slate-900"
+            }`}
+          >
+            {quote && (
+              <span className={`mb-1 block border-l-2 pl-2 ${mine ? "border-white/50" : "border-brand-400"}`}>
+                <span className={`block text-[11px] font-semibold ${mine ? "text-white/90" : "text-brand-700"}`}>
+                  {quote.name}
+                </span>
+                <span className={`block truncate text-xs ${mine ? "text-white/75" : "text-slate-500"}`}>
+                  {quote.body}
+                </span>
+              </span>
+            )}
+            <span className="whitespace-pre-wrap break-words">{body}</span>
+          </button>
+          {revealed && (
+            <span className="mt-0.5 flex items-center gap-2 px-1 text-[10px] text-slate-400">
+              {time}
+              {onReply && (
+                <button
+                  type="button"
+                  onClick={onReply}
+                  className="font-medium text-brand-500 hover:underline"
+                >
+                  Reply
+                </button>
+              )}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

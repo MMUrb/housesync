@@ -8,8 +8,14 @@ import { AccountSettingsForm } from "@/components/settings/AccountSettingsForm";
 import { HouseSettingsForm } from "@/components/settings/HouseSettingsForm";
 import { DangerZone } from "@/components/settings/DangerZone";
 import { ThemeToggle } from "@/components/settings/ThemeToggle";
+import { DisplayCurrencyForm } from "@/components/settings/DisplayCurrencyForm";
+import { SignOutButton } from "@/components/settings/SignOutButton";
+import { ShareAppButton } from "@/components/settings/ShareAppButton";
+import { RateButton } from "@/components/settings/RateButton";
+import { TourButton } from "@/components/settings/TourButton";
 import { PushToggle } from "@/components/push/PushToggle";
 import { EmailToggle } from "@/components/settings/EmailToggle";
+import { SocialLinks } from "@/components/SocialLinks";
 
 export const metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
@@ -84,11 +90,12 @@ export default async function SettingsPage() {
 
         <ThemeToggle />
 
-        <form action="/auth/signout" method="post">
-          <button type="submit" className="btn-secondary btn-block">
-            Sign out
-          </button>
-        </form>
+        <DisplayCurrencyForm
+          userId={user.id}
+          initial={account?.display_currency ?? null}
+        />
+
+        <SignOutButton />
       </section>
 
       {/* THIS HOUSE — settings for the currently-active house only */}
@@ -132,12 +139,72 @@ export default async function SettingsPage() {
           </a>
         </div>
 
+        <div className="card flex items-center justify-between gap-3 p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-slate-800">Expenses statement</p>
+            <p className="text-xs text-slate-500">
+              Export {house.name}&apos;s expenses as a spreadsheet (CSV).
+            </p>
+          </div>
+          <a
+            href={`/api/house/statement?house=${house.id}`}
+            download
+            className="btn-secondary shrink-0 px-3 py-2 text-sm"
+          >
+            Export
+          </a>
+        </div>
+
         <DangerZone
           houseId={house.id}
           userId={user.id}
           isOwner={isOwner}
           houseName={house.name}
         />
+      </section>
+
+      {/* SUPPORT & COMMUNITY */}
+      <section className="space-y-3">
+        <div className="px-1">
+          <h2 className="text-base font-bold text-slate-900">Support HouseSync</h2>
+          <p className="text-xs text-slate-500">Help us grow, and tell us what you think.</p>
+        </div>
+
+        <ShareAppButton />
+
+        <RateButton />
+
+        <TourButton />
+
+        <Link
+          href="/help"
+          className="card flex items-center justify-between p-4 transition hover:bg-slate-50 dark:hover:bg-white/[0.04]"
+        >
+          <div>
+            <p className="text-sm font-medium text-slate-800">Help &amp; FAQ</p>
+            <p className="text-xs text-slate-500">How HouseSync works, answered</p>
+          </div>
+          <span className="text-slate-300">→</span>
+        </Link>
+
+        <a
+          href="mailto:hello@housesync.co.uk?subject=HouseSync%20feedback"
+          className="card flex items-center justify-between p-4 transition hover:bg-slate-50 dark:hover:bg-white/[0.04]"
+        >
+          <div>
+            <p className="text-sm font-medium text-slate-800">Send feedback</p>
+            <p className="text-xs text-slate-500">Report a bug or suggest an idea</p>
+          </div>
+          <span className="text-slate-300">→</span>
+        </a>
+
+        <div className="card flex items-center justify-between gap-3 p-4">
+          <div>
+            <p className="text-sm font-medium text-slate-800">Follow us</p>
+            <p className="text-xs text-slate-500">Updates and tips on our socials</p>
+          </div>
+          <SocialLinks />
+        </div>
       </section>
 
       <div className="flex flex-col items-center gap-1.5 pb-4 text-center">

@@ -11,31 +11,45 @@ import { Select } from "@/components/Select";
 
 type Cat = { code: string; name: string; emoji: string; color: string };
 
+// When present, the form edits an existing recurring bill instead of creating one.
+export type BillEditInit = {
+  billId: string;
+  title: string;
+  amount: number;
+  category: string;
+  frequency: BillFrequency;
+  nextDue: string;
+  paidBy: string;
+  reminder: boolean;
+};
+
 export function AddBillForm({
   houseId,
   currentUserId,
   currency,
   members,
   categories,
+  edit,
 }: {
   houseId: string;
   currentUserId: string;
   currency: string;
   members: MemberWithProfile[];
   categories: Cat[];
+  edit?: BillEditInit;
 }) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [title, setTitle] = useState("");
-  const [amount, setAmount] = useState("");
+  const [title, setTitle] = useState(edit?.title ?? "");
+  const [amount, setAmount] = useState(edit ? String(edit.amount) : "");
   const [category, setCategory] = useState<string>(
-    (categories.find((c) => c.code === "bills") ?? categories[0])?.code ?? "bills",
+    edit?.category ?? (categories.find((c) => c.code === "bills") ?? categories[0])?.code ?? "bills",
   );
-  const [frequency, setFrequency] = useState<BillFrequency>("monthly");
-  const [nextDue, setNextDue] = useState(() => defaultNextDue("monthly"));
-  const [paidBy, setPaidBy] = useState(currentUserId);
-  const [reminder, setReminder] = useState(true);
+  const [frequency, setFrequency] = useState<BillFrequency>(edit?.frequency ?? "monthly");
+  const [nextDue, setNextDue] = useState(() => edit?.nextDue ?? defaultNextDue("monthly"));
+  const [paidBy, setPaidBy] = useState(edit?.paidBy ?? currentUserId);
+  const [reminder, setReminder] = useState(edit?.reminder ?? true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,6 +64,38 @@ export function AddBillForm({
     setLoading(true);
     try {
       const dueDay = nextDue ? new Date(`${nextDue}T00:00:00`).getDate() : null;
+
+      // Edit mode: update the bill template in place. Already-logged expense
+      // instances keep their own amounts/splits; only future cycles use the new
+      // values.
+      if (edit) {
+        const { error: updErr } = await supabase
+          .from("recurring_bills")
+          .update({
+            title: title.trim(),
+            amount: amountNum,
+            category,
+            frequency,
+            due_day: dueDay,
+            next_due_date: nextDue || null,
+            paid_by: paidBy,
+            reminder_enabled: reminder,
+          })
+          .eq("id", edit.billId);
+        if (updErr) throw updErr;
+
+        await supabase.from("activity").insert({
+          house_id: houseId,
+          user_id: currentUserId,
+          type: "bill_edited",
+          message: `edited the bill “${title.trim()}”`,
+        });
+
+        router.push("/bills");
+        router.refresh();
+        return;
+      }
+
       const { error: insErr } = await supabase.from("recurring_bills").insert({
         house_id: houseId,
         title: title.trim(),
@@ -206,7 +252,7 @@ export function AddBillForm({
       {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       <button type="submit" disabled={loading} className="btn-primary btn-block">
-        {loading ? "Saving…" : "Add recurring bill"}
+        {loading ? "Saving…" : edit ? "Save changes" : "Add recurring bill"}
       </button>
     </form>
   );

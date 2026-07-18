@@ -12,6 +12,7 @@ import { FollowUs } from "@/components/SocialLinks";
 import { PushInit } from "@/components/push/PushInit";
 import { NativeShell } from "@/components/app/NativeShell";
 import { HouseRealtime } from "@/components/app/HouseRealtime";
+import { Walkthrough } from "@/components/app/Walkthrough";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   if (!isSupabaseConfigured) return <NotConfigured />;
@@ -47,6 +48,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <PushInit />
       <NativeShell />
       <HouseRealtime houseId={house.id} />
+      <Walkthrough />
       <footer
         data-app-footer
         className="border-t border-slate-100 px-4 pt-3 [padding-bottom:calc(0.75rem_+_env(safe-area-inset-bottom))]"

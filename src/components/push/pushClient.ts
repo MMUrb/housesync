@@ -25,6 +25,16 @@ async function isNative(): Promise<boolean> {
   }
 }
 
+/** Capacitor platform: "ios" | "android" | "web" ("web" in any real browser). */
+export async function getPlatform(): Promise<"ios" | "android" | "web"> {
+  try {
+    const { Capacitor } = await import("@capacitor/core");
+    return Capacitor.getPlatform() as "ios" | "android" | "web";
+  } catch {
+    return "web";
+  }
+}
+
 export function webPushSupported(): boolean {
   return (
     typeof window !== "undefined" &&

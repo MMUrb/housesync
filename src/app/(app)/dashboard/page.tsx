@@ -12,7 +12,8 @@ import {
 } from "@/lib/data";
 import { NoticeBoard } from "@/components/notices/NoticeBoard";
 import { computeBalances } from "@/lib/balances";
-import { formatMoney, relativeDay, firstName, timeAgo } from "@/lib/format";
+import { getRate } from "@/lib/rates";
+import { formatMoney, formatConverted, relativeDay, firstName, timeAgo } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import {
   IconArrowRight,
@@ -58,6 +59,17 @@ export default async function DashboardPage() {
   const balances = computeBalances(expenses, splits, user.id);
   const memberOf = (id: string | null): MemberWithProfile | undefined =>
     members.find((m) => m.user_id === id);
+
+  // Optional per-user second currency: shows an approximate "≈ $X" under house
+  // totals. Only fetch a rate when the user picked a currency other than the
+  // house's; a failed/absent rate just leaves `display` null (no second line).
+  const displayCurrency = account?.display_currency ?? null;
+  const displayRate =
+    displayCurrency && displayCurrency !== house.currency
+      ? await getRate(house.currency, displayCurrency)
+      : null;
+  const display =
+    displayCurrency && displayRate ? { currency: displayCurrency, rate: displayRate } : null;
 
   // Data for the interactive spending explorer (computed client-side per scope).
   const spendExpenses = expenses.map((e) => ({
@@ -112,18 +124,33 @@ export default async function DashboardPage() {
           <p className="mt-1 text-2xl font-bold text-red-600">
             {formatMoney(balances.totalYouOwe, house.currency)}
           </p>
+          {display && (
+            <p className="mt-0.5 text-xs text-slate-400">
+              {formatConverted(balances.totalYouOwe, house.currency, display)}
+            </p>
+          )}
         </div>
         <div className="card p-4">
           <p className="text-xs font-medium text-slate-500">You&apos;re owed</p>
           <p className="mt-1 text-2xl font-bold text-mint-600">
             {formatMoney(balances.totalYouAreOwed, house.currency)}
           </p>
+          {display && (
+            <p className="mt-0.5 text-xs text-slate-400">
+              {formatConverted(balances.totalYouAreOwed, house.currency, display)}
+            </p>
+          )}
         </div>
       </section>
 
       {/* Spending explorer */}
       <section className="space-y-2">
-        <h2 className="px-1 text-sm font-semibold text-slate-900">Spending</h2>
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-sm font-semibold text-slate-900">Spending</h2>
+          <Link href="/insights" className="text-xs font-medium text-brand-600 hover:underline">
+            Insights
+          </Link>
+        </div>
         <BudgetCard
           userId={user.id}
           currency={house.currency}
@@ -156,13 +183,20 @@ export default async function DashboardPage() {
                     {p.direction === "you_owe" ? "You owe them" : "Owes you"}
                   </p>
                 </div>
-                <p
-                  className={`text-sm font-semibold ${
-                    p.direction === "you_owe" ? "text-red-600" : "text-mint-600"
-                  }`}
-                >
-                  {formatMoney(p.amount, house.currency)}
-                </p>
+                <div className="text-right">
+                  <p
+                    className={`text-sm font-semibold ${
+                      p.direction === "you_owe" ? "text-red-600" : "text-mint-600"
+                    }`}
+                  >
+                    {formatMoney(p.amount, house.currency)}
+                  </p>
+                  {display && (
+                    <p className="text-[11px] text-slate-400">
+                      {formatConverted(p.amount, house.currency, display)}
+                    </p>
+                  )}
+                </div>
               </div>
             );
           })}

@@ -7,22 +7,33 @@ import { todayISO } from "@/lib/recurrence";
 import { CHORE_REPEATS, type ChoreRepeat, type MemberWithProfile } from "@/lib/types";
 import { Select } from "@/components/Select";
 
+// When present, the form edits an existing chore instead of creating one.
+export type ChoreEditInit = {
+  choreId: string;
+  title: string;
+  assignedTo: string;
+  dueDate: string;
+  repeat: ChoreRepeat;
+};
+
 export function AddChoreForm({
   houseId,
   currentUserId,
   members,
+  edit,
 }: {
   houseId: string;
   currentUserId: string;
   members: MemberWithProfile[];
+  edit?: ChoreEditInit;
 }) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [title, setTitle] = useState("");
-  const [assignedTo, setAssignedTo] = useState(currentUserId);
-  const [dueDate, setDueDate] = useState(todayISO());
-  const [repeat, setRepeat] = useState<ChoreRepeat>("weekly");
+  const [title, setTitle] = useState(edit?.title ?? "");
+  const [assignedTo, setAssignedTo] = useState(edit?.assignedTo ?? currentUserId);
+  const [dueDate, setDueDate] = useState(edit?.dueDate ?? todayISO());
+  const [repeat, setRepeat] = useState<ChoreRepeat>(edit?.repeat ?? "weekly");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +42,31 @@ export function AddChoreForm({
     setError(null);
     setLoading(true);
     try {
+      // Edit mode: update the chore in place.
+      if (edit) {
+        const { error: updErr } = await supabase
+          .from("chores")
+          .update({
+            title: title.trim(),
+            assigned_to: assignedTo || null,
+            due_date: dueDate || null,
+            repeat,
+          })
+          .eq("id", edit.choreId);
+        if (updErr) throw updErr;
+
+        await supabase.from("activity").insert({
+          house_id: houseId,
+          user_id: currentUserId,
+          type: "chore_edited",
+          message: `edited the chore “${title.trim()}”`,
+        });
+
+        router.push("/chores");
+        router.refresh();
+        return;
+      }
+
       const { error: insErr } = await supabase.from("chores").insert({
         house_id: houseId,
         title: title.trim(),
@@ -146,7 +182,7 @@ export function AddChoreForm({
       {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       <button type="submit" disabled={loading} className="btn-primary btn-block">
-        {loading ? "Saving…" : "Add chore"}
+        {loading ? "Saving…" : edit ? "Save changes" : "Add chore"}
       </button>
     </form>
   );
