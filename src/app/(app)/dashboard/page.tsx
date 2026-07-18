@@ -145,7 +145,12 @@ export default async function DashboardPage() {
 
       {/* Spending explorer */}
       <section className="space-y-2">
-        <h2 className="px-1 text-sm font-semibold text-slate-900">Spending</h2>
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-sm font-semibold text-slate-900">Spending</h2>
+          <Link href="/insights" className="text-xs font-medium text-brand-600 hover:underline">
+            Insights
+          </Link>
+        </div>
         <BudgetCard
           userId={user.id}
           currency={house.currency}
