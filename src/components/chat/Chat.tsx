@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { emitChatRead } from "@/lib/chatRead";
+import { reportClientError } from "@/components/ErrorReporter";
 import { Avatar } from "@/components/Avatar";
 import { EmojiPicker } from "@/components/chat/EmojiPicker";
 import type { MemberWithProfile, Message } from "@/lib/types";
@@ -99,10 +100,21 @@ export function Chat({
     const lastReadAt = messages.length
       ? messages[messages.length - 1].created_at
       : new Date().toISOString();
-    void supabase.from("message_reads").upsert(
-      { user_id: currentUserId, house_id: houseId, last_read_at: lastReadAt },
-      { onConflict: "user_id,house_id" },
-    );
+    // supabase-js queries are lazy: they only execute when awaited or .then()'d.
+    // A bare `void query` builds the request but never sends it — which is why
+    // read state was never saved and the unread badge came back on every
+    // reload. The .then() actually fires it; failures go to the error log.
+    void supabase
+      .from("message_reads")
+      .upsert(
+        { user_id: currentUserId, house_id: houseId, last_read_at: lastReadAt },
+        { onConflict: "user_id,house_id" },
+      )
+      .then(({ error }) => {
+        if (error) {
+          reportClientError(`Chat mark-read failed: ${error.message}`, { url: "/chat" });
+        }
+      });
     // Clear this house's badge in the switcher right away (don't wait for the
     // next server render of the layout).
     emitChatRead(houseId);

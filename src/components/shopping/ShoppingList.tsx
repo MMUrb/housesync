@@ -76,13 +76,17 @@ export function ShoppingList({
         .single();
       if (insErr) throw insErr;
       if (data) setItems((prev) => sortItems([...prev, data as ShoppingItem]));
-      // Best-effort house timeline entry, same as other actions.
-      void supabase.from("activity").insert({
-        house_id: houseId,
-        user_id: currentUserId,
-        type: "shopping_added",
-        message: `added “${n.slice(0, 60)}” to the shopping list`,
-      });
+      // Best-effort house timeline entry, same as other actions. The .then()
+      // matters: supabase-js queries are lazy and never run without it.
+      void supabase
+        .from("activity")
+        .insert({
+          house_id: houseId,
+          user_id: currentUserId,
+          type: "shopping_added",
+          message: `added “${n.slice(0, 60)}” to the shopping list`,
+        })
+        .then(() => {});
       setName("");
       setQty("");
       router.refresh();

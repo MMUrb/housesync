@@ -68,13 +68,17 @@ export function NoticeBoard({
         .single();
       if (insErr) throw insErr;
       if (data) setNotices((prev) => sortNotices([data as Notice, ...prev]));
-      // Log to the house timeline (best-effort), same as other actions.
-      void supabase.from("activity").insert({
-        house_id: houseId,
-        user_id: currentUserId,
-        type: "notice_posted",
-        message: `posted a notice: “${t.slice(0, 60)}”`,
-      });
+      // Log to the house timeline (best-effort), same as other actions. The
+      // .then() matters: supabase-js queries are lazy and never run without it.
+      void supabase
+        .from("activity")
+        .insert({
+          house_id: houseId,
+          user_id: currentUserId,
+          type: "notice_posted",
+          message: `posted a notice: “${t.slice(0, 60)}”`,
+        })
+        .then(() => {});
       setTitle("");
       setMessage("");
       setOpen(false);
