@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { HomeLogoLink } from "@/components/HomeLogoLink";
 import { ThemeIconButton } from "@/components/ThemeIconButton";
+import { SocialLinks } from "@/components/SocialLinks";
 
 export const metadata = {
   title: "For landlords",
@@ -248,6 +249,7 @@ export default function LandlordsPage() {
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 px-5 text-sm text-slate-400">
           <Logo className="text-base text-slate-500" />
           <p>The landlord layer on top of the housemate app.</p>
+          <SocialLinks />
           <p className="text-xs text-slate-300">
             © {new Date().getFullYear()} HouseSync ·{" "}
             <Link href="/" className="transition hover:text-slate-500">
