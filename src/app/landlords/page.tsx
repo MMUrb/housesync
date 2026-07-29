@@ -67,9 +67,7 @@ export default function LandlordsPage() {
                 {CONTACT_EMAIL}
               </a>
             </div>
-            <p className="mt-3 text-sm text-slate-400">
-              Free 3-month pilot for early landlords. Tenants never pay.
-            </p>
+            <p className="mt-3 text-sm text-slate-400">Tenants never pay.</p>
           </div>
 
           {/* Mock landlord dashboard */}
@@ -201,8 +199,8 @@ export default function LandlordsPage() {
           />
           <Step
             n="2"
-            title="We set you up, free"
-            text="Your houses added and tenants invited for you. Pilot free for 3 months."
+            title="We set you up"
+            text="Your houses added and tenants invited for you as part of the pilot."
           />
           <Step
             n="3"
@@ -218,9 +216,8 @@ export default function LandlordsPage() {
             One simple price per property, per month
           </p>
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-slate-500">
-            Free for 3 months while we pilot with early landlords, then a per-property price we
-            agree together at the end of your pilot. Unlimited tenants, issues and announcements.
-            Tenants pay nothing, ever.
+            A per-property price we agree together at the end of your pilot. Unlimited tenants,
+            issues and announcements. Tenants pay nothing, ever.
           </p>
         </div>
       </section>
@@ -232,7 +229,7 @@ export default function LandlordsPage() {
             Managing shared houses shouldn&apos;t live in your texts.
           </h2>
           <p className="mt-3 text-brand-100">
-            Join the pilot and get your properties set up personally, free for 3 months.
+            Join the pilot and get your properties set up personally.
           </p>
           <div className="mt-7 flex justify-center">
             <a
