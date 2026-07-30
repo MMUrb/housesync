@@ -54,16 +54,13 @@ export default function PrivacyPage() {
                 photo.
               </li>
               <li>
-                <strong>Phone number</strong>: only if you choose to add and verify one for SMS
-                reminders.
-              </li>
-              <li>
                 <strong>House content</strong>: the houses you create or join, expenses, bills,
                 chores, settle-up records, receipts you upload, and messages you send in your house
                 chat.
               </li>
               <li>
-                <strong>Preferences</strong>: whether you want email and/or SMS reminders.
+                <strong>Preferences</strong>: your notification choices, like which email and push
+                reminders you want.
               </li>
               <li>
                 <strong>Payment details</strong>: optionally, payment links (Monzo, PayPal,
@@ -96,7 +93,7 @@ export default function PrivacyPage() {
                 To provide the app: create/join houses, split and track expenses, manage chores,
                 show balances, and power the house chat.
               </li>
-              <li>To send you transactional emails and, if you opt in, SMS reminders.</li>
+              <li>To send you transactional emails and the reminders you opt in to.</li>
               <li>To keep the service secure and working, and to respond to your support requests.</li>
             </ul>
           </Section>
@@ -143,7 +140,7 @@ export default function PrivacyPage() {
                 <strong>Vercel</strong>: application hosting (London region).
               </li>
               <li>
-                <strong>Brevo</strong>: sending transactional emails and SMS.
+                <strong>Brevo</strong>: sending transactional emails.
               </li>
               <li>
                 <strong>Google</strong>: only if you choose &ldquo;Sign in with Google&rdquo;.
