@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Select } from "@/components/Select";
 import { CURRENCIES } from "@/lib/currencies";
@@ -11,10 +12,14 @@ import { CURRENCIES } from "@/lib/currencies";
 export function DisplayCurrencyForm({
   userId,
   initial,
+  bare = false,
 }: {
   userId: string;
   initial: string | null;
+  /** Render without the card chrome (when shown inside a settings panel). */
+  bare?: boolean;
 }) {
+  const router = useRouter();
   const supabase = createClient();
   const [value, setValue] = useState(initial ?? "");
   const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
@@ -25,6 +30,9 @@ export function DisplayCurrencyForm({
     await supabase
       .from("account_settings")
       .upsert({ user_id: userId, display_currency: next || null }, { onConflict: "user_id" });
+    // Refresh so the Appearance row summary (and the dashboard's converted
+    // amounts) pick the new currency up straight away.
+    router.refresh();
     setState("saved");
     setTimeout(() => setState("idle"), 1500);
   }
@@ -35,7 +43,7 @@ export function DisplayCurrencyForm({
   ];
 
   return (
-    <div className="card p-4">
+    <div className={bare ? "" : "card p-4"}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-slate-800">Also show amounts in</p>
         {state === "saving" && <span className="text-xs text-slate-400">Saving…</span>}

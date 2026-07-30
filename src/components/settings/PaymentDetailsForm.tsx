@@ -42,12 +42,15 @@ export function PaymentDetailsForm({
   initialPaypal,
   initialRevolut,
   initialShare,
+  bare = false,
 }: {
   userId: string;
   initialMonzo: string;
   initialPaypal: string;
   initialRevolut: string;
   initialShare: boolean;
+  /** Render without the card chrome (when shown inside a settings panel). */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -118,9 +121,9 @@ export function PaymentDetailsForm({
   }
 
   return (
-    <div className="card p-5">
-      <span className="label">Payment details</span>
-      <p className="-mt-1 mb-3 text-xs text-slate-400">
+    <div className={bare ? "" : "card p-5"}>
+      {!bare && <span className="label">Payment details</span>}
+      <p className={`${bare ? "" : "-mt-1 "}mb-3 text-xs text-slate-400`}>
         Optional. Lets housemates pay you back in a tap, and the switch below controls whether your
         house can see them, and HouseSync never touches the money.
       </p>

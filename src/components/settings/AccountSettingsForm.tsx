@@ -4,23 +4,26 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getSiteUrl } from "@/lib/env";
+import { clearActiveHouse } from "@/lib/activeHouse";
+import { DELETION_REASONS } from "@/lib/deletion";
 
+// Email verification + email change, plus (at the very bottom, deliberately
+// quiet) account deletion — an account-wide action that used to be misfiled
+// under the house's danger zone. The old "Email reminders" toggle moved to the
+// Notifications panel, and everything left here is an instant action, so the
+// form-wide Save button is gone.
 export function AccountSettingsForm({
-  userId,
   email,
-  initialNotifyEmail,
   emailVerified,
+  bare = false,
 }: {
-  userId: string;
   email: string;
-  initialNotifyEmail: boolean;
   emailVerified: boolean;
+  /** Render without the card chrome (when shown inside a settings panel). */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const [notifyEmail, setNotifyEmail] = useState(initialNotifyEmail);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [verifySent, setVerifySent] = useState(false);
@@ -29,28 +32,11 @@ export function AccountSettingsForm({
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailMsg, setEmailMsg] = useState<string | null>(null);
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSaving(true);
-    setSaved(false);
-    const { error } = await supabase.from("account_settings").upsert(
-      {
-        user_id: userId,
-        notify_email: notifyEmail,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" },
-    );
-    setSaving(false);
-    if (error) {
-      setError(error.message);
-      return;
-    }
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    router.refresh();
-  }
+  // Account deletion (moved from the old DangerZone, flow unchanged).
+  const [busy, setBusy] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [reason, setReason] = useState("");
+  const [comment, setComment] = useState("");
 
   async function verifyEmail() {
     setError(null);
@@ -98,8 +84,32 @@ export function AccountSettingsForm({
     }
   }
 
+  async function deleteAccount() {
+    if (!reason) return;
+    if (!confirm("Permanently delete your account? This cannot be undone.")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason, comment: comment.trim() || null }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || "Could not delete your account.");
+      }
+      clearActiveHouse();
+      router.push("/");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not delete your account.");
+      setBusy(false);
+    }
+  }
+
   return (
-    <form onSubmit={save} className="card space-y-4 p-5">
+    <div className={bare ? "space-y-4" : "card space-y-4 p-5"}>
       <div>
         <label className="label" htmlFor="account-email">
           Email
@@ -184,58 +194,82 @@ export function AccountSettingsForm({
         )}
       </div>
 
-      <div className="space-y-2">
-        <span className="label">Reminders</span>
-        <Toggle
-          label="Email reminders"
-          desc="Upcoming bills and gentle nudges, by email."
-          checked={notifyEmail}
-          onChange={setNotifyEmail}
-        />
+      {/* Account deletion — quiet until deliberately opened. */}
+      <div className="border-t border-slate-100 pt-3">
+        {!showDelete ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowDelete(true)}
+              disabled={busy}
+              className="-mx-3 -my-2.5 inline-flex min-h-[44px] items-center px-3 py-2.5 text-sm font-medium text-red-600 hover:underline"
+            >
+              Delete my account
+            </button>
+            <p className="mt-1 text-xs text-slate-400">
+              Deletes your account everywhere: all houses, profile and settings. This can&apos;t be
+              undone.
+            </p>
+          </>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-slate-700">
+              Sorry to see you go. What&apos;s the main reason?
+            </p>
+            <div className="space-y-1.5">
+              {DELETION_REASONS.map((r) => (
+                <label
+                  key={r.code}
+                  className="flex cursor-pointer items-center gap-2 text-sm text-slate-600"
+                >
+                  <input
+                    type="radio"
+                    name="delete-reason"
+                    value={r.code}
+                    checked={reason === r.code}
+                    onChange={() => setReason(r.code)}
+                    className="h-4 w-4 accent-brand-600"
+                  />
+                  {r.label}
+                </label>
+              ))}
+            </div>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              maxLength={1000}
+              rows={2}
+              placeholder="Anything you'd like to add? (optional)"
+              className="input w-full resize-none"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDelete(false);
+                  setReason("");
+                  setComment("");
+                  setError(null);
+                }}
+                disabled={busy}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={deleteAccount}
+                disabled={busy || !reason}
+                className="btn-danger flex-1"
+              >
+                {busy ? "Deleting…" : "Delete account"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-
-      <button type="submit" disabled={saving} className="btn-primary">
-        {saving ? "Saving…" : saved ? "Saved!" : "Save account"}
-      </button>
-    </form>
-  );
-}
-
-function Toggle({
-  label,
-  desc,
-  checked,
-  onChange,
-}: {
-  label: string;
-  desc: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-xl border border-slate-200 p-3">
-      <div className="pr-3">
-        <p className="text-sm font-medium text-slate-800">{label}</p>
-        <p className="text-xs text-slate-500">{desc}</p>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        onClick={() => onChange(!checked)}
-        className={`relative h-6 w-11 shrink-0 rounded-full transition ${
-          checked ? "bg-brand-600" : "bg-slate-300"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition ${
-            checked ? "left-[22px]" : "left-0.5"
-          }`}
-        />
-      </button>
     </div>
   );
 }

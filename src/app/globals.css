@@ -252,8 +252,11 @@
 .dark .border-slate-200 {
   border-color: var(--border);
 }
-.dark .divide-slate-50 > * + *,
-.dark .divide-slate-100 > * + * {
+/* Tailwind emits divide-* rules with `> :not([hidden]) ~ :not([hidden])`
+   (specificity 0,3,0), so the dark override must match that shape or the
+   light divider colour wins and rows get near-white hairlines in night mode. */
+.dark .divide-slate-50 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
   border-color: var(--border);
 }
 

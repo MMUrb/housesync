@@ -14,11 +14,14 @@ export function ProfileForm({
   initialName,
   initialColor,
   initialAvatarUrl,
+  bare = false,
 }: {
   userId: string;
   initialName: string;
   initialColor: string;
   initialAvatarUrl: string | null;
+  /** Render without the card chrome (when shown inside a settings panel). */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -27,17 +30,34 @@ export function ProfileForm({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function choosePreset(url: string) {
     setAvatarUrl(url);
-    await supabase.from("profiles").update({ avatar_url: url }).eq("id", userId);
+    setError(null);
+    const { error: upErr } = await supabase
+      .from("profiles")
+      .update({ avatar_url: url })
+      .eq("id", userId);
+    if (upErr) {
+      setError("Couldn't save your avatar. Please try again.");
+      return;
+    }
     router.refresh();
   }
 
   // Clear the avatar back to the coloured initials.
   async function useInitials() {
     setAvatarUrl(null);
-    await supabase.from("profiles").update({ avatar_url: null }).eq("id", userId);
+    setError(null);
+    const { error: upErr } = await supabase
+      .from("profiles")
+      .update({ avatar_url: null })
+      .eq("id", userId);
+    if (upErr) {
+      setError("Couldn't save your avatar. Please try again.");
+      return;
+    }
     router.refresh();
   }
 
@@ -45,7 +65,8 @@ export function ProfileForm({
     e.preventDefault();
     setSaving(true);
     setSaved(false);
-    await supabase
+    setError(null);
+    const { error: upErr } = await supabase
       .from("profiles")
       .update({
         name: name.trim(),
@@ -53,13 +74,17 @@ export function ProfileForm({
       })
       .eq("id", userId);
     setSaving(false);
+    if (upErr) {
+      setError("Couldn't save your profile. Please try again.");
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
     router.refresh();
   }
 
   return (
-    <form onSubmit={save} className="card space-y-4 p-5">
+    <form onSubmit={save} className={bare ? "space-y-4" : "card space-y-4 p-5"}>
       {/* Avatar preview + ready-made choices */}
       <div className="flex items-center gap-4">
         <Avatar name={name} color={color} avatarUrl={avatarUrl} size="xl" />
@@ -132,6 +157,8 @@ export function ProfileForm({
           ))}
         </div>
       </div>
+
+      {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       <button type="submit" disabled={saving} className="btn-primary">
         {saving ? "Saving…" : saved ? "Saved!" : "Save profile"}

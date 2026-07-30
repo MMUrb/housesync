@@ -7,7 +7,14 @@ import { CURRENCIES } from "@/lib/currencies";
 import { Select } from "@/components/Select";
 import type { House } from "@/lib/types";
 
-export function HouseSettingsForm({ house }: { house: House }) {
+export function HouseSettingsForm({
+  house,
+  bare = false,
+}: {
+  house: House;
+  /** Render without the card chrome (when shown inside a settings panel). */
+  bare?: boolean;
+}) {
   const router = useRouter();
   const supabase = createClient();
   const [name, setName] = useState(house.name);
@@ -43,7 +50,7 @@ export function HouseSettingsForm({ house }: { house: House }) {
   }
 
   return (
-    <form onSubmit={save} className="card space-y-4 p-5">
+    <form onSubmit={save} className={bare ? "space-y-4" : "card space-y-4 p-5"}>
       <div>
         <label className="label" htmlFor="house-name">
           House name

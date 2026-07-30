@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getThemePref, setThemePref, type ThemePref } from "@/lib/theme";
 
-export function ThemeToggle() {
+export function ThemeToggle({ bare = false }: { bare?: boolean }) {
   const [pref, setPref] = useState<ThemePref | null>(null);
 
   useEffect(() => {
@@ -16,9 +16,9 @@ export function ThemeToggle() {
   }
 
   return (
-    <div className="card p-5">
-      <p className="text-sm font-bold text-slate-900">Appearance</p>
-      <p className="mt-0.5 text-xs text-slate-500">
+    <div className={bare ? "" : "card p-5"}>
+      {!bare && <p className="text-sm font-bold text-slate-900">Appearance</p>}
+      <p className={`${bare ? "" : "mt-0.5 "}text-xs text-slate-500`}>
         Follows your device by default. Pick one to lock it in everywhere.
       </p>
       <div className="mt-3 grid grid-cols-3 gap-2">
