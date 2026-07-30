@@ -5,7 +5,7 @@ import { AdminShell, Section, Grid, StatCard } from "@/components/admin/AdminUI"
 import { deletionReasonLabel } from "@/lib/deletion";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Churn report", robots: { index: false, follow: false } };
+export const metadata = { title: "Churn", robots: { index: false, follow: false } };
 
 type Feedback = {
   reason: string | null;
@@ -55,7 +55,7 @@ export default async function ReportPage() {
 
   if (!isAdminConfigured) {
     return (
-      <AdminShell email={user.email} active="report">
+      <AdminShell email={user.email} active="churn">
         <p className="card p-4 text-sm text-slate-600">
           Analytics isn&rsquo;t configured yet: set <code>SUPABASE_SERVICE_ROLE_KEY</code> and reload.
         </p>
@@ -95,7 +95,7 @@ export default async function ReportPage() {
   const comments = rows.filter((r) => r.comment && r.comment.trim());
 
   return (
-    <AdminShell email={user.email} active="report">
+    <AdminShell email={user.email} active="churn">
       <Section title="Account deletions">
         <Grid>
           <StatCard label="Total deletions" value={total} />

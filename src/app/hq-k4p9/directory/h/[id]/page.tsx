@@ -9,7 +9,7 @@ import { ADMIN_BASE } from "@/lib/constants";
 import { formatMoney } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "House", robots: { index: false, follow: false } };
+export const metadata = { title: "Household", robots: { index: false, follow: false } };
 
 const DAY = 86_400_000;
 
@@ -53,7 +53,7 @@ export default async function HouseDetailPage({ params }: { params: Promise<{ id
 
   if (!isAdminConfigured) {
     return (
-      <AdminShell email={gate.user.email} active="houses">
+      <AdminShell email={gate.user.email} active="directory">
         <p className="card p-4 text-sm text-slate-600">
           Set <code>SUPABASE_SERVICE_ROLE_KEY</code> to view houses.
         </p>
@@ -137,10 +137,10 @@ export default async function HouseDetailPage({ params }: { params: Promise<{ id
   const creator = house.created_by ? profiles.get(house.created_by) : null;
 
   return (
-    <AdminShell email={gate.user.email} active="houses">
+    <AdminShell email={gate.user.email} active="directory">
       <div>
-        <Link href={`${ADMIN_BASE}/houses`} className="text-sm text-slate-400 hover:text-slate-600">
-          ← All houses
+        <Link href={`${ADMIN_BASE}/directory?view=houses`} className="text-sm text-slate-400 hover:text-slate-600">
+          ← All households
         </Link>
       </div>
 
@@ -209,7 +209,7 @@ export default async function HouseDetailPage({ params }: { params: Promise<{ id
                       />
                       <div className="min-w-0">
                         <Link
-                          href={`${ADMIN_BASE}/users/${m.user_id}`}
+                          href={`${ADMIN_BASE}/directory/u/${m.user_id}`}
                           className="block truncate text-sm font-medium text-brand-700 hover:underline"
                         >
                           {name}

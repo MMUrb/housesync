@@ -8,7 +8,13 @@ import { ADMIN_BASE } from "@/lib/constants";
 
 export type Bucket = { day: string; value: number };
 
-export type AdminTab = "overview" | "waitlist" | "users" | "houses" | "report" | "errors";
+export type AdminTab =
+  | "overview"
+  | "acquisition"
+  | "engagement"
+  | "directory"
+  | "churn"
+  | "errors";
 
 export function AdminShell({
   email,
@@ -52,10 +58,10 @@ export function AdminShell({
         {tabs && (
           <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <Tab href={ADMIN_BASE} label="Overview" k="overview" />
-            <Tab href={`${ADMIN_BASE}/waitlist`} label="Waitlist" k="waitlist" />
-            <Tab href={`${ADMIN_BASE}/users`} label="Users" k="users" />
-            <Tab href={`${ADMIN_BASE}/houses`} label="Houses" k="houses" />
-            <Tab href={`${ADMIN_BASE}/report`} label="Churn report" k="report" />
+            <Tab href={`${ADMIN_BASE}/acquisition`} label="Acquisition" k="acquisition" />
+            <Tab href={`${ADMIN_BASE}/engagement`} label="Engagement" k="engagement" />
+            <Tab href={`${ADMIN_BASE}/directory`} label="Directory" k="directory" />
+            <Tab href={`${ADMIN_BASE}/churn`} label="Churn" k="churn" />
             <Tab href={`${ADMIN_BASE}/errors`} label="Errors" k="errors" />
           </div>
         )}

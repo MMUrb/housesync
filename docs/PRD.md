@@ -125,7 +125,6 @@ Backed by Supabase Postgres with row-level security on every table. Core tables 
 - **Frontend/server:** Next.js (App Router) on Vercel (serverless).
 - **Backend:** Supabase (Postgres, Auth, Realtime, Storage).
 - **Email:** Resend (transactional + Supabase auth SMTP).
-- **SMS:** Brevo (phone verification) — currently disabled (no API key set).
 - **Native:** Capacitor wrapping the live site.
 
 ### 6.2 Security and privacy
@@ -156,7 +155,6 @@ Candidate work, not implemented today:
 - Realtime channel consolidation and page caching (see 6.3) for scale.
 - Live unread across all houses without per-house polling/snapshots.
 - Grouping identical errors in the admin log into one row with an occurrence count.
-- Restoring SMS verification (re-add Brevo key or move to Twilio).
 - User-facing MFA.
 - Deeper insights / exportable statements.
 
