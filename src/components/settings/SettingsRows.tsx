@@ -1,8 +1,41 @@
 "use client";
 
-import { createContext, useContext, useId, useState } from "react";
+import { createContext, useContext, useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { IconChevronDown } from "@/components/icons";
+
+// WebViews ignore <a download>, so in the native apps download rows fetch the
+// file with the user's session, write it to the app's cache and hand it to the
+// system share sheet (save to Files / Drive / AirDrop...). The website keeps
+// the plain anchor download.
+async function nativeDownload(href: string): Promise<void> {
+  const res = await fetch(href, { credentials: "same-origin" });
+  if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  const blob = await res.blob();
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.readAsDataURL(blob);
+  });
+  const disposition = res.headers.get("content-disposition") ?? "";
+  const filename =
+    /filename="([^"]+)"/.exec(disposition)?.[1] ??
+    href.split("?")[0].split("/").pop() ??
+    "housesync-export";
+  const { Filesystem, Directory } = await import("@capacitor/filesystem");
+  const { uri } = await Filesystem.writeFile({
+    path: filename,
+    data: base64,
+    directory: Directory.Cache,
+  });
+  const { Share } = await import("@capacitor/share");
+  try {
+    await Share.share({ title: filename, files: [uri] });
+  } catch {
+    /* user closed the share sheet — that's fine */
+  }
+}
 
 // The settings hub's building blocks: a card of single-line rows where each row
 // either navigates (RowLink) or expands an inline panel (RowDisclosure). One
@@ -69,14 +102,49 @@ export function RowLink({
   external?: boolean;
   download?: boolean;
 }) {
+  const [isNative, setIsNative] = useState(false);
+  const [state, setState] = useState<"idle" | "busy" | "error">("idle");
+
+  useEffect(() => {
+    if (!download) return;
+    void import("@capacitor/core").then(({ Capacitor }) => {
+      if (Capacitor.isNativePlatform()) setIsNative(true);
+    });
+  }, [download]);
+
+  async function onDownloadClick(e: React.MouseEvent) {
+    if (!isNative || state === "busy") {
+      if (state === "busy") e.preventDefault();
+      return; // website: let the plain <a download> do its thing
+    }
+    e.preventDefault();
+    setState("busy");
+    try {
+      await nativeDownload(href);
+      setState("idle");
+    } catch {
+      setState("error");
+      setTimeout(() => setState("idle"), 3000);
+    }
+  }
+
+  const shownValue =
+    state === "busy" ? "Preparing…" : state === "error" ? "Couldn't download" : value;
+
   const inner = (
     <>
       {icon}
       {/* The label never truncates; when space runs out the VALUE gives way. */}
       <span className="shrink-0 text-sm font-semibold text-slate-800">{label}</span>
       <span className="ml-auto flex min-w-0 items-center gap-2">
-        {value && (
-          <span className="min-w-0 max-w-[180px] truncate text-xs text-slate-400">{value}</span>
+        {shownValue && (
+          <span
+            className={`min-w-0 max-w-[180px] truncate text-xs ${
+              state === "error" ? "text-red-500" : "text-slate-400"
+            }`}
+          >
+            {shownValue}
+          </span>
         )}
         {chip && <span className="shrink-0">{chip}</span>}
         <IconChevronDown className="h-4 w-4 shrink-0 -rotate-90 text-slate-300" />
@@ -91,7 +159,7 @@ export function RowLink({
         href={href}
         className={cls}
         {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-        {...(download ? { download: true } : {})}
+        {...(download ? { download: true, onClick: onDownloadClick } : {})}
       >
         {inner}
       </a>
