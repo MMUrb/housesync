@@ -14,6 +14,17 @@ const config: CapacitorConfig = {
     url: 'https://housesync.co.uk',
     androidScheme: 'https',
   },
+  plugins: {
+    // Hold the branded splash over the webview while the remote page loads,
+    // instead of flashing a blank near-white frame. The web app dismisses it
+    // as soon as it has painted (see SplashHide in the root layout); the
+    // 4s ceiling is the safety net so a dead network can't strand the splash.
+    SplashScreen: {
+      launchAutoHide: true,
+      launchShowDuration: 4000,
+      launchFadeOutDuration: 200,
+    },
+  },
 };
 
 export default config;

@@ -6,6 +6,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeWatcher } from "@/components/ThemeWatcher";
 import { ErrorReporter } from "@/components/ErrorReporter";
 import { ServiceWorker } from "@/components/ServiceWorker";
+import { SplashHide } from "@/components/app/SplashHide";
 
 const siteName = "HouseSync";
 const description =
@@ -100,6 +101,7 @@ export default async function RootLayout({
         <ThemeWatcher />
         <ErrorReporter />
         <ServiceWorker />
+        <SplashHide />
       </body>
     </html>
   );
