@@ -1,9 +1,24 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { HomeLogoLink } from "@/components/HomeLogoLink";
 import { ThemeIconButton } from "@/components/ThemeIconButton";
+import { getUser } from "@/lib/data";
+import { isSupabaseConfigured } from "@/lib/env";
 
-export default function LandingPage() {
+// Deploy marker, visible in the served HTML — lets us confirm which revision
+// of this page production is actually running.
+export const metadata = { other: { "hs-home": "r2" } };
+
+export default async function LandingPage() {
+  // Signed-in users skip the marketing page and land in the app. The native
+  // shells boot at "/", so this is what makes the app open straight onto the
+  // dashboard (the middleware does this too; the page-level check is the
+  // belt-and-braces that survives any middleware/matcher edge case).
+  if (isSupabaseConfigured) {
+    const user = await getUser();
+    if (user) redirect("/dashboard");
+  }
   return (
     <div className="min-h-dvh bg-white">
       {/* Nav */}
