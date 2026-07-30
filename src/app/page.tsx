@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { HomeLogoLink } from "@/components/HomeLogoLink";
 import { ThemeIconButton } from "@/components/ThemeIconButton";
-import { WebOnly } from "@/components/WebOnly";
 
 export default function LandingPage() {
   return (
@@ -13,15 +12,6 @@ export default function LandingPage() {
           <HomeLogoLink logoClassName="text-lg" />
           <div className="flex items-center gap-2">
             <ThemeIconButton />
-            {/* Website-only: the landlord offer isn't part of the tenant apps. */}
-            <WebOnly>
-              <Link
-                href="/landlords"
-                className="hidden whitespace-nowrap text-sm btn-ghost md:inline-flex"
-              >
-                For landlords
-              </Link>
-            </WebOnly>
             <Link href="/login" className="hidden whitespace-nowrap text-sm btn-ghost sm:inline-flex">
               Sign in
             </Link>
@@ -192,13 +182,6 @@ export default function LandingPage() {
             <Link href="/privacy" className="transition hover:text-slate-500">
               Privacy
             </Link>
-            <WebOnly>
-              {" "}
-              ·{" "}
-              <Link href="/landlords" className="transition hover:text-slate-500">
-                For landlords
-              </Link>
-            </WebOnly>
           </p>
         </div>
       </footer>
