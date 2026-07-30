@@ -9,10 +9,15 @@ import { ADMIN_BASE } from "@/lib/constants";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Users", robots: { index: false, follow: false } };
 
+// Rows rendered per page. The auth API has no server-side search, so the full
+// list is still fetched to filter against; this keeps the rendered table (and
+// the HTML sent to the browser) from growing without bound.
+const PER_PAGE = 100;
+
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const gate = await adminGate();
   if (!gate.ok) return gate.node;
@@ -20,6 +25,7 @@ export default async function UsersPage({
   const sp = await searchParams;
   const q = (typeof sp.q === "string" ? sp.q : "").trim();
   const ql = q.toLowerCase();
+  const pageParam = Number.parseInt(sp.page ?? "1", 10);
 
   if (!isAdminConfigured) {
     return (
@@ -59,12 +65,21 @@ export default async function UsersPage({
   }
   rows.sort((a, b) => msOf(b.created_at) - msOf(a.created_at));
 
+  const matched = rows.length;
+  const pageCount = Math.max(1, Math.ceil(matched / PER_PAGE));
+  const page = Math.min(Math.max(Number.isFinite(pageParam) ? pageParam : 1, 1), pageCount);
+  const start = (page - 1) * PER_PAGE;
+  const visible = rows.slice(start, start + PER_PAGE);
+
+  const pageHref = (p: number) =>
+    `${ADMIN_BASE}/users?${new URLSearchParams({ ...(q ? { q } : {}), page: String(p) })}`;
+
   const fmt = (iso?: string | null) =>
     iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "-";
 
   return (
     <AdminShell email={gate.user.email} active="users">
-      <Section title={`All users (${users.length})`}>
+      <Section title={q ? `${matched} of ${users.length} users` : `All users (${users.length})`}>
         <form action={`${ADMIN_BASE}/users`} className="flex gap-2">
           <input
             name="q"
@@ -95,14 +110,14 @@ export default async function UsersPage({
                 </tr>
               </thead>
               <tbody>
-                {rows.length === 0 ? (
+                {visible.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-4 text-slate-400">
                       {q ? `No users match “${q}”.` : "No users yet."}
                     </td>
                   </tr>
                 ) : (
-                  rows.map((u) => (
+                  visible.map((u) => (
                     <tr key={u.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
                       <td className="px-4 py-2.5">
                         <Link
@@ -123,6 +138,35 @@ export default async function UsersPage({
             </table>
           </div>
         </div>
+
+        {pageCount > 1 && (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-slate-400">
+              Showing {start + 1}-{Math.min(start + PER_PAGE, matched)} of {matched}
+            </p>
+            <div className="flex items-center gap-2">
+              {page > 1 ? (
+                <Link href={pageHref(page - 1)} className="btn-secondary text-sm">
+                  ← Previous
+                </Link>
+              ) : (
+                <span className="btn-secondary pointer-events-none text-sm opacity-40">
+                  ← Previous
+                </span>
+              )}
+              <span className="text-xs text-slate-400">
+                Page {page} of {pageCount}
+              </span>
+              {page < pageCount ? (
+                <Link href={pageHref(page + 1)} className="btn-secondary text-sm">
+                  Next →
+                </Link>
+              ) : (
+                <span className="btn-secondary pointer-events-none text-sm opacity-40">Next →</span>
+              )}
+            </div>
+          </div>
+        )}
       </Section>
     </AdminShell>
   );

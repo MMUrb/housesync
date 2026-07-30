@@ -2,7 +2,7 @@ import "server-only";
 import Link from "next/link";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { adminGate } from "@/components/admin/guard";
-import { listAllUsers, tableCount, msOf, type AdminUserRow } from "@/lib/adminData";
+import { listAllUsers, tableCount, countSince, msOf, type AdminUserRow } from "@/lib/adminData";
 import { ADMIN_BASE } from "@/lib/constants";
 import {
   AdminShell,
@@ -67,13 +67,23 @@ export default async function AdminOverviewPage() {
   }
 
   const admin = createAdminClient();
+  const since1 = new Date(Date.now() - DAY).toISOString();
+  const since7 = new Date(Date.now() - 7 * DAY).toISOString();
   const since30 = new Date(Date.now() - 30 * DAY).toISOString();
+
+  // Rows we pull back to build the charts and top-lists. Totals are counted in
+  // Postgres separately, so hitting this cap only coarsens the breakdowns, it
+  // never makes the headline numbers wrong.
+  const VIEW_SAMPLE_CAP = 50_000;
 
   const [
     users,
     profilesRes,
     viewsRes,
     totalViews,
+    visits1,
+    visits7,
+    visits30,
     houses,
     memberships,
     expenses,
@@ -89,8 +99,11 @@ export default async function AdminOverviewPage() {
       .select("path, referrer, visitor_hash, country, created_at")
       .gte("created_at", since30)
       .order("created_at", { ascending: false })
-      .limit(50_000),
+      .limit(VIEW_SAMPLE_CAP),
     tableCount(admin, "page_views"),
+    countSince(admin, "page_views", since1),
+    countSince(admin, "page_views", since7),
+    countSince(admin, "page_views", since30),
     tableCount(admin, "houses"),
     tableCount(admin, "house_members"),
     tableCount(admin, "expenses"),
@@ -137,9 +150,9 @@ export default async function AdminOverviewPage() {
   }
   const signupBars = days.map((d) => ({ day: d, value: signupByDay.get(d) ?? 0 }));
 
-  const visits30 = views.length;
-  const visits1 = views.filter((v) => msOf(v.created_at) >= d1).length;
-  const visits7 = views.filter((v) => msOf(v.created_at) >= d7).length;
+  // True once there were more views in 30 days than we pulled back, so the
+  // chart and top-lists below cover only the most recent slice.
+  const sampleCapped = views.length >= VIEW_SAMPLE_CAP;
   const uniques = (vs: View[]) => new Set(vs.map((v) => v.visitor_hash ?? "")).size;
   const uniques30 = uniques(views);
   const avgPerDay = Math.round(visits30 / 30);
@@ -165,7 +178,11 @@ export default async function AdminOverviewPage() {
           <StatCard label="Visits (1d)" value={visits1} />
           <StatCard label="Visits (7d)" value={visits7} sub={`~${Math.round(visits7 / 7)}/day`} />
           <StatCard label="Visits (30d)" value={visits30} sub={`~${avgPerDay}/day`} />
-          <StatCard label="Unique visitors (30d)" value={uniques30} />
+          <StatCard
+            label="Unique visitors (30d)"
+            value={uniques30}
+            sub={sampleCapped ? "sampled" : undefined}
+          />
           <StatCard label="Total houses" value={houses} />
           <StatCard label="Waitlist" value={waitlistCount} />
           <StatCard
@@ -179,8 +196,8 @@ export default async function AdminOverviewPage() {
       <Section title="Traffic · last 30 days">
         <div className="card space-y-2 p-4">
           <BarHeader
-            left={`${visits30} visits`}
-            right={`${uniques30} unique · ${visits7} this week · ${visits1} today`}
+            left={`${visits30.toLocaleString()} visits`}
+            right={`${uniques30.toLocaleString()} unique · ${visits7.toLocaleString()} this week · ${visits1.toLocaleString()} today`}
           />
           <Bars data={visitBars} color="brand" />
           <AxisLabels days={days} />
@@ -190,6 +207,13 @@ export default async function AdminOverviewPage() {
           <RankList title="Top sources" rows={topRefs} />
           <RankList title="Countries" rows={topCountries} />
         </div>
+        {sampleCapped && (
+          <p className="text-xs text-amber-600">
+            Over {VIEW_SAMPLE_CAP.toLocaleString()} views in 30 days. The totals above are exact,
+            but the chart, unique count and top-lists cover only the most recent{" "}
+            {VIEW_SAMPLE_CAP.toLocaleString()}.
+          </p>
+        )}
         <p className="text-xs text-slate-400">All-time page views: {totalViews.toLocaleString()}</p>
       </Section>
 

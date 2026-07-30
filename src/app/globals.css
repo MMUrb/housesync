@@ -287,6 +287,11 @@
 .dark .text-red-700 {
   color: #f87171;
 }
-.dark .text-amber-600 {
+/* All three amber shades sit on .bg-amber-50, which is remapped to a dark
+   translucent tint above, so the dark ink they use in light mode would be
+   unreadable against it. */
+.dark .text-amber-600,
+.dark .text-amber-700,
+.dark .text-amber-800 {
   color: #fbbf24;
 }

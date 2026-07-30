@@ -17,6 +17,23 @@ export async function tableCount(admin: SupabaseClient, table: string): Promise<
   return count ?? 0;
 }
 
+/**
+ * Exact row count since a cutoff, counted in Postgres so nothing is
+ * transferred. Use this for totals rather than measuring the length of a
+ * capped row fetch, which silently under-reports once the cap is hit.
+ */
+export async function countSince(
+  admin: SupabaseClient,
+  table: string,
+  sinceIso: string,
+): Promise<number> {
+  const { count } = await admin
+    .from(table)
+    .select("*", { count: "exact", head: true })
+    .gte("created_at", sinceIso);
+  return count ?? 0;
+}
+
 /** Every auth user (paginated). At low volume this is one or two calls. */
 export async function listAllUsers(admin: SupabaseClient): Promise<AdminUserRow[]> {
   const all: AdminUserRow[] = [];

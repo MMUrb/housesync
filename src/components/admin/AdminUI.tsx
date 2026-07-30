@@ -8,6 +8,8 @@ import { ADMIN_BASE } from "@/lib/constants";
 
 export type Bucket = { day: string; value: number };
 
+export type AdminTab = "overview" | "waitlist" | "users" | "houses" | "report" | "errors";
+
 export function AdminShell({
   email,
   active,
@@ -16,23 +18,15 @@ export function AdminShell({
   children,
 }: {
   email?: string | null;
-  active: "overview" | "waitlist" | "users" | "report" | "errors";
+  active: AdminTab;
   tabs?: boolean;
   unlocked?: boolean;
   children: React.ReactNode;
 }) {
-  const Tab = ({
-    href,
-    label,
-    k,
-  }: {
-    href: string;
-    label: string;
-    k: "overview" | "waitlist" | "users" | "report" | "errors";
-  }) => (
+  const Tab = ({ href, label, k }: { href: string; label: string; k: AdminTab }) => (
     <Link
       href={href}
-      className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+      className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition ${
         active === k ? "bg-brand-50 text-brand-700" : "text-slate-500 hover:bg-slate-100"
       }`}
     >
@@ -56,10 +50,11 @@ export function AdminShell({
           </div>
         </div>
         {tabs && (
-          <div className="mx-auto flex max-w-6xl gap-1 px-4 pb-2">
+          <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <Tab href={ADMIN_BASE} label="Overview" k="overview" />
             <Tab href={`${ADMIN_BASE}/waitlist`} label="Waitlist" k="waitlist" />
             <Tab href={`${ADMIN_BASE}/users`} label="Users" k="users" />
+            <Tab href={`${ADMIN_BASE}/houses`} label="Houses" k="houses" />
             <Tab href={`${ADMIN_BASE}/report`} label="Churn report" k="report" />
             <Tab href={`${ADMIN_BASE}/errors`} label="Errors" k="errors" />
           </div>

@@ -105,13 +105,13 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         </div>
       </Section>
 
-      <Section title="Contact & preferences">
+      <Section title="Notifications">
         <div className="card p-5">
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Field label="Phone" value={settings?.phone || "Not set"} />
-            <Field label="Phone verified" value={settings?.phone_verified ? "Yes" : "No"} />
             <Field label="Email reminders" value={settings?.notify_email ? "On" : "Off"} />
-            <Field label="SMS reminders" value={settings?.notify_sms ? "On" : "Off"} />
+            <Field label="Bill emails" value={settings?.notify_email_bills ? "On" : "Off"} />
+            <Field label="Nudge emails" value={settings?.notify_email_nudges ? "On" : "Off"} />
+            <Field label="Push messages" value={settings?.notify_push_message ? "On" : "Off"} />
           </dl>
         </div>
       </Section>
@@ -130,14 +130,17 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
             <p className="p-4 text-sm text-slate-400">Not in any house.</p>
           ) : (
             memberRows.map((m) => (
-              <div key={m.house_id} className="flex items-center justify-between p-4">
-                <div>
-                  <p className="text-sm font-medium text-slate-800">
+              <div key={m.house_id} className="flex items-center justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <Link
+                    href={`${ADMIN_BASE}/houses/${m.house_id}`}
+                    className="block truncate text-sm font-medium text-brand-700 hover:underline"
+                  >
                     {houseNames.get(m.house_id) ?? "Unknown house"}
-                  </p>
+                  </Link>
                   <p className="text-xs text-slate-400">Joined {fmt(m.joined_at)}</p>
                 </div>
-                <span className="chip bg-slate-100 text-slate-500">{m.role}</span>
+                <span className="chip shrink-0 bg-slate-100 text-slate-500">{m.role}</span>
               </div>
             ))
           )}
@@ -146,19 +149,13 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
 
       <Section title="Subscription">
         <div className="card p-5">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="chip bg-slate-100 text-slate-500">Free</span>
-            <span className="text-sm text-slate-400">No billing connected yet</span>
+            <span className="text-sm text-slate-400">
+              Everyone is on the free plan. Plan, price and renewal details appear here once
+              payments are wired up (Stripe or RevenueCat).
+            </span>
           </div>
-          <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Field label="Plan" value="-" />
-            <Field label="Price" value="-" />
-            <Field label="Renews" value="-" />
-            <Field label="Status" value="-" />
-          </dl>
-          <p className="mt-3 text-xs text-slate-400">
-            This section fills in once payments are added (e.g. Stripe or RevenueCat).
-          </p>
         </div>
       </Section>
     </AdminShell>
