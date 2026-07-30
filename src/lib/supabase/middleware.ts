@@ -58,10 +58,14 @@ export async function updateSession(request: NextRequest, requestHeaders?: Heade
     return NextResponse.redirect(url);
   }
 
-  // Signed-in users shouldn't sit on the login page.
-  if (user && path === "/login") {
+  // Signed-in users shouldn't sit on the login page, or on the marketing
+  // landing page. The native apps boot at "/", so without this every launch
+  // showed the landing page and needed a "Get started" tap to reach the app.
+  // Signed-out visitors (and crawlers) still get the landing page as normal.
+  if (user && (path === "/login" || path === "/")) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 
