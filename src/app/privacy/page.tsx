@@ -107,8 +107,8 @@ export default function PrivacyPage() {
                 <strong>Legitimate interests</strong>: to keep the app secure and improve it.
               </li>
               <li>
-                <strong>Consent</strong>: for optional things like SMS reminders, which you can
-                withdraw any time in Settings.
+                <strong>Consent</strong>: for optional things like reminder emails and push
+                notifications, which you can withdraw any time in Settings.
               </li>
             </ul>
           </Section>
@@ -121,8 +121,8 @@ export default function PrivacyPage() {
               housemates to see.
             </p>
             <p className="mt-2">
-              <strong>Your phone number and notification preferences are private</strong>: other
-              housemates cannot see them.
+              <strong>Your notification preferences are private</strong>: other housemates cannot
+              see them.
             </p>
           </Section>
 
