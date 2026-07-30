@@ -129,8 +129,8 @@ export function emailLayout(
   <p style="margin:0 0 10px;color:#475569;font-size:13px">Got a question? Send us a message on any of our socials:</p>
   <p style="margin:0 0 16px">
     <a href="https://www.linkedin.com/company/housesyncuk/" style="display:inline-block;margin:0 6px 6px 0;padding:7px 14px;background:#f1f5f9;color:#5f3fe0;text-decoration:none;border-radius:8px;font-size:12px;font-weight:bold">LinkedIn</a>
-    <a href="https://www.instagram.com/housesync.uk/" style="display:inline-block;margin:0 6px 6px 0;padding:7px 14px;background:#f1f5f9;color:#5f3fe0;text-decoration:none;border-radius:8px;font-size:12px;font-weight:bold">Instagram</a>
-    <a href="https://www.tiktok.com/@housesync.uk" style="display:inline-block;margin:0 0 6px 0;padding:7px 14px;background:#f1f5f9;color:#5f3fe0;text-decoration:none;border-radius:8px;font-size:12px;font-weight:bold">TikTok</a>
+    <a href="https://www.instagram.com/housesync.co.uk/" style="display:inline-block;margin:0 6px 6px 0;padding:7px 14px;background:#f1f5f9;color:#5f3fe0;text-decoration:none;border-radius:8px;font-size:12px;font-weight:bold">Instagram</a>
+    <a href="https://www.tiktok.com/@housesync.co.uk" style="display:inline-block;margin:0 0 6px 0;padding:7px 14px;background:#f1f5f9;color:#5f3fe0;text-decoration:none;border-radius:8px;font-size:12px;font-weight:bold">TikTok</a>
   </p>
   <p style="color:#94a3b8;font-size:12px">${footer}</p>
 </div>

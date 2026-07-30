@@ -39,7 +39,7 @@ export function SocialLinks() {
   return (
     <div className="flex items-center gap-1.5">
       <a
-        href="https://www.instagram.com/housesync.uk/"
+        href="https://www.instagram.com/housesync.co.uk/"
         target="_blank"
         rel="noopener noreferrer"
         aria-label="HouseSync on Instagram"
@@ -48,7 +48,7 @@ export function SocialLinks() {
         <InstagramIcon />
       </a>
       <a
-        href="https://www.tiktok.com/@housesync.uk"
+        href="https://www.tiktok.com/@housesync.co.uk"
         target="_blank"
         rel="noopener noreferrer"
         aria-label="HouseSync on TikTok"

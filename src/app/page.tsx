@@ -159,7 +159,7 @@ export default function LandingPage() {
           <p>The housemate app for bills, chores and rent.</p>
           <div className="flex items-center gap-2">
             <a
-              href="https://www.instagram.com/housesync.uk/"
+              href="https://www.instagram.com/housesync.co.uk/"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="HouseSync on Instagram"
@@ -168,7 +168,7 @@ export default function LandingPage() {
               <InstagramIcon />
             </a>
             <a
-              href="https://www.tiktok.com/@housesync.uk"
+              href="https://www.tiktok.com/@housesync.co.uk"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="HouseSync on TikTok"
