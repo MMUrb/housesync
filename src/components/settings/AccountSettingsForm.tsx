@@ -4,30 +4,21 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getSiteUrl } from "@/lib/env";
-import { FEATURES } from "@/lib/features";
-import { PhoneVerification } from "@/components/settings/PhoneVerification";
 
 export function AccountSettingsForm({
   userId,
   email,
-  initialPhone,
-  initialPhoneVerified,
   initialNotifyEmail,
-  initialNotifySms,
   emailVerified,
 }: {
   userId: string;
   email: string;
-  initialPhone: string;
-  initialPhoneVerified: boolean;
   initialNotifyEmail: boolean;
-  initialNotifySms: boolean;
   emailVerified: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
   const [notifyEmail, setNotifyEmail] = useState(initialNotifyEmail);
-  const [notifySms, setNotifySms] = useState(initialNotifySms);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,13 +34,10 @@ export function AccountSettingsForm({
     setError(null);
     setSaving(true);
     setSaved(false);
-    // Note: phone + phone_verified are managed by the verification flow on the
-    // server — they're intentionally not written from here.
     const { error } = await supabase.from("account_settings").upsert(
       {
         user_id: userId,
         notify_email: notifyEmail,
-        notify_sms: notifySms,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
@@ -196,13 +184,6 @@ export function AccountSettingsForm({
         )}
       </div>
 
-      {FEATURES.phoneSms && (
-        <div>
-          <span className="label">Phone number</span>
-          <PhoneVerification initialPhone={initialPhone} initialVerified={initialPhoneVerified} />
-        </div>
-      )}
-
       <div className="space-y-2">
         <span className="label">Reminders</span>
         <Toggle
@@ -211,14 +192,6 @@ export function AccountSettingsForm({
           checked={notifyEmail}
           onChange={setNotifyEmail}
         />
-        {FEATURES.phoneSms && (
-          <Toggle
-            label="Text (SMS) reminders"
-            desc="Sent to your verified phone number once SMS reminders go live."
-            checked={notifySms}
-            onChange={setNotifySms}
-          />
-        )}
       </div>
 
       {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}

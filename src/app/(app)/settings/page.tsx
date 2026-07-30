@@ -57,10 +57,7 @@ export default async function SettingsPage() {
         <AccountSettingsForm
           userId={user.id}
           email={user.email ?? ""}
-          initialPhone={account?.phone ?? ""}
-          initialPhoneVerified={account?.phone_verified ?? false}
           initialNotifyEmail={account?.notify_email ?? true}
-          initialNotifySms={account?.notify_sms ?? false}
           emailVerified={Boolean(account?.email_verified_at)}
         />
 

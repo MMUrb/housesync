@@ -173,10 +173,7 @@ export interface Message {
 /** Private, account-level settings — only the owner can read these. */
 export interface AccountSettings {
   user_id: string;
-  phone: string | null;
-  phone_verified: boolean;
   notify_email: boolean;
-  notify_sms: boolean;
   updated_at: string;
   email_verified_at: string | null;
   email_verify_token: string | null;
