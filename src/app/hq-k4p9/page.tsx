@@ -198,7 +198,7 @@ export default async function AdminOverviewPage() {
 
 function SignupsTable({ rows, nameById }: { rows: AdminUserRow[]; nameById: Map<string, string> }) {
   const fmt = (iso?: string | null) =>
-    iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "-";
+    iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/London" }) : "-";
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">

@@ -25,7 +25,7 @@ type HouseRow = {
 };
 
 const fmt = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "-";
+  iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/London" }) : "-";
 
 export default async function DirectoryPage({
   searchParams,

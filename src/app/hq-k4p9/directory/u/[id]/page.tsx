@@ -32,7 +32,7 @@ type HouseRow = {
 type ActivityRow = { type: string; message: string; created_at: string; house_id: string };
 
 const fmt = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "-";
+  iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/London" }) : "-";
 
 function ageLabel(iso?: string | null): string {
   if (!iso) return "-";

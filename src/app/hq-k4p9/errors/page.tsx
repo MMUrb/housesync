@@ -24,7 +24,7 @@ type ErrorRow = {
 };
 
 const fmt = (iso: string) =>
-  new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
+  new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/London" });
 
 export default async function ErrorsAdminPage() {
   const gate = await adminGate();

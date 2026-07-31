@@ -149,6 +149,7 @@ export default async function ReportPage() {
               const abs = new Date(c.created_at).toLocaleString("en-GB", {
                 dateStyle: "medium",
                 timeStyle: "short",
+                timeZone: "Europe/London",
               });
               const meta: string[] = [];
               const dur = memberFor(c.days_active);

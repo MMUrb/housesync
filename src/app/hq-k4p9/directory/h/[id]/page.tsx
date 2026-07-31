@@ -33,7 +33,7 @@ type ProfileRow = {
 };
 
 const fmt = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "-";
+  iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/London" }) : "-";
 
 /** "3 days ago" for a quick read on whether a house has gone quiet. */
 function relTime(iso: string): string {
