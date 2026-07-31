@@ -39,6 +39,7 @@ import {
   GlyphWarn,
 } from "@/components/settings/SettingsRows";
 import { SocialLinks } from "@/components/SocialLinks";
+import { AppVersion } from "@/components/settings/AppVersion";
 
 export const metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
@@ -270,7 +271,7 @@ export default async function SettingsPage() {
             Terms of Use
           </Link>
         </div>
-        <p className="text-xs text-slate-400">HouseSync · v1.1.0</p>
+        <AppVersion />
       </div>
     </div>
   );

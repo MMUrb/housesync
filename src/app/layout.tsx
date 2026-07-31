@@ -7,6 +7,7 @@ import { ThemeWatcher } from "@/components/ThemeWatcher";
 import { ErrorReporter } from "@/components/ErrorReporter";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import { SplashHide } from "@/components/app/SplashHide";
+import { BackButton } from "@/components/app/BackButton";
 
 const siteName = "HouseSync";
 const description =
@@ -102,6 +103,7 @@ export default async function RootLayout({
         <ErrorReporter />
         <ServiceWorker />
         <SplashHide />
+        <BackButton />
       </body>
     </html>
   );

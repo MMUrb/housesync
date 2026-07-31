@@ -105,12 +105,14 @@ export function RowLink({
   const [isNative, setIsNative] = useState(false);
   const [state, setState] = useState<"idle" | "busy" | "error">("idle");
 
+  const isMailto = href.startsWith("mailto:");
+
   useEffect(() => {
-    if (!download) return;
+    if (!download && !isMailto) return;
     void import("@capacitor/core").then(({ Capacitor }) => {
       if (Capacitor.isNativePlatform()) setIsNative(true);
     });
-  }, [download]);
+  }, [download, isMailto]);
 
   async function onDownloadClick(e: React.MouseEvent) {
     if (!isNative || state === "busy") {
@@ -128,8 +130,29 @@ export function RowLink({
     }
   }
 
-  const shownValue =
-    state === "busy" ? "Preparing…" : state === "error" ? "Couldn't download" : value;
+  // In a webview with no mail app registered, mailto: is a silent no-op — so on
+  // native, also copy the address and say so. If a mail client exists it still
+  // opens; either way the user isn't left wondering whether the tap worked.
+  const [copied, setCopied] = useState(false);
+  function onMailtoClick() {
+    if (!isNative) return;
+    const address = href.slice("mailto:".length).split("?")[0];
+    void navigator.clipboard
+      ?.writeText(address)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      })
+      .catch(() => {});
+  }
+
+  const shownValue = copied
+    ? "Address copied"
+    : state === "busy"
+      ? "Preparing…"
+      : state === "error"
+        ? "Couldn't download"
+        : value;
 
   const inner = (
     <>
@@ -160,6 +183,7 @@ export function RowLink({
         className={cls}
         {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
         {...(download ? { download: true, onClick: onDownloadClick } : {})}
+        {...(isMailto ? { onClick: onMailtoClick } : {})}
       >
         {inner}
       </a>

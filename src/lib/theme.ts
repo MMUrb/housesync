@@ -30,6 +30,26 @@ export function setThemePref(pref: ThemePref): void {
     /* ignore */
   }
   if (typeof document !== "undefined") {
-    document.documentElement.classList.toggle("dark", isDark(pref));
+    const dark = isDark(pref);
+    document.documentElement.classList.toggle("dark", dark);
+    void applyNativeSystemBars(dark);
+  }
+}
+
+/**
+ * Native apps only: keep the status-bar glyphs readable when the in-app theme
+ * diverges from the system appearance (e.g. Night in-app on a Light-mode
+ * iPhone left black clock/battery on our near-black header). SystemBars ships
+ * inside @capacitor/core 8, so this needs no extra plugin and also fixes the
+ * binaries already in people's hands. No-op on the website.
+ */
+export async function applyNativeSystemBars(dark: boolean): Promise<void> {
+  try {
+    const { Capacitor, SystemBars, SystemBarsStyle } = await import("@capacitor/core");
+    if (!Capacitor.isNativePlatform()) return;
+    // Style "Dark" = light glyphs (for dark backgrounds), and vice versa.
+    await SystemBars.setStyle({ style: dark ? SystemBarsStyle.Dark : SystemBarsStyle.Light });
+  } catch {
+    /* older binary or web — ignore */
   }
 }

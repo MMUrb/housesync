@@ -121,7 +121,8 @@ export default function TermsPage() {
 
           <Section title="Suspending or ending your account">
             <p>
-              You can delete your account at any time in <strong>Settings → Delete account</strong>.
+              You can delete your account at any time in{" "}
+              <strong>Settings → Email &amp; account → Delete my account</strong>.
               We may suspend or end your access if you break these Terms or use HouseSync in a way that
               could harm other people or the service.
             </p>

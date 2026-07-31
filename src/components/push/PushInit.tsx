@@ -36,9 +36,12 @@ export function PushInit() {
           },
         );
 
-        // If the user already granted permission, refresh the token on launch.
+        // Refresh the token on launch — but only if the user hasn't opted out
+        // in Settings. OS permission survives an in-app opt-out, so gating on
+        // permission alone silently re-subscribed the device every launch.
         const perm = await PushNotifications.checkPermissions();
-        if (perm.receive === "granted") {
+        const optedIn = localStorage.getItem("hs_push") === "1";
+        if (perm.receive === "granted" && optedIn) {
           try {
             await PushNotifications.register();
           } catch {

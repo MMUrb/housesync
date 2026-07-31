@@ -166,7 +166,7 @@ export default function PrivacyPage() {
           <Section title="How long we keep it">
             <p>
               We keep your data while your account is active. You can delete your account at any time
-              in <strong>Settings → Delete account</strong>, which removes your personal data from
+              in <strong>Settings → Email &amp; account → Delete my account</strong>, which removes your personal data from
               our systems (some records may persist briefly in backups before being overwritten). If
               you tell us why you&rsquo;re leaving, we keep that reason and any optional comment
               anonymously, with no link to you, to help us improve.

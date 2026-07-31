@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
+import { applyNativeSystemBars } from "@/lib/theme";
 
 /**
  * Keeps the applied theme correct on every page:
  *  - follows the device theme while in "system" mode (live, if the OS flips),
- *  - re-applies an explicit choice changed in another tab.
+ *  - re-applies an explicit choice changed in another tab,
+ *  - keeps the native status-bar glyph colour matched to the app theme.
  */
 export function ThemeWatcher() {
   useEffect(() => {
@@ -20,7 +22,9 @@ export function ThemeWatcher() {
         t === "dark" ||
         (t !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
       document.documentElement.classList.toggle("dark", dark);
+      void applyNativeSystemBars(dark);
     }
+    resolve();
 
     function onStorage(e: StorageEvent) {
       if (e.key === "theme") resolve();

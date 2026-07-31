@@ -1,11 +1,30 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Store the current user's push target: a web subscription or a native FCM
 // token. RLS ensures a user can only write their own row.
+//
+// A device token/endpoint identifies a DEVICE, and the table is unique per
+// (user, target) — so when account B signs in on a phone where account A had
+// push enabled, both rows would exist and A's notifications would keep landing
+// on B's phone. Before saving, evict the same device target from every other
+// account (service role: RLS rightly stops the user client touching those rows).
+async function evictOtherOwners(column: "token" | "endpoint", value: string, userId: string) {
+  if (!isAdminConfigured) return;
+  try {
+    await createAdminClient()
+      .from("push_subscriptions")
+      .delete()
+      .eq(column, value)
+      .neq("user_id", userId);
+  } catch {
+    /* best-effort — the upsert below still succeeds */
+  }
+}
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
@@ -22,6 +41,7 @@ export async function POST(request: Request) {
 
   if (body.kind === "web" && body.subscription?.endpoint) {
     const s = body.subscription;
+    await evictOtherOwners("endpoint", s.endpoint!, user.id);
     const { error } = await supabase.from("push_subscriptions").upsert(
       {
         user_id: user.id,
@@ -38,6 +58,7 @@ export async function POST(request: Request) {
 
   if (body.kind === "native" && typeof body.token === "string" && body.token) {
     const platform = body.platform === "ios" || body.platform === "android" ? body.platform : null;
+    await evictOtherOwners("token", body.token, user.id);
     const { error } = await supabase.from("push_subscriptions").upsert(
       { user_id: user.id, kind: "native", token: body.token, platform },
       { onConflict: "user_id,token" },

@@ -47,7 +47,13 @@ export function webPushSupported(): boolean {
 /** Whether notifications are currently enabled on this device. */
 export async function getPushEnabled(): Promise<boolean> {
   try {
-    if (await isNative()) return localStorage.getItem("hs_push") === "1";
+    if (await isNative()) {
+      // The stored opt-in means nothing if the OS permission was later revoked
+      // in the phone's settings — check both, or the toggle shows a lie.
+      if (localStorage.getItem("hs_push") !== "1") return false;
+      const { PushNotifications } = await import("@capacitor/push-notifications");
+      return (await PushNotifications.checkPermissions()).receive === "granted";
+    }
     if (!webPushSupported() || Notification.permission !== "granted") return false;
     const reg = await navigator.serviceWorker.getRegistration();
     const sub = await reg?.pushManager.getSubscription();

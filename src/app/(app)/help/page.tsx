@@ -15,9 +15,9 @@ const GROUPS: Group[] = [
         q: "How do I add my housemates?",
         a: (
           <>
-            Share your house&rsquo;s invite link, you&rsquo;ll find it in{" "}
-            <strong>Settings → Invite link</strong>. When a housemate opens it and signs up, they
-            join your house automatically.
+            Share your house&rsquo;s invite link, you&rsquo;ll find it on the{" "}
+            <strong>Housemates page</strong> (or <strong>Settings → Invite housemates</strong>).
+            When a housemate opens it and signs up, they join your house automatically.
           </>
         ),
       },
@@ -172,8 +172,8 @@ const GROUPS: Group[] = [
         q: "How do I delete my account?",
         a: (
           <>
-            <strong>Settings → Delete account</strong>. This removes your personal data from our
-            systems. It can&rsquo;t be undone.
+            <strong>Settings → Email &amp; account → Delete my account</strong>. This removes your
+            personal data from our systems. It can&rsquo;t be undone.
           </>
         ),
       },

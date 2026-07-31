@@ -52,7 +52,7 @@ export default async function VerifyEmailPage({
             <h1 className="text-xl font-bold text-slate-900">Link expired or invalid</h1>
             <p className="text-sm text-slate-600">
               This verification link has expired or already been used. You can request a fresh one
-              from <strong>Settings → Verify now</strong>.
+              from <strong>Settings → Email &amp; account → Verify now</strong>.
             </p>
             <Link href="/settings" className="btn-secondary btn-block">
               Go to Settings

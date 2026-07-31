@@ -13,8 +13,16 @@ const config: CapacitorConfig = {
     // middleware + API routes that can't be statically exported.
     url: 'https://housesync.co.uk',
     androidScheme: 'https',
+    // Bundled branded page shown if the main frame fails to load (offline
+    // cold start) instead of the stock WebView network-error screen.
+    errorPath: 'error.html',
   },
   plugins: {
+    // Without presentationOptions, notifications that arrive while the app is
+    // OPEN are silently swallowed on both platforms.
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
     // Hold the branded splash over the webview while the remote page loads,
     // instead of flashing a blank near-white frame. The web app dismisses it
     // as soon as it has painted (see SplashHide in the root layout); the
