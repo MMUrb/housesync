@@ -11,6 +11,7 @@ import { TopNav } from "@/components/app/TopNav";
 import { FollowUs } from "@/components/SocialLinks";
 import { PushInit } from "@/components/push/PushInit";
 import { NativeShell } from "@/components/app/NativeShell";
+import { UpdatePrompt } from "@/components/app/UpdatePrompt";
 import { HouseRealtime } from "@/components/app/HouseRealtime";
 import { Walkthrough } from "@/components/app/Walkthrough";
 
@@ -44,7 +45,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         />
         <TopNav houseId={house.id} userId={user.id} initialUnreadCount={chatUnread} />
       </div>
-      <main className="flex-1 px-4 pb-8 pt-4">{children}</main>
+      <main className="flex-1 px-4 pb-8 pt-4">
+        <UpdatePrompt />
+        {children}
+      </main>
       <PushInit />
       <NativeShell />
       <HouseRealtime houseId={house.id} />
