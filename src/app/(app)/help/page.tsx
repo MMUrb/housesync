@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageTitle } from "@/components/app/PageTitle";
 import { IconChevronDown } from "@/components/icons";
+import { ContactCard } from "@/components/help/ContactCard";
 
 export const metadata = { title: "Help & FAQ" };
 
@@ -210,18 +211,7 @@ export default function HelpPage() {
         </section>
       ))}
 
-      <div className="card flex items-center justify-between gap-3 p-4">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-800">Still need a hand?</p>
-          <p className="text-xs text-slate-500">Email us and we&rsquo;ll get back to you.</p>
-        </div>
-        <a
-          href="mailto:hello@housesync.co.uk?subject=HouseSync%20help"
-          className="btn-secondary shrink-0 px-3 py-2 text-sm"
-        >
-          Contact us
-        </a>
-      </div>
+      <ContactCard />
 
       <div className="flex items-center justify-center gap-2 pb-2 text-xs text-slate-400">
         <Link href="/privacy" className="transition hover:text-slate-600">
