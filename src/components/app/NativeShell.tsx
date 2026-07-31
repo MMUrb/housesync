@@ -6,14 +6,33 @@ import { useEffect } from "react";
 // the primary nav from the top bar down to a fixed bottom tab bar, which is the
 // phone-native pattern. In a normal browser Capacitor isn't native, so this is a
 // no-op and the website keeps its top navigation.
+//
+// Also tracks the on-screen keyboard via visualViewport: while it's up, <html>
+// gets `.kb-open` so CSS can hide the bottom tab bar (otherwise it floats on
+// top of the keyboard while you type).
 export function NativeShell() {
   useEffect(() => {
     let active = true;
+    let removeKb = () => {};
     (async () => {
       try {
         const { Capacitor } = await import("@capacitor/core");
-        if (active && Capacitor.isNativePlatform()) {
-          document.documentElement.classList.add("native-app");
+        if (!active || !Capacitor.isNativePlatform()) return;
+        document.documentElement.classList.add("native-app");
+
+        const vv = window.visualViewport;
+        if (vv) {
+          const onResize = () => {
+            // The keyboard shrinks the visual viewport well past any browser
+            // chrome ever would; 150px is the conventional threshold.
+            const kbOpen = window.innerHeight - vv.height > 150;
+            document.documentElement.classList.toggle("kb-open", kbOpen);
+          };
+          vv.addEventListener("resize", onResize);
+          removeKb = () => {
+            vv.removeEventListener("resize", onResize);
+            document.documentElement.classList.remove("kb-open");
+          };
         }
       } catch {
         /* not running natively — leave the website layout as-is */
@@ -21,6 +40,7 @@ export function NativeShell() {
     })();
     return () => {
       active = false;
+      removeKb();
     };
   }, []);
   return null;

@@ -150,6 +150,19 @@
 .native-app [data-chat-shell] {
   height: calc(100dvh - 169px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
 }
+/* While the keyboard is up, the fixed bottom tab bar would float on top of it —
+   hide it and release the space it reserved (NativeShell toggles .kb-open).
+   The chat box also stops reserving the 60px bar (dvh already shrank with the
+   keyboard). */
+.native-app.kb-open [data-app-nav] {
+  display: none;
+}
+.native-app.kb-open .app-shell {
+  padding-bottom: 0.75rem;
+}
+.native-app.kb-open [data-chat-shell] {
+  height: calc(100dvh - 109px - env(safe-area-inset-top));
+}
 
 /* ============================================================================
    NIGHT MODE

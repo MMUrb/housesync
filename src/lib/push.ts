@@ -101,14 +101,15 @@ function apnsJwt(): string {
 }
 
 // Push one alert to a single iPhone. Never throws; reports whether the token is
-// stale (uninstalled / wrong environment) so the caller can prune it.
+// stale (uninstalled / wrong environment) so the caller can prune it, and the
+// failure reason so it can be surfaced in the admin error log.
 function sendApns(
   deviceToken: string,
   payload: PushPayload,
-): Promise<{ ok: boolean; stale: boolean }> {
+): Promise<{ ok: boolean; stale: boolean; reason?: string }> {
   return new Promise((resolve) => {
     let settled = false;
-    const finish = (r: { ok: boolean; stale: boolean }) => {
+    const finish = (r: { ok: boolean; stale: boolean; reason?: string }) => {
       if (settled) return;
       settled = true;
       resolve(r);
@@ -142,21 +143,29 @@ function sendApns(
         client?.close();
         // 410 Unregistered, or 400 BadDeviceToken (registered in the other env).
         const stale = status === 410 || (status === 400 && /BadDeviceToken/.test(data));
-        finish({ ok: status === 200, stale });
+        finish({
+          ok: status === 200,
+          stale,
+          reason: status === 200 ? undefined : `HTTP ${status} ${data}`.trim(),
+        });
       });
-      req.on("error", () => {
+      req.on("error", (err) => {
         client?.close();
-        finish({ ok: false, stale: false });
+        finish({ ok: false, stale: false, reason: `request error: ${err.message}` });
       });
       req.setTimeout(10000, () => {
         req.close();
         client?.close();
-        finish({ ok: false, stale: false });
+        finish({ ok: false, stale: false, reason: "timed out after 10s" });
       });
       req.end(body);
-    } catch {
+    } catch (err) {
       client?.close();
-      finish({ ok: false, stale: false });
+      finish({
+        ok: false,
+        stale: false,
+        reason: err instanceof Error ? err.message : "connect failed",
+      });
     }
   });
 }
@@ -242,18 +251,37 @@ export async function sendPushToUsers(
     }
 
     // iOS push (direct APNs) — one HTTP/2 request per iPhone token.
+    const iosSubs = subs.filter((s) => s.kind === "native" && s.platform === "ios" && s.token);
+    const apnsFailures: string[] = [];
     if (apnsReady) {
-      for (const s of subs) {
-        if (s.kind !== "native" || s.platform !== "ios" || !s.token) continue;
+      for (const s of iosSubs) {
         tasks.push(
-          sendApns(s.token, payload).then((r) => {
+          sendApns(s.token as string, payload).then((r) => {
             if (r.stale) staleIds.push(s.id);
+            else if (!r.ok && r.reason) apnsFailures.push(r.reason);
           }),
         );
       }
+    } else if (iosSubs.length) {
+      // iPhones are registered but the APNs credentials aren't in env — say so
+      // in the admin error log instead of silently sending nothing.
+      void db.from("error_logs").insert({
+        source: "server",
+        message: `iOS push skipped for ${iosSubs.length} device(s): APNS_KEY_ID / APNS_TEAM_ID / APNS_PRIVATE_KEY not set in the environment.`,
+        url: "lib/push",
+        digest: "apns-unconfigured",
+      });
     }
 
     await Promise.allSettled(tasks);
+    if (apnsFailures.length) {
+      void db.from("error_logs").insert({
+        source: "server",
+        message: `APNs delivery failed for ${apnsFailures.length} device(s): ${[...new Set(apnsFailures)].slice(0, 3).join(" | ")}`,
+        url: "lib/push",
+        digest: "apns-delivery-failed",
+      });
+    }
     if (staleIds.length) await db.from("push_subscriptions").delete().in("id", staleIds);
   } catch {
     /* notifications must never break the request that triggered them */

@@ -86,10 +86,40 @@ export function Chat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [houseId]);
 
-  // Keep the latest message in view.
+  // Keep the latest message in view. The FIRST scroll (opening the chat) jumps
+  // instantly so you land on the newest messages, not a scrolling animation;
+  // only messages arriving while you watch scroll smoothly.
+  const hasScrolled = useRef(false);
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    endRef.current?.scrollIntoView({ behavior: hasScrolled.current ? "smooth" : "auto" });
+    hasScrolled.current = true;
   }, [messages]);
+
+  // Catch up after the app was backgrounded: realtime events are missed while
+  // the webview is suspended, so refetch the tail when we become visible again.
+  useEffect(() => {
+    async function catchUp() {
+      const { data } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("house_id", houseId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (!data) return;
+      const fresh = (data as Message[]).reverse();
+      setMessages((prev) => {
+        const byId = new Map(prev.map((m) => [m.id, m]));
+        for (const m of fresh) byId.set(m.id, m);
+        return [...byId.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
+      });
+    }
+    function onVisible() {
+      if (document.visibilityState === "visible") void catchUp();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [houseId]);
 
   // Mark the chat read server-side whenever it's open and as new messages
   // arrive while viewing. Stored per (user, house), so the unread badge clears
@@ -169,16 +199,38 @@ export function Chat({
     setSending(true);
     setError(null);
     setShowEmoji(false);
+
+    // Optimistic: the message appears in the thread THE MOMENT you hit send
+    // (slightly faded), like any messaging app. The insert result replaces it;
+    // a failure removes it and puts your text back.
+    const replyTarget = replyingTo;
+    const replyTo = replyingTo?.id ?? null;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimistic = {
+      id: tempId,
+      house_id: houseId,
+      user_id: currentUserId,
+      body,
+      reply_to: replyTo,
+      created_at: new Date().toISOString(),
+    } as Message;
+    setMessages((prev) => [...prev, optimistic]);
+    setText("");
+    setReplyingTo(null);
+
     try {
       const { data, error } = await supabase
         .from("messages")
-        .insert({ house_id: houseId, user_id: currentUserId, body, reply_to: replyingTo?.id ?? null })
+        .insert({ house_id: houseId, user_id: currentUserId, body, reply_to: replyTo })
         .select()
         .single();
       if (error) throw error;
-      if (data) addMessage(data as Message);
-      setText("");
-      setReplyingTo(null);
+      const real = data as Message;
+      setMessages((prev) => {
+        const withoutTemp = prev.filter((m) => m.id !== tempId);
+        // The realtime echo may already have delivered the real row.
+        return withoutTemp.some((m) => m.id === real.id) ? withoutTemp : [...withoutTemp, real];
+      });
       // Notify the other housemates (best-effort; server decides who's opted in).
       void fetch("/api/push/notify", {
         method: "POST",
@@ -187,6 +239,10 @@ export function Chat({
         body: JSON.stringify({ houseId, preview: body }),
       });
     } catch (err) {
+      // Roll back: drop the optimistic bubble, restore the draft + reply target.
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setText(body);
+      setReplyingTo(replyTarget);
       setError(err instanceof Error ? err.message : "Couldn't send. Please try again.");
     } finally {
       setSending(false);
@@ -235,19 +291,21 @@ export function Chat({
                     </span>
                   </div>
                 )}
-                <Bubble
-                  mine={m.user_id === currentUserId}
-                  name={prof?.name ?? "Housemate"}
-                  color={prof?.avatar_color ?? "#6f53f5"}
-                  avatarUrl={prof?.avatar_url ?? null}
-                  body={m.body}
-                  time={formatTime(m.created_at)}
-                  startGroup={startGroup}
-                  revealed={revealed.has(m.id)}
-                  onTap={() => toggleReveal(m.id)}
-                  quote={quote}
-                  onReply={() => startReply(m)}
-                />
+                <div className={m.id.startsWith("temp-") ? "opacity-60" : undefined}>
+                  <Bubble
+                    mine={m.user_id === currentUserId}
+                    name={prof?.name ?? "Housemate"}
+                    color={prof?.avatar_color ?? "#6f53f5"}
+                    avatarUrl={prof?.avatar_url ?? null}
+                    body={m.body}
+                    time={formatTime(m.created_at)}
+                    startGroup={startGroup}
+                    revealed={revealed.has(m.id)}
+                    onTap={() => toggleReveal(m.id)}
+                    quote={quote}
+                    onReply={() => startReply(m)}
+                  />
+                </div>
               </Fragment>
             );
           })
