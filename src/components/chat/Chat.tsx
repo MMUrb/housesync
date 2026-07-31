@@ -95,6 +95,33 @@ export function Chat({
     hasScrolled.current = true;
   }, [messages]);
 
+  // WhatsApp behaviour for the keyboard: when it opens (or closes) the chat
+  // box resizes — if you were reading the newest messages, stay pinned to
+  // them instead of leaving them hidden behind the keyboard. Scrolled up
+  // reading history? We leave your position alone.
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const nearBottomRef = useRef(true);
+  function trackScroll() {
+    const el = scrollerRef.current;
+    if (!el) return;
+    nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+  }
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      if (!nearBottomRef.current) return;
+      // Two frames so the layout has settled at the new viewport size.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          endRef.current?.scrollIntoView({ behavior: "auto" });
+        });
+      });
+    };
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
+  }, []);
+
   // Catch up after the app was backgrounded: realtime events are missed while
   // the webview is suspended, so refetch the tail when we become visible again.
   useEffect(() => {
@@ -251,7 +278,7 @@ export function Chat({
 
   return (
     <div data-chat-shell className="flex h-[calc(100dvh-16rem)] flex-col">
-      <div className="flex-1 overflow-y-auto pb-2">
+      <div ref={scrollerRef} onScroll={trackScroll} className="flex-1 overflow-y-auto pb-2">
         {messages.length === 0 ? (
           <div className="grid h-full place-items-center text-center text-sm text-slate-400">
             <div>

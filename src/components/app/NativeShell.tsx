@@ -22,12 +22,17 @@ export function NativeShell() {
 
         const vv = window.visualViewport;
         if (vv) {
+          // On Android (adjustResize) the WHOLE window shrinks with the
+          // keyboard, so comparing vv.height to window.innerHeight never
+          // triggers — both shrink together. Compare against the tallest
+          // viewport seen instead (stable: the app is portrait-locked).
+          let maxHeight = vv.height;
           const onResize = () => {
-            // The keyboard shrinks the visual viewport well past any browser
-            // chrome ever would; 150px is the conventional threshold.
-            const kbOpen = window.innerHeight - vv.height > 150;
+            maxHeight = Math.max(maxHeight, vv.height);
+            const kbOpen = maxHeight - vv.height > 150;
             document.documentElement.classList.toggle("kb-open", kbOpen);
           };
+          onResize();
           vv.addEventListener("resize", onResize);
           removeKb = () => {
             vv.removeEventListener("resize", onResize);
