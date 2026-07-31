@@ -63,13 +63,12 @@ export default async function DashboardPage() {
   // Optional per-user second currency: shows an approximate "≈ $X" under house
   // totals. Only fetch a rate when the user picked a currency other than the
   // house's; a failed/absent rate just leaves `display` null (no second line).
-  const displayCurrency = account?.display_currency ?? null;
+  // Defaults to GBP when the user hasn't picked one: HouseSync is UK-first, so
+  // a house running in USD still shows pounds without configuring anything.
+  const displayCurrency = account?.display_currency ?? "GBP";
   const displayRate =
-    displayCurrency && displayCurrency !== house.currency
-      ? await getRate(house.currency, displayCurrency)
-      : null;
-  const display =
-    displayCurrency && displayRate ? { currency: displayCurrency, rate: displayRate } : null;
+    displayCurrency !== house.currency ? await getRate(house.currency, displayCurrency) : null;
+  const display = displayRate ? { currency: displayCurrency, rate: displayRate } : null;
 
   // Data for the interactive spending explorer (computed client-side per scope).
   const spendExpenses = expenses.map((e) => ({
@@ -156,6 +155,7 @@ export default async function DashboardPage() {
           currency={house.currency}
           spentThisMonth={spentThisMonth}
           initialBudget={account?.monthly_budget ?? null}
+          display={display}
         />
         <SpendingPanel
           expenses={spendExpenses}
@@ -164,6 +164,7 @@ export default async function DashboardPage() {
           categories={spendCategories}
           meId={user.id}
           currency={house.currency}
+          display={display}
         />
       </section>
 

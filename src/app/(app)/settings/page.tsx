@@ -166,9 +166,9 @@ export default async function SettingsPage() {
           icon={<RowIcon><GlyphCoin /></RowIcon>}
           label="Currency"
           value={
-            account?.display_currency
-              ? `Also showing ${account.display_currency}`
-              : house.currency
+            (account?.display_currency ?? "GBP") === house.currency
+              ? house.currency
+              : `${house.currency} · also ${account?.display_currency ?? "GBP"}`
           }
         >
           <div className="space-y-4">

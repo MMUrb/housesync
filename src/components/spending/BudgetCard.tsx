@@ -3,18 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { currencySymbol, formatMoney } from "@/lib/format";
+import { currencySymbol, formatConverted, formatMoney } from "@/lib/format";
 
 export function BudgetCard({
   userId,
   currency,
   spentThisMonth,
   initialBudget,
+  display = null,
 }: {
   userId: string;
   currency: string;
   spentThisMonth: number;
   initialBudget: number | null;
+  /** Optional second currency for an approximate "≈" line under the total. */
+  display?: { currency: string; rate: number } | null;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -124,6 +127,11 @@ export function BudgetCard({
         <span className="text-xl font-bold text-slate-900">{formatMoney(spentThisMonth, currency)}</span>
         <span className="text-sm text-slate-400">of {formatMoney(budget, currency)} this month</span>
       </div>
+      {formatConverted(spentThisMonth, currency, display) && (
+        <p className="text-xs text-slate-400">
+          {formatConverted(spentThisMonth, currency, display)}
+        </p>
+      )}
       <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
         <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.min(100, pct)}%` }} />
       </div>

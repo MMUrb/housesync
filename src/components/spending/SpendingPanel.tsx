@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { formatMoney } from "@/lib/format";
+import { formatConverted, formatMoney } from "@/lib/format";
 import { buildCatLookup } from "@/lib/categories";
 import { IconChevronDown, IconCheck } from "@/components/icons";
 
@@ -75,6 +75,7 @@ export function SpendingPanel({
   categories,
   meId,
   currency,
+  display = null,
 }: {
   expenses: SpendExpense[];
   splits: SpendSplit[];
@@ -82,6 +83,8 @@ export function SpendingPanel({
   categories: SpendCategory[];
   meId: string;
   currency: string;
+  /** Optional second currency for an approximate "≈" line under the total. */
+  display?: { currency: string; rate: number } | null;
 }) {
   const lookup = useMemo(() => buildCatLookup(categories), [categories]);
   const scopes = useMemo(
@@ -253,6 +256,9 @@ export function SpendingPanel({
       {/* Total */}
       <div className="mt-4">
         <p className="text-2xl font-bold text-slate-900">{formatMoney(total, currency)}</p>
+        {formatConverted(total, currency, display) && (
+          <p className="text-xs text-slate-400">{formatConverted(total, currency, display)}</p>
+        )}
         <p className="text-xs text-slate-500">
           {scope.label} · last {buckets.length} {unit === "period" ? "buckets" : `${unit}s`}
         </p>

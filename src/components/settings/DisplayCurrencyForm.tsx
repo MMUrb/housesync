@@ -38,7 +38,7 @@ export function DisplayCurrencyForm({
   }
 
   const options = [
-    { value: "", label: "Off (house currency only)" },
+    { value: "", label: "British Pound (GBP) · default" },
     ...CURRENCIES.map((c) => ({ value: c.code, label: `${c.name} (${c.code})` })),
   ];
 
@@ -50,8 +50,8 @@ export function DisplayCurrencyForm({
         {state === "saved" && <span className="text-xs text-mint-600">Saved</span>}
       </div>
       <p className="mb-3 text-xs text-slate-500">
-        Shows a second amount in your own currency next to house totals. Only you see it, and rates
-        are approximate and update daily.
+        When the house uses a different currency, amounts also show an approximate figure in this
+        one. Only you see it, and rates update daily.
       </p>
       <Select
         id="display-currency"
