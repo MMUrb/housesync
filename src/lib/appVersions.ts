@@ -17,8 +17,8 @@
 // are sent to a listing that has nothing new for them (and, for MINIMUM,
 // locked out with no way forward). Staggered per-platform bumps are fine.
 export const LATEST_APP_VERSIONS = {
-  android: "1.1.0",
-  ios: "1.1.0",
+  android: "1.1.1", // v7 live on Play 31/07/2026
+  ios: "1.1.0", // 1.1.1 in App Store review — bump when approved + live
 };
 
 export const MIN_APP_VERSIONS = {
