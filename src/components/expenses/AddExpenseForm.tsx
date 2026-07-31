@@ -94,6 +94,21 @@ export function AddExpenseForm({
         const pct = Number(custom[id]) || 0;
         map[id] = Math.round(amountNum * pct) / 100;
       });
+      // Per-share rounding can make the shares miss the total by a penny or
+      // two (the validation only checks the percentages) — pin the remainder
+      // on the largest share so the ledger always adds up. Only once the
+      // percentages themselves are complete, so mid-typing shares don't jump.
+      const pctSum = selectedIds.reduce((s, id) => s + (Number(custom[id]) || 0), 0);
+      if (Math.abs(pctSum - 100) < 0.5) {
+        const sum = selectedIds.reduce((s, id) => s + (map[id] ?? 0), 0);
+        const diff = Math.round((amountNum - sum) * 100) / 100;
+        if (diff !== 0) {
+          const largest = selectedIds.reduce((a, b) =>
+            (map[a] ?? 0) >= (map[b] ?? 0) ? a : b,
+          );
+          map[largest] = Math.round(((map[largest] ?? 0) + diff) * 100) / 100;
+        }
+      }
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -169,7 +184,6 @@ export function AddExpenseForm({
         const splitsChanged =
           paidBy !== edit.paidBy || shareSig(newShares) !== shareSig(edit.originalShares);
         if (splitsChanged) {
-          await supabase.from("expense_splits").delete().eq("expense_id", edit.expenseId);
           const now = new Date().toISOString();
           const rows = selectedIds.map((id) => ({
             expense_id: edit.expenseId,
@@ -179,8 +193,20 @@ export function AddExpenseForm({
             paid_at: id === paidBy ? now : null,
             confirmed_at: id === paidBy ? now : null,
           }));
-          const { error: splitErr } = await supabase.from("expense_splits").insert(rows);
+          // Upsert the new rows FIRST, then remove members no longer in the
+          // split. The old delete-then-insert could leave the expense with
+          // ZERO splits if the insert failed — it then vanished from every
+          // balance and rendered as settled. This order can't strand it empty.
+          const { error: splitErr } = await supabase
+            .from("expense_splits")
+            .upsert(rows, { onConflict: "expense_id,user_id" });
           if (splitErr) throw splitErr;
+          const { error: staleErr } = await supabase
+            .from("expense_splits")
+            .delete()
+            .eq("expense_id", edit.expenseId)
+            .not("user_id", "in", `(${selectedIds.join(",")})`);
+          if (staleErr) throw staleErr;
         }
 
         await supabase.from("activity").insert({

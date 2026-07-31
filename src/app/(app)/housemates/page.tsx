@@ -40,6 +40,7 @@ export default async function HousematesPage() {
       owedPending: 0,
       markPaidIds: [],
       confirmIds: [],
+      undoIds: [],
       // RLS only returns rows the housemate has chosen to share.
       pay: {
         monzo: payMap.get(uid)?.monzo ?? null,
@@ -60,6 +61,8 @@ export default async function HousematesPage() {
         vm.markPaidIds.push(s.id);
       } else if (s.status === "paid") {
         vm.owePending += amt;
+        // Your own claim awaiting their confirmation — undoable.
+        vm.undoIds.push(s.id);
       }
     } else if (payer === me && s.user_id !== me) {
       const vm = ensure(s.user_id);

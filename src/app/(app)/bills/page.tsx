@@ -109,8 +109,11 @@ export default async function BillsPage() {
             const requested = splits.length > 0;
             const payer = latest?.paid_by ?? b.paid_by;
             const perShare = splitEqually(Number(b.amount), Math.max(1, memberIds.length))[0] ?? 0;
-            const paidCount = splits.filter((s) => s.status !== "unpaid").length;
-            const settled = requested && splits.every((s) => s.user_id === payer || s.status !== "unpaid");
+            // "Settled" means CONFIRMED — a debtor's unverified "I've paid"
+            // claim isn't settled money. Matches expenses/balances/housemates,
+            // and keeps the next cycle locked until the last one is truly done.
+            const paidCount = splits.filter((s) => s.status === "confirmed").length;
+            const settled = requested && splits.every((s) => s.user_id === payer || s.status === "confirmed");
             const due = dueLabel(b.next_due_date);
             const mine = splits.find((s) => s.user_id === user.id);
 
@@ -170,7 +173,7 @@ export default async function BillsPage() {
                   <div className="mt-3 border-t border-slate-100 pt-3">
                     <div className="mb-2 flex items-center justify-between text-xs">
                       <span className="font-medium text-slate-600">
-                        {paidCount} of {splits.length} paid
+                        {paidCount} of {splits.length} confirmed
                       </span>
                       <span className="text-slate-400">
                         paid by {payer === user.id ? "you" : nameOf(payer)}

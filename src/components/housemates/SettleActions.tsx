@@ -19,6 +19,8 @@ export interface SettleVM {
   owedPending: number;
   markPaidIds: string[];
   confirmIds: string[];
+  /** Your own "paid" claims awaiting their confirmation — undoable. */
+  undoIds: string[];
   pay?: { monzo: string | null; paypal: string | null; revolut: string | null };
 }
 
@@ -71,7 +73,7 @@ type RowProps = {
 function useSettle(item: SettleVM, houseId: string, currentUserId: string, currency: string) {
   const router = useRouter();
   const supabase = createClient();
-  const [loading, setLoading] = useState<"" | "pay" | "confirm">("");
+  const [loading, setLoading] = useState<"" | "pay" | "confirm" | "undo" | "reject">("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -137,6 +139,61 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
     }
   }
 
+  // Take back your own mis-tapped "I've paid them".
+  async function undoPaid() {
+    setError(null);
+    setLoading("undo");
+    void haptic("light");
+    try {
+      const { error } = await supabase
+        .from("expense_splits")
+        .update({ status: "unpaid", paid_at: null })
+        .in("id", item.undoIds);
+      if (error) throw error;
+      await supabase.from("activity").insert({
+        house_id: houseId,
+        user_id: currentUserId,
+        type: "unmarked_paid",
+        message: `took back a payment mark of ${formatMoney(item.owePending, currency)} to ${item.name}`,
+      });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  // The money never arrived — put their claim back to unpaid.
+  async function rejectClaim() {
+    if (
+      !confirm(
+        `Mark ${item.name}'s ${formatMoney(item.owedPending, currency)} as not received? They'll see it as owed again.`,
+      )
+    )
+      return;
+    setError(null);
+    setLoading("reject");
+    try {
+      const { error } = await supabase
+        .from("expense_splits")
+        .update({ status: "unpaid", paid_at: null })
+        .in("id", item.confirmIds);
+      if (error) throw error;
+      await supabase.from("activity").insert({
+        house_id: houseId,
+        user_id: currentUserId,
+        type: "payment_rejected",
+        message: `marked ${item.name}'s ${formatMoney(item.owedPending, currency)} as not received`,
+      });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setLoading("");
+    }
+  }
+
   async function copyReminder() {
     const msg = buildReminderMessage(item.name, item.owed, currency);
     try {
@@ -152,17 +209,13 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
     }
   }
 
-  return { loading, copied, error, markPaid, confirmReceived, copyReminder };
+  return { loading, copied, error, markPaid, confirmReceived, undoPaid, rejectClaim, copyReminder };
 }
 
 /** Redesigned (default): big colour-coded amount + prominent primary action. */
 function SettleRow({ item, houseId, currentUserId, currency }: RowProps) {
-  const { loading, copied, error, markPaid, confirmReceived, copyReminder } = useSettle(
-    item,
-    houseId,
-    currentUserId,
-    currency,
-  );
+  const { loading, copied, error, markPaid, confirmReceived, undoPaid, rejectClaim, copyReminder } =
+    useSettle(item, houseId, currentUserId, currency);
   const youOwe = item.owe > 0;
   const theyOwe = item.owed > 0;
   const canConfirm = item.owedPending > 0 && item.confirmIds.length > 0;
@@ -185,22 +238,43 @@ function SettleRow({ item, houseId, currentUserId, currency }: RowProps) {
       </div>
 
       {item.owePending > 0 && (
-        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-          {formatMoney(item.owePending, currency)} marked paid, waiting for {item.name} to confirm.
+        <p className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+          <span>
+            {formatMoney(item.owePending, currency)} marked paid, waiting for {item.name} to
+            confirm.
+          </span>
+          {item.undoIds.length > 0 && (
+            <button
+              onClick={undoPaid}
+              disabled={loading !== ""}
+              className="shrink-0 font-semibold underline decoration-amber-400 underline-offset-2 disabled:opacity-50"
+            >
+              {loading === "undo" ? "…" : "Undo"}
+            </button>
+          )}
         </p>
       )}
 
       {/* The confirm action is the one people miss, so make it the headline. */}
       {canConfirm && (
-        <button
-          onClick={confirmReceived}
-          disabled={loading !== ""}
-          className="btn-primary btn-block mt-3"
-        >
-          {loading === "confirm"
-            ? "Confirming…"
-            : `Confirm ${formatMoney(item.owedPending, currency)} received`}
-        </button>
+        <>
+          <button
+            onClick={confirmReceived}
+            disabled={loading !== ""}
+            className="btn-primary btn-block mt-3"
+          >
+            {loading === "confirm"
+              ? "Confirming…"
+              : `Confirm ${formatMoney(item.owedPending, currency)} received`}
+          </button>
+          <button
+            onClick={rejectClaim}
+            disabled={loading !== ""}
+            className="btn-ghost btn-block mt-1 text-xs text-slate-400"
+          >
+            {loading === "reject" ? "…" : "Not received?"}
+          </button>
+        </>
       )}
 
       {youOwe && (
@@ -235,12 +309,8 @@ function SettleRow({ item, houseId, currentUserId, currency }: RowProps) {
 
 /** Original compact layout, kept for instant revert via FEATURES.smoothSettle. */
 function SettleRowClassic({ item, houseId, currentUserId, currency }: RowProps) {
-  const { loading, copied, error, markPaid, confirmReceived, copyReminder } = useSettle(
-    item,
-    houseId,
-    currentUserId,
-    currency,
-  );
+  const { loading, copied, error, markPaid, confirmReceived, undoPaid, rejectClaim, copyReminder } =
+    useSettle(item, houseId, currentUserId, currency);
 
   return (
     <li className="card p-4">
@@ -278,14 +348,32 @@ function SettleRowClassic({ item, houseId, currentUserId, currency }: RowProps) 
             {loading === "pay" ? "…" : "Mark as paid"}
           </button>
         )}
-        {item.owedPending > 0 && item.confirmIds.length > 0 && (
+        {item.owePending > 0 && item.undoIds.length > 0 && (
           <button
-            onClick={confirmReceived}
+            onClick={undoPaid}
             disabled={loading !== ""}
-            className="btn-primary px-3 py-1.5 text-xs"
+            className="btn-secondary px-3 py-1.5 text-xs"
           >
-            {loading === "confirm" ? "…" : "Confirm received"}
+            {loading === "undo" ? "…" : "Undo mark"}
           </button>
+        )}
+        {item.owedPending > 0 && item.confirmIds.length > 0 && (
+          <>
+            <button
+              onClick={confirmReceived}
+              disabled={loading !== ""}
+              className="btn-primary px-3 py-1.5 text-xs"
+            >
+              {loading === "confirm" ? "…" : "Confirm received"}
+            </button>
+            <button
+              onClick={rejectClaim}
+              disabled={loading !== ""}
+              className="btn-ghost px-3 py-1.5 text-xs text-slate-400"
+            >
+              {loading === "reject" ? "…" : "Not received?"}
+            </button>
+          </>
         )}
         {item.owed > 0 && (
           <button onClick={copyReminder} className="btn-secondary px-3 py-1.5 text-xs">
