@@ -265,7 +265,9 @@ export async function sendPushToUsers(
     } else if (iosSubs.length) {
       // iPhones are registered but the APNs credentials aren't in env — say so
       // in the admin error log instead of silently sending nothing.
-      void db.from("error_logs").insert({
+      // NOTE: supabase-js queries are lazy — they MUST be awaited/.then()'d or
+      // they never execute at all (the mark-read bug all over again).
+      await db.from("error_logs").insert({
         source: "server",
         message: `iOS push skipped for ${iosSubs.length} device(s): APNS_KEY_ID / APNS_TEAM_ID / APNS_PRIVATE_KEY not set in the environment.`,
         url: "lib/push",
@@ -275,7 +277,7 @@ export async function sendPushToUsers(
 
     await Promise.allSettled(tasks);
     if (apnsFailures.length) {
-      void db.from("error_logs").insert({
+      await db.from("error_logs").insert({
         source: "server",
         message: `APNs delivery failed for ${apnsFailures.length} device(s): ${[...new Set(apnsFailures)].slice(0, 3).join(" | ")}`,
         url: "lib/push",
