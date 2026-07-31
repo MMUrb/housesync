@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { HomeLogoLink } from "@/components/HomeLogoLink";
 import { ThemeIconButton } from "@/components/ThemeIconButton";
+import { StoreBadges } from "@/components/StoreBadges";
 import { getUser } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/env";
 
@@ -60,6 +61,7 @@ export default async function LandingPage() {
               </Link>
             </div>
             <p className="mt-3 text-sm text-slate-400">Free for your whole house. No card needed.</p>
+            <StoreBadges className="mt-5" />
           </div>
 
           {/* Mock dashboard */}
@@ -172,6 +174,7 @@ export default async function LandingPage() {
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 px-5 text-sm text-slate-400">
           <Logo className="text-base text-slate-500" />
           <p>The housemate app for bills, chores and rent.</p>
+          <StoreBadges className="justify-center" />
           <div className="flex items-center gap-2">
             <a
               href="https://www.instagram.com/housesync.co.uk/"

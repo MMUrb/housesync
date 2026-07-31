@@ -88,12 +88,75 @@ export function Chat({
 
   // Keep the latest message in view. The FIRST scroll (opening the chat) jumps
   // instantly so you land on the newest messages, not a scrolling animation;
-  // only messages arriving while you watch scroll smoothly.
+  // only messages arriving while you watch scroll smoothly. Prepending older
+  // history must NOT yank you back to the bottom — loadOlder sets the skip.
   const hasScrolled = useRef(false);
+  const skipNextAutoScroll = useRef(false);
   useEffect(() => {
+    if (skipNextAutoScroll.current) {
+      skipNextAutoScroll.current = false;
+      return;
+    }
     endRef.current?.scrollIntoView({ behavior: hasScrolled.current ? "smooth" : "auto" });
     hasScrolled.current = true;
   }, [messages]);
+
+  // Load older history when you scroll to the top (the server sends only the
+  // newest 100). Scroll position is preserved across the prepend.
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMore, setHasMore] = useState(initialMessages.length >= 100);
+  const loadingOlderRef = useRef(false);
+  const topSentinelRef = useRef<HTMLDivElement | null>(null);
+
+  async function loadOlder() {
+    const el = scrollerRef.current;
+    const oldest = messages[0]?.created_at;
+    if (!el || !oldest || loadingOlderRef.current) return;
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    try {
+      const { data } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("house_id", houseId)
+        .lt("created_at", oldest)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      const older = ((data as Message[] | null) ?? []).reverse();
+      setHasMore(older.length === 50);
+      if (older.length > 0) {
+        const prevHeight = el.scrollHeight;
+        skipNextAutoScroll.current = true;
+        setMessages((prev) => {
+          const byId = new Map(older.map((m) => [m.id, m] as const));
+          for (const m of prev) byId.set(m.id, m);
+          return [...byId.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
+        });
+        // Keep the same messages on screen once the new ones are above them.
+        requestAnimationFrame(() => {
+          el.scrollTop += el.scrollHeight - prevHeight;
+        });
+      }
+    } finally {
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
+    }
+  }
+
+  useEffect(() => {
+    const el = topSentinelRef.current;
+    const root = scrollerRef.current;
+    if (!el || !root || !hasMore) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) void loadOlder();
+      },
+      { root, rootMargin: "80px" },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMore, messages.length]);
 
   // WhatsApp behaviour for the keyboard: when it opens (or closes) the chat
   // box resizes — if you were reading the newest messages, stay pinned to
@@ -279,6 +342,22 @@ export function Chat({
   return (
     <div data-chat-shell className="flex h-[calc(100dvh-16rem)] flex-col">
       <div ref={scrollerRef} onScroll={trackScroll} className="flex-1 overflow-y-auto pb-2">
+        {/* Pagination head: sentinel triggers loadOlder as it scrolls into view. */}
+        {messages.length > 0 && (
+          <div className="py-1 text-center">
+            {hasMore ? (
+              <div ref={topSentinelRef}>
+                <span
+                  className={`inline-block text-[11px] text-slate-400 ${loadingOlder ? "" : "opacity-0"}`}
+                >
+                  Loading earlier messages…
+                </span>
+              </div>
+            ) : (
+              <span className="text-[11px] text-slate-300">Beginning of the conversation</span>
+            )}
+          </div>
+        )}
         {messages.length === 0 ? (
           <div className="grid h-full place-items-center text-center text-sm text-slate-400">
             <div>
@@ -305,7 +384,11 @@ export function Chat({
                       : profileOf(repliedTo.user_id)?.name ?? "Housemate",
                   body: repliedTo.body,
                 }
-              : null;
+              : m.reply_to
+                ? // Parent is above the loaded window — say so instead of
+                  // silently dropping the quote.
+                  { name: "Reply", body: "Earlier message — scroll up to load it" }
+                : null;
             return (
               <Fragment key={m.id}>
                 {showSep && (

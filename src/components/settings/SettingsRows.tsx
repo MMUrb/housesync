@@ -368,6 +368,13 @@ export function GlyphDoc() {
     </G>
   );
 }
+export function GlyphChat() {
+  return (
+    <G>
+      <path d="M20.5 12c0 4-3.8 7.2-8.5 7.2-1 0-2-.2-2.9-.4L4 20.5l1.4-3.6C4.1 15.6 3.5 13.9 3.5 12c0-4 3.8-7.2 8.5-7.2s8.5 3.2 8.5 7.2z" />
+    </G>
+  );
+}
 export function GlyphHelp() {
   return (
     <G>

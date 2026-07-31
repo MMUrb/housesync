@@ -117,8 +117,9 @@ export default function PrivacyPage() {
             <p>
               <strong>Your housemates</strong> can see the shared content of houses you&rsquo;re in,
               your name, avatar, the expenses, bills and chores you add, balances, and your chat
-              messages. Please don&rsquo;t put anything in a house that you wouldn&rsquo;t want your
-              housemates to see.
+              messages. Any housemate can also download the house&rsquo;s shared content, including
+              the chat history and expenses statement. Please don&rsquo;t put anything in a house
+              that you wouldn&rsquo;t want your housemates to see.
             </p>
             <p className="mt-2">
               <strong>Your notification preferences are private</strong>: other housemates cannot

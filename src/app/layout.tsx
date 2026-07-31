@@ -38,6 +38,9 @@ export const metadata: Metadata = {
     "house bills UK",
   ],
   manifest: "/manifest.webmanifest",
+  // Safari's native Smart App Banner on iPhones browsing the website;
+  // inert inside the apps and on other browsers.
+  other: { "apple-itunes-app": "app-id=6783905558" },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

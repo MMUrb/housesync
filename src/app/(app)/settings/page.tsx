@@ -28,6 +28,7 @@ import {
   RowIcon,
   GlyphBell,
   GlyphCard,
+  GlyphChat,
   GlyphDoc,
   GlyphDownload,
   GlyphHelp,
@@ -233,6 +234,13 @@ export default async function SettingsPage() {
           icon={<RowIcon tone="house"><GlyphDoc /></RowIcon>}
           label="Expenses statement"
           value={`CSV · ${house.name}`}
+        />
+        <RowLink
+          href={`/api/house/chat-export?house=${house.id}`}
+          download
+          icon={<RowIcon tone="house"><GlyphChat /></RowIcon>}
+          label="Chat history"
+          value={`TXT · ${house.name}`}
         />
       </RowGroup>
 
