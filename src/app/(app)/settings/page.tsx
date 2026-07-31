@@ -265,7 +265,7 @@ export default async function SettingsPage() {
       <GroupHeading title="Support HouseSync" />
       <SupportTiles />
 
-      <div className="mt-6">
+      <div className="mt-10">
         <SignOutButton />
       </div>
 
