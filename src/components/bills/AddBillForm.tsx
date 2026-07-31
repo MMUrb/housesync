@@ -234,10 +234,10 @@ export function AddBillForm({
           role="switch"
           aria-checked={reminder}
           onClick={() => setReminder((r) => !r)}
-          className={`relative h-6 w-11 rounded-full transition ${reminder ? "bg-brand-600" : "bg-slate-300"}`}
+          className={`relative h-6 w-11 rounded-full transition ${reminder ? "bg-brand-600" : "bg-slate-300 dark:bg-[#3a3a5e]"}`}
         >
           <span
-            className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition ${reminder ? "left-[22px]" : "left-0.5"}`}
+            className={`absolute top-0.5 h-5 w-5 rounded-full bg-[#fdfdff] transition ${reminder ? "left-[22px]" : "left-0.5"}`}
           />
         </button>
       </div>

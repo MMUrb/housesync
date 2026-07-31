@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { splitEqually } from "@/lib/balances";
-import { advanceDate, todayISO } from "@/lib/recurrence";
+import { advancePastToday, todayISO } from "@/lib/recurrence";
 import { formatMoney } from "@/lib/format";
 import type { RecurringBill } from "@/lib/types";
 
@@ -66,11 +66,12 @@ export function LogBillButton({
       const { error: splitErr } = await supabase.from("expense_splits").insert(rows);
       if (splitErr) throw splitErr;
 
-      // Roll the due date forward.
+      // Roll the due date forward — past today, not just one period, so
+      // logging a long-overdue bill doesn't leave it flagged overdue.
       const base = bill.next_due_date ?? todayISO();
       await supabase
         .from("recurring_bills")
-        .update({ next_due_date: advanceDate(base, bill.frequency) })
+        .update({ next_due_date: advancePastToday(base, bill.frequency) })
         .eq("id", bill.id);
 
       await supabase.from("activity").insert({

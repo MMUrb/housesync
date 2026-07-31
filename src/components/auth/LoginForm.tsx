@@ -53,7 +53,10 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const next = safeNextPath(searchParams.get("next"));
 
-  const [mode, setMode] = useState<Mode>("signin");
+  // Invite links pass ?mode=signup so new housemates land on Create account.
+  const [mode, setMode] = useState<Mode>(
+    searchParams.get("mode") === "signup" ? "signup" : "signin",
+  );
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

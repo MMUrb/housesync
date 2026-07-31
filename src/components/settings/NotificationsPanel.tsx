@@ -54,11 +54,13 @@ function Switch({
       disabled={disabled}
       onClick={onClick}
       className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50 ${
-        checked ? "bg-brand-600" : "bg-slate-300"
+        checked ? "bg-brand-600" : "bg-slate-300 dark:bg-[#3a3a5e]"
       }`}
     >
+      {/* Arbitrary colour values on purpose: the night-mode remap layer turns
+          bg-white/bg-slate-* into dark surfaces, which inverted these switches. */}
       <span
-        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition ${
+        className={`absolute top-0.5 h-5 w-5 rounded-full bg-[#fdfdff] transition ${
           checked ? "left-[22px]" : "left-0.5"
         }`}
       />

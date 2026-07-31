@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { advanceDate, todayISO } from "@/lib/recurrence";
-import { relativeDay, timeAgo } from "@/lib/format";
+import { firstName, relativeDay, timeAgo } from "@/lib/format";
+import { reportClientError } from "@/components/ErrorReporter";
 import { Avatar } from "@/components/Avatar";
 import { IconCheck } from "@/components/icons";
 import { haptic } from "@/lib/haptics";
@@ -37,6 +38,7 @@ export function ChoreItem({
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -53,31 +55,72 @@ export function ChoreItem({
   const assignee = members.find((m) => m.user_id === chore.assigned_to);
   const done = chore.status === "done";
   const overdue = !done && !!chore.due_date && chore.due_date < today;
+  // Who the rota hands this to next — shown in the subtitle so rotation isn't
+  // invisible until it happens.
+  const upNext =
+    !done && chore.repeat !== "once" && chore.assigned_to
+      ? members.find((m) => m.user_id === nextAssignee(members, chore.assigned_to))
+      : undefined;
 
   async function markDone() {
     setLoading(true);
-    void haptic("success");
+    setError(null);
     try {
       const now = new Date().toISOString();
-      await supabase
+      // supabase-js resolves with { error } rather than throwing, so every
+      // write must be checked — this used to run unchecked and fail silently.
+      const { error: doneErr } = await supabase
         .from("chores")
         .update({ status: "done", completed_at: now, completed_by: currentUserId })
         .eq("id", chore.id);
+      if (doneErr) throw doneErr;
 
-      // Spawn the next occurrence for repeating chores, rotated to the next person.
+      // Spawn the next occurrence for repeating chores, rotated to the next
+      // person. This is the ONLY place successors are created, so a silent
+      // failure here would end the repeating chore forever — if it fails,
+      // roll the chore back to todo so the chain is never broken.
       if (chore.repeat !== "once") {
         const base = chore.due_date ?? todayISO();
-        await supabase.from("chores").insert({
+        const nextId = nextAssignee(members, chore.assigned_to);
+        const { error: spawnErr } = await supabase.from("chores").insert({
           house_id: chore.house_id,
           title: chore.title,
-          assigned_to: nextAssignee(members, chore.assigned_to),
+          assigned_to: nextId,
           due_date: advanceDate(base, chore.repeat),
           repeat: chore.repeat,
           status: "todo",
           created_by: currentUserId,
         });
+        if (spawnErr) {
+          await supabase
+            .from("chores")
+            .update({ status: "todo", completed_at: null, completed_by: null })
+            .eq("id", chore.id);
+          reportClientError(`Chore next-occurrence insert failed: ${spawnErr.message}`, {
+            url: "/chores",
+          });
+          throw new Error("Couldn't schedule the next occurrence. Please try again.");
+        }
+
+        // Tell the next person it's their turn (best-effort).
+        if (nextId && nextId !== currentUserId) {
+          void fetch("/api/push/notify", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            keepalive: true,
+            body: JSON.stringify({
+              type: "chore",
+              houseId: chore.house_id,
+              title: chore.title,
+              toUserId: nextId,
+            }),
+          });
+        }
       }
 
+      void haptic("success");
+
+      // Timeline entry is nice-to-have — don't fail the tick over it.
       await supabase.from("activity").insert({
         house_id: chore.house_id,
         user_id: currentUserId,
@@ -86,6 +129,8 @@ export function ChoreItem({
       });
 
       router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't mark that as done. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -175,9 +220,14 @@ export function ChoreItem({
                 </span>
               )}
           {!done && chore.repeat !== "once" && (
-            <span className="text-slate-400"> · {REPEAT_LABEL[chore.repeat]}</span>
+            <span className="text-slate-400">
+              {" "}
+              · {REPEAT_LABEL[chore.repeat]}
+              {upNext && ` · next: ${firstName(upNext.profile?.name)}`}
+            </span>
           )}
         </p>
+        {error && <p className="mt-0.5 text-xs text-red-600">{error}</p>}
       </div>
 
       {assignee ? (

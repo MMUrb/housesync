@@ -56,12 +56,22 @@ export default async function JoinHousePage({
               {user ? (
                 <JoinHouseButton code={code} />
               ) : (
-                <Link
-                  href={`/login?next=${encodeURIComponent(`/house/join/${code}`)}`}
-                  className="btn-primary btn-block"
-                >
-                  Sign in to join
-                </Link>
+                <>
+                  {/* Most people opening an invite are brand-new — land them on
+                      Create account, with sign-in one tap below. */}
+                  <Link
+                    href={`/login?next=${encodeURIComponent(`/house/join/${code}`)}&mode=signup`}
+                    className="btn-primary btn-block"
+                  >
+                    Create an account to join
+                  </Link>
+                  <Link
+                    href={`/login?next=${encodeURIComponent(`/house/join/${code}`)}`}
+                    className="btn-ghost btn-block mt-2 text-sm"
+                  >
+                    Already have an account? Sign in
+                  </Link>
+                </>
               )}
             </div>
           </>

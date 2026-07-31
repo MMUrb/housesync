@@ -45,6 +45,22 @@ export function advanceDate(dateStr: string, frequency: string): string {
   return toISODate(d);
 }
 
+/**
+ * Advance a date by whole periods until it lands AFTER today. Logging a bill
+ * that's months overdue used to advance one period from the stale date and
+ * leave the bill still "overdue" — this catches all the way up. Non-repeating
+ * frequencies ("once"/unknown) return the input unchanged.
+ */
+export function advancePastToday(dateStr: string, frequency: string): string {
+  const today = todayISO();
+  let next = advanceDate(dateStr, frequency);
+  if (next === dateStr) return dateStr; // "once"/unknown — advanceDate is a no-op
+  for (let i = 0; next <= today && i < 500; i++) {
+    next = advanceDate(next, frequency);
+  }
+  return next;
+}
+
 /** A sensible default "next due" date for a brand-new bill of this frequency. */
 export function defaultNextDue(frequency: string): string {
   const today = toISODate(new Date());

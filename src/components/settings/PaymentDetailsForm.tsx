@@ -238,11 +238,12 @@ export function PaymentDetailsForm({
               disabled={shareSaving}
               onClick={() => void saveShare(!share)}
               className={`relative h-6 w-11 shrink-0 rounded-full transition ${
-                share ? "bg-brand-600" : "bg-slate-300"
+                share ? "bg-brand-600" : "bg-slate-300 dark:bg-[#3a3a5e]"
               }`}
             >
+              {/* Arbitrary values dodge the night-mode remap (see NotificationsPanel). */}
               <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition ${
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-[#fdfdff] transition ${
                   share ? "left-[22px]" : "left-0.5"
                 }`}
               />

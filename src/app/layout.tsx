@@ -45,7 +45,9 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/icon.svg",
-    apple: "/icon.svg",
+    // Safari doesn't accept SVG for apple-touch-icon — a real PNG or iOS
+    // falls back to a page screenshot on Add to Home Screen.
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
     type: "website",
