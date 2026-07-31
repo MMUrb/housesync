@@ -26,7 +26,9 @@ create table if not exists public.profiles (
 -- A shared house / flat.
 create table if not exists public.houses (
   id               uuid primary key default gen_random_uuid(),
-  name             text not null,
+  -- Capped: the name shows in the header, switcher, chat notices and exports.
+  name             text not null constraint houses_name_length
+                     check (char_length(btrim(name)) between 1 and 30),
   currency         text not null default 'GBP',
   rent_due_day     int check (rent_due_day between 1 and 31),
   address_nickname text,

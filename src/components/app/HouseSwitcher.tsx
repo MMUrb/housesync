@@ -20,6 +20,25 @@ function UnreadBadge({ count }: { count: number }) {
   );
 }
 
+// Each house gets a stable colour from its id, so the tiles are recognisable
+// at a glance and never shuffle between renders.
+const TILE_COLOURS = [
+  "from-brand-400 to-brand-700",
+  "from-mint-400 to-mint-700",
+  "from-amber-400 to-orange-600",
+  "from-sky-400 to-blue-600",
+  "from-pink-400 to-rose-600",
+  "from-violet-400 to-purple-700",
+];
+function tileColour(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return TILE_COLOURS[h % TILE_COLOURS.length];
+}
+function houseInitial(name: string): string {
+  return (name.trim()[0] ?? "?").toUpperCase();
+}
+
 export function HouseSwitcher({
   current,
   houses,
@@ -115,23 +134,40 @@ export function HouseSwitcher({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft dark:border-white/10 dark:bg-[#15152b]">
-          <p className="px-3 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <div className="absolute left-0 top-full z-50 mt-1.5 w-[17rem] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-white/10 dark:bg-[#15152b]">
+          <p className="px-3 pb-1 pt-3 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
             Your houses
           </p>
-          <ul className="py-1">
+          <ul className="pb-1">
             {houses.map((h) => {
               const count = counts[h.id] ?? 0;
+              const active = h.id === current.id;
               return (
                 <li key={h.id}>
                   <button
                     onClick={() => choose(h.id)}
-                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-white/[0.06] ${
-                      h.id === current.id ? "bg-slate-50 dark:bg-white/[0.04]" : ""
+                    // text-left matters: buttons centre their text by default,
+                    // which pushed the house names into the middle of the row.
+                    className={`flex w-full items-center gap-2.5 px-2.5 py-2.5 text-left transition hover:bg-slate-50 dark:hover:bg-white/[0.06] ${
+                      active
+                        ? "bg-brand-50 shadow-[inset_2px_0_0_theme(colors.brand.600)] dark:bg-brand-500/[0.16]"
+                        : ""
                     }`}
                   >
-                    <span className="min-w-0 flex-1 truncate text-slate-800">{h.name}</span>
-                    {h.id === current.id ? (
+                    <span
+                      aria-hidden
+                      className={`grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-gradient-to-br text-[13px] font-extrabold text-white ${tileColour(h.id)}`}
+                    >
+                      {houseInitial(h.name)}
+                    </span>
+                    <span
+                      className={`min-w-0 flex-1 truncate text-sm ${
+                        active ? "font-bold text-slate-900" : "text-slate-700"
+                      }`}
+                    >
+                      {h.name}
+                    </span>
+                    {active ? (
                       <IconCheck className="h-4 w-4 shrink-0 text-brand-600" />
                     ) : (
                       count > 0 && <UnreadBadge count={count} />

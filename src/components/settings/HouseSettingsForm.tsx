@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { CURRENCIES, currencyName } from "@/lib/currencies";
+import { HOUSE_NAME_MAX } from "@/lib/constants";
 import { Select } from "@/components/Select";
 import type { House } from "@/lib/types";
 
@@ -103,8 +104,14 @@ export function HouseSettingsForm({
           id="house-name"
           className="input"
           value={name}
+          maxLength={HOUSE_NAME_MAX}
           onChange={(e) => setName(e.target.value)}
         />
+        {name.length >= HOUSE_NAME_MAX - 5 && (
+          <p className="mt-1 text-right text-[11px] text-slate-400">
+            {name.length}/{HOUSE_NAME_MAX}
+          </p>
+        )}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
