@@ -8,18 +8,13 @@ const LABELS: Record<ThemePref, string> = { system: "System", light: "Light", da
 // The Appearance row's right-hand summary. Theme preference lives in
 // localStorage, so it can't be known during server render — show nothing for
 // a frame rather than a wrong guess.
-export function AppearanceValue({ displayCurrency }: { displayCurrency: string | null }) {
+export function AppearanceValue() {
   const [pref, setPref] = useState<ThemePref | null>(null);
 
   useEffect(() => {
     setPref(getThemePref());
   }, []);
 
-  if (!pref) return displayCurrency ? <>also in {displayCurrency}</> : null;
-  return (
-    <>
-      {LABELS[pref]}
-      {displayCurrency ? ` · also in ${displayCurrency}` : ""}
-    </>
-  );
+  if (!pref) return null;
+  return <>{LABELS[pref]}</>;
 }

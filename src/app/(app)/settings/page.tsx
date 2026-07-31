@@ -29,6 +29,7 @@ import {
   GlyphBell,
   GlyphCard,
   GlyphChat,
+  GlyphCoin,
   GlyphDoc,
   GlyphDownload,
   GlyphHelp,
@@ -76,7 +77,9 @@ export default async function SettingsPage() {
   const houseValue = `${house.currency}${house.rent_due_day ? ` · rent on the ${ordinal(house.rent_due_day)}` : ""}`;
 
   return (
-    <div className="space-y-0">
+    // NOTE: no space-y-* on this wrapper — Tailwind's space-y rule (0,3,0)
+    // outranks child mt-* utilities (0,1,0) and silently cancels their spacing.
+    <div>
       <PageTitle title="Settings" />
 
       {/* Identity hero — tap to edit your profile in place. */}
@@ -152,10 +155,32 @@ export default async function SettingsPage() {
         <RowDisclosure
           icon={<RowIcon><GlyphMoon /></RowIcon>}
           label="Appearance"
-          value={<AppearanceValue displayCurrency={account?.display_currency ?? null} />}
+          value={<AppearanceValue />}
+        >
+          <ThemeToggle bare />
+        </RowDisclosure>
+
+        {/* Currency gets its own row — it was buried under Appearance, where
+            nobody thinks to look for money settings. */}
+        <RowDisclosure
+          icon={<RowIcon><GlyphCoin /></RowIcon>}
+          label="Currency"
+          value={
+            account?.display_currency
+              ? `Also showing ${account.display_currency}`
+              : house.currency
+          }
         >
           <div className="space-y-4">
-            <ThemeToggle bare />
+            <div>
+              <p className="text-sm font-semibold text-slate-800">
+                {house.name} uses {house.currency}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                Everyone&apos;s expenses, bills and balances are in the house currency. Change it
+                in House settings below (any housemate can).
+              </p>
+            </div>
             <div className="border-t border-slate-100 pt-4">
               <DisplayCurrencyForm
                 bare
@@ -188,7 +213,7 @@ export default async function SettingsPage() {
           label="House settings"
           value={houseValue}
         >
-          <HouseSettingsForm bare house={house} />
+          <HouseSettingsForm bare house={house} userId={user.id} />
         </RowDisclosure>
 
         <RowLink

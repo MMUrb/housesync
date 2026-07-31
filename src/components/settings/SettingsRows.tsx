@@ -368,6 +368,14 @@ export function GlyphDoc() {
     </G>
   );
 }
+export function GlyphCoin() {
+  return (
+    <G>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M14.2 9.3a2.6 2.6 0 0 0-4.4 1.9c0 2.6 4.4 1.6 4.4 3.9a2.6 2.6 0 0 1-4.4 1.4M12 7.2v1.4M12 15.9v1.4" />
+    </G>
+  );
+}
 export function GlyphChat() {
   return (
     <G>

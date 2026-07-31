@@ -168,6 +168,8 @@ export interface Message {
   body: string;
   reply_to: string | null;
   created_at: string;
+  /** "system" = an automatic notice (house setting changed), not a typed message. */
+  kind?: "user" | "system";
 }
 
 /** Private, account-level settings — only the owner can read these. */

@@ -573,6 +573,9 @@ create table if not exists public.messages (
   user_id    uuid not null references auth.users (id) on delete cascade,
   body       text not null check (char_length(btrim(body)) between 1 and 4000),
   reply_to   uuid references public.messages (id) on delete set null,
+  -- 'system' rows are automatic notices (house setting changes), rendered as
+  -- centred grey text in the chat instead of a speech bubble.
+  kind       text not null default 'user' check (kind in ('user', 'system')),
   created_at timestamptz not null default now()
 );
 

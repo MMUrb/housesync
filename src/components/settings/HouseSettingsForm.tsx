@@ -3,15 +3,27 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { CURRENCIES } from "@/lib/currencies";
+import { CURRENCIES, currencyName } from "@/lib/currencies";
 import { Select } from "@/components/Select";
 import type { House } from "@/lib/types";
 
+/** "1st", "2nd", "23rd"... for the rent-day notice. */
+function ordinal(n: number): string {
+  const r10 = n % 10;
+  const r100 = n % 100;
+  if (r10 === 1 && r100 !== 11) return `${n}st`;
+  if (r10 === 2 && r100 !== 12) return `${n}nd`;
+  if (r10 === 3 && r100 !== 13) return `${n}rd`;
+  return `${n}th`;
+}
+
 export function HouseSettingsForm({
   house,
+  userId,
   bare = false,
 }: {
   house: House;
+  userId: string;
   /** Render without the card chrome (when shown inside a settings panel). */
   bare?: boolean;
 }) {
@@ -25,11 +37,28 @@ export function HouseSettingsForm({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /** Plain-English list of what actually changed, for the chat notice. */
+  function describeChanges(): string[] {
+    const out: string[] = [];
+    const newName = name.trim();
+    const newDay = rentDay ? Number(rentDay) : null;
+    const newNick = nickname.trim() || null;
+    if (newName && newName !== house.name) out.push(`renamed the house to “${newName}”`);
+    if (currency !== house.currency)
+      out.push(`changed the house currency to ${currency} (${currencyName(currency)})`);
+    if (newDay !== (house.rent_due_day ?? null))
+      out.push(newDay ? `set rent day to the ${ordinal(newDay)}` : "removed the rent day");
+    if (newNick !== (house.address_nickname ?? null))
+      out.push(newNick ? `set the address nickname to “${newNick}”` : "removed the address nickname");
+    return out;
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSaving(true);
     setSaved(false);
+    const changes = describeChanges();
     const { error } = await supabase
       .from("houses")
       .update({
@@ -44,6 +73,21 @@ export function HouseSettingsForm({
       setError(error.message);
       return;
     }
+
+    // Tell the house what changed, in the chat (best-effort — never block the
+    // save on it). Currency especially: it silently restyles everyone's money.
+    if (changes.length > 0) {
+      void supabase
+        .from("messages")
+        .insert({
+          house_id: house.id,
+          user_id: userId,
+          kind: "system",
+          body: `${changes.join(", and ")}.`,
+        })
+        .then(() => {});
+    }
+
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
     router.refresh();

@@ -368,6 +368,20 @@ export function Chat({
           </div>
         ) : (
           messages.map((m, i) => {
+            // Automatic notices ("Rahul changed the house currency to EUR")
+            // read as centred grey text, not a speech bubble.
+            if (m.kind === "system") {
+              const who =
+                m.user_id === currentUserId ? "You" : profileOf(m.user_id)?.name ?? "A housemate";
+              return (
+                <p
+                  key={m.id}
+                  className="my-3 px-6 text-center text-[11px] leading-relaxed text-slate-400"
+                >
+                  {who} {m.body}
+                </p>
+              );
+            }
             const prev = messages[i - 1];
             const gap = prev
               ? new Date(m.created_at).getTime() - new Date(prev.created_at).getTime()
