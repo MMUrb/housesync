@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { timeAgo } from "@/lib/format";
+import { TimeAgo } from "@/components/LocalTime";
 import type { MemberWithProfile, Notice } from "@/lib/types";
 
 const TITLE_MAX = 120;
@@ -174,7 +174,7 @@ export function NoticeBoard({
                     </p>
                   )}
                   <p className="mt-1 text-xs text-slate-400">
-                    {nameOf(n.posted_by)} · {timeAgo(n.created_at)}
+                    {nameOf(n.posted_by)} · <TimeAgo date={n.created_at} />
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">

@@ -13,7 +13,8 @@ import {
 import { NoticeBoard } from "@/components/notices/NoticeBoard";
 import { computeBalances } from "@/lib/balances";
 import { getRate } from "@/lib/rates";
-import { formatMoney, formatConverted, relativeDay, firstName, timeAgo } from "@/lib/format";
+import { formatMoney, formatConverted, firstName } from "@/lib/format";
+import { RelativeDay, TimeAgo } from "@/components/LocalTime";
 import { Avatar } from "@/components/Avatar";
 import {
   IconArrowRight,
@@ -243,7 +244,13 @@ export default async function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-slate-800">{b.title}</p>
                   <p className="text-xs text-slate-500">
-                    {b.next_due_date ? `Due ${relativeDay(b.next_due_date)}` : b.frequency}
+                    {b.next_due_date ? (
+                      <>
+                        Due <RelativeDay date={b.next_due_date} />
+                      </>
+                    ) : (
+                      b.frequency
+                    )}
                   </p>
                 </div>
                 <p className="text-sm font-semibold text-slate-700">
@@ -325,9 +332,10 @@ export default async function DashboardPage() {
                     <p className="text-xs text-slate-500">
                       {m?.profile?.name ? `${m.profile.name} · ` : ""}
                       {c.due_date ? (
-                        <span className={overdue ? "font-medium text-red-500" : ""}>
-                          {relativeDay(c.due_date)}
-                        </span>
+                        <RelativeDay
+                          date={c.due_date}
+                          className={overdue ? "font-medium text-red-500" : ""}
+                        />
                       ) : (
                         "no due date"
                       )}
@@ -355,7 +363,7 @@ export default async function DashboardPage() {
                     <span className="font-medium">{m?.profile?.name ?? "Someone"}</span>{" "}
                     {a.message}
                   </p>
-                  <span className="shrink-0 text-xs text-slate-400">{timeAgo(a.created_at)}</span>
+                  <TimeAgo date={a.created_at} className="shrink-0 text-xs text-slate-400" />
                 </li>
               );
             })}

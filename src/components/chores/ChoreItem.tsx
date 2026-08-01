@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { advanceDate, todayISO } from "@/lib/recurrence";
-import { firstName, relativeDay, timeAgo } from "@/lib/format";
+import { firstName } from "@/lib/format";
+import { RelativeDay, TimeAgo } from "@/components/LocalTime";
 import { reportClientError } from "@/components/ErrorReporter";
 import { Avatar } from "@/components/Avatar";
 import { IconCheck } from "@/components/icons";
@@ -212,13 +213,16 @@ export function ChoreItem({
           {chore.title}
         </p>
         <p className="text-xs text-slate-500">
-          {done
-            ? `Done ${chore.completed_at ? timeAgo(chore.completed_at) : ""}`
-            : chore.due_date && (
-                <span className={overdue ? "font-medium text-red-500" : ""}>
-                  {relativeDay(chore.due_date)}
-                </span>
-              )}
+          {done ? (
+            <>Done {chore.completed_at && <TimeAgo date={chore.completed_at} />}</>
+          ) : (
+            chore.due_date && (
+              <RelativeDay
+                date={chore.due_date}
+                className={overdue ? "font-medium text-red-500" : ""}
+              />
+            )
+          )}
           {!done && chore.repeat !== "once" && (
             <span className="text-slate-400">
               {" "}
