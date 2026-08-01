@@ -57,6 +57,12 @@ export function HouseSettingsForm({
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    // The DB now enforces a 1-30 char name; catch an empty one here so the
+    // user gets a sentence instead of a raw Postgres constraint error.
+    if (!name.trim()) {
+      setError("Give your house a name.");
+      return;
+    }
     setSaving(true);
     setSaved(false);
     const changes = describeChanges();
@@ -71,7 +77,11 @@ export function HouseSettingsForm({
       .eq("id", house.id);
     setSaving(false);
     if (error) {
-      setError(error.message);
+      setError(
+        error.message.includes("houses_name_length")
+          ? "House names need to be 1 to 30 characters."
+          : error.message,
+      );
       return;
     }
 

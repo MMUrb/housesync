@@ -145,11 +145,20 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
     setLoading("undo");
     void haptic("light");
     try {
-      const { error } = await supabase
+      // .eq("status","paid") so a stale screen can never revert a payment the
+      // other side has already confirmed.
+      const { data: reverted, error } = await supabase
         .from("expense_splits")
         .update({ status: "unpaid", paid_at: null })
-        .in("id", item.undoIds);
+        .in("id", item.undoIds)
+        .eq("status", "paid")
+        .select("id");
       if (error) throw error;
+      if (!reverted || reverted.length === 0) {
+        setError(`${item.name} already confirmed this. Refreshing…`);
+        router.refresh();
+        return;
+      }
       await supabase.from("activity").insert({
         house_id: houseId,
         user_id: currentUserId,
@@ -175,11 +184,19 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
     setError(null);
     setLoading("reject");
     try {
-      const { error } = await supabase
+      // Same guard as undo: only a still-unconfirmed claim can be rejected.
+      const { data: reverted, error } = await supabase
         .from("expense_splits")
         .update({ status: "unpaid", paid_at: null })
-        .in("id", item.confirmIds);
+        .in("id", item.confirmIds)
+        .eq("status", "paid")
+        .select("id");
       if (error) throw error;
+      if (!reverted || reverted.length === 0) {
+        setError("That's already been confirmed. Refreshing…");
+        router.refresh();
+        return;
+      }
       await supabase.from("activity").insert({
         house_id: houseId,
         user_id: currentUserId,

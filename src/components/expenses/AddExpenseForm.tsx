@@ -34,12 +34,6 @@ export type ExpenseEditInit = {
 };
 
 // Stable signature of a member→amount map (in pennies) for detecting real changes.
-function shareSig(m: Record<string, number>): string {
-  return Object.entries(m)
-    .map(([k, v]) => `${k}:${Math.round(v * 100)}`)
-    .sort()
-    .join("|");
-}
 
 export function AddExpenseForm({
   houseId,
@@ -181,8 +175,19 @@ export function AddExpenseForm({
 
         const newShares: Record<string, number> = {};
         selectedIds.forEach((id) => (newShares[id] = shares[id] ?? 0));
-        const splitsChanged =
-          paidBy !== edit.paidBy || shareSig(newShares) !== shareSig(edit.originalShares);
+        // Same people, and every share within a penny of what's stored? Then
+        // nothing meaningful changed — don't rebuild the splits and wipe
+        // everyone's paid/confirmed status. This matters because percentage
+        // splits now redistribute the rounding remainder, so re-opening an
+        // older expense and saving a title tweak can shift a share by 1p.
+        const origIds = Object.keys(edit.originalShares).sort().join(",");
+        const sameMembers = origIds === [...selectedIds].sort().join(",");
+        const withinAPenny =
+          sameMembers &&
+          selectedIds.every(
+            (id) => Math.abs((newShares[id] ?? 0) - (edit.originalShares[id] ?? 0)) <= 0.011,
+          );
+        const splitsChanged = paidBy !== edit.paidBy || !withinAPenny;
         if (splitsChanged) {
           const now = new Date().toISOString();
           const rows = selectedIds.map((id) => ({

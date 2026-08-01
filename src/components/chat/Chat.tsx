@@ -197,6 +197,9 @@ export function Chat({
         .limit(50);
       if (!data) return;
       const fresh = (data as Message[]).reverse();
+      // Don't drag a reader who's scrolled up back down to the newest message
+      // every time they return to the app.
+      if (!nearBottomRef.current) skipNextAutoScroll.current = true;
       setMessages((prev) => {
         const byId = new Map(prev.map((m) => [m.id, m]));
         for (const m of fresh) byId.set(m.id, m);
@@ -279,6 +282,9 @@ export function Chat({
   }
 
   function startReply(m: Message) {
+    // A still-sending message has a client-side temp id, not a uuid — using it
+    // as reply_to makes the reply permanently unsendable.
+    if (m.id.startsWith("temp-")) return;
     setReplyingTo(m);
     requestAnimationFrame(() => textareaRef.current?.focus());
   }
@@ -294,8 +300,15 @@ export function Chat({
     // (slightly faded), like any messaging app. The insert result replaces it;
     // a failure removes it and puts your text back.
     const replyTarget = replyingTo;
-    const replyTo = replyingTo?.id ?? null;
+    // Belt and braces alongside the startReply guard: never send a temp id as
+    // reply_to (the column is a uuid — it would 22P02 and stick).
+    const replyTo = replyingTo && !replyingTo.id.startsWith("temp-") ? replyingTo.id : null;
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    // Client-generated row id so a lost response can be checked against the
+    // server instead of assumed failed (which showed "Couldn't send" for a
+    // message that had actually landed, inviting a duplicate).
+    const rowId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : null;
     const optimistic = {
       id: tempId,
       house_id: houseId,
@@ -311,7 +324,13 @@ export function Chat({
     try {
       const { data, error } = await supabase
         .from("messages")
-        .insert({ house_id: houseId, user_id: currentUserId, body, reply_to: replyTo })
+        .insert({
+          ...(rowId ? { id: rowId } : {}),
+          house_id: houseId,
+          user_id: currentUserId,
+          body,
+          reply_to: replyTo,
+        })
         .select()
         .single();
       if (error) throw error;
@@ -329,7 +348,26 @@ export function Chat({
         body: JSON.stringify({ houseId, preview: body }),
       });
     } catch (err) {
-      // Roll back: drop the optimistic bubble, restore the draft + reply target.
+      // A dropped response doesn't mean the write failed — check before
+      // rolling back, or we'd invite the user to send a duplicate.
+      if (rowId) {
+        const { data: landed } = await supabase
+          .from("messages")
+          .select("*")
+          .eq("id", rowId)
+          .maybeSingle();
+        if (landed) {
+          const real = landed as Message;
+          setMessages((prev) => {
+            const withoutTemp = prev.filter((m) => m.id !== tempId);
+            return withoutTemp.some((m) => m.id === real.id)
+              ? withoutTemp
+              : [...withoutTemp, real];
+          });
+          return;
+        }
+      }
+      // Genuinely failed: drop the optimistic bubble, restore draft + reply.
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setText(body);
       setReplyingTo(replyTarget);

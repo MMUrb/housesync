@@ -115,6 +115,13 @@ export default async function BillsPage() {
             const paidCount = splits.filter((s) => s.status === "confirmed").length;
             const settled = requested && splits.every((s) => s.user_id === payer || s.status === "confirmed");
             const due = dueLabel(b.next_due_date);
+            // Whether the NEXT cycle can be requested is a separate question
+            // from whether the last one settled: the rent falls due again
+            // whether or not the payer got round to tapping Confirm. Gating
+            // this on `settled` alone let one unconfirmed claim freeze the
+            // bill forever, with no way back.
+            const dueAgain = due.tone === "over" || due.tone === "soon";
+            const canRequestNext = !requested || settled || dueAgain;
             const mine = splits.find((s) => s.user_id === user.id);
 
             return (
@@ -223,13 +230,16 @@ export default async function BillsPage() {
                   </div>
                 )}
 
-                {/* Request (first time) or start the next cycle once everyone's paid */}
-                {(!requested || settled) && (
+                {/* Request (first time), or start the next cycle once it's
+                    settled — or once it's due again regardless. */}
+                {canRequestNext && (
                   <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
                     <span className="text-xs text-slate-400">
-                      {settled
-                        ? "All settled 🎉, ready for the next cycle"
-                        : `Split ${memberIds.length} ${memberIds.length === 1 ? "way" : "ways"}`}
+                      {!requested
+                        ? `Split ${memberIds.length} ${memberIds.length === 1 ? "way" : "ways"}`
+                        : settled
+                          ? "All settled 🎉, ready for the next cycle"
+                          : "Due again — last cycle isn't fully confirmed"}
                     </span>
                     <LogBillButton
                       bill={b}
