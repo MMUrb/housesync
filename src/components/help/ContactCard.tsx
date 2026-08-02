@@ -84,10 +84,21 @@ function isMobileLike(): boolean {
 // Try the app's URL scheme; if the app didn't take over the screen shortly
 // after (not installed), open the web compose instead so the tap never dies.
 function openAppOrWeb(appHref: string, webHref: string) {
+  // Same-tab navigation, not window.open: a call from a timer is outside the
+  // user gesture, so mobile browsers block it as a popup and Capacitor's
+  // webview ignores it entirely — which killed the fallback on exactly the
+  // phones that need it. Track visibility rather than only sampling it: a
+  // backgrounded webview defers the timer until we come BACK from the app.
+  let wentHidden = false;
+  const onVis = () => {
+    if (document.visibilityState === "hidden") wentHidden = true;
+  };
+  document.addEventListener("visibilitychange", onVis);
   window.location.href = appHref;
   setTimeout(() => {
-    if (document.visibilityState === "visible") {
-      window.open(webHref, "_blank", "noopener,noreferrer");
+    document.removeEventListener("visibilitychange", onVis);
+    if (!wentHidden && document.visibilityState === "visible") {
+      window.location.href = webHref;
     }
   }, 1200);
 }

@@ -62,8 +62,72 @@ export function Chat({
     members.find((m) => m.user_id === userId)?.profile ?? null;
 
   function addMessage(m: Message) {
-    setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+    setMessages((prev) =>
+      prev.some((x) => x.id === m.id)
+        ? prev
+        : [...prev, m].sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    );
   }
+
+  // Mirror of `messages` for use inside callbacks that must not re-subscribe
+  // whenever the list changes (the catch-up refetch).
+  const messagesRef = useRef<Message[]>(initialMessages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  /**
+   * Fold a batch of server rows into the thread. Every server-side path
+   * (catch-up, prop refresh) goes through here so they can't drift apart.
+   *
+   *  - Bails when the batch adds nothing, so it never causes a pointless
+   *    re-render or leaves the skip-scroll flag armed for a later update.
+   *  - Keeps in-flight optimistic bubbles.
+   *  - If the batch starts AFTER everything we hold, the two windows don't
+   *    touch. Union-merging would stitch a permanent hole into the thread,
+   *    and loadOlder could never fill it (it only pages below the array
+   *    head) — so replace the window instead of faking continuity.
+   *  - Never drags a reader who has scrolled up back down to the newest.
+   */
+  function applyServerBatch(fresh: Message[]) {
+    if (fresh.length === 0) return;
+    const prev = messagesRef.current;
+    const heldIds = new Set(prev.map((m) => m.id));
+    if (fresh.every((m) => heldIds.has(m.id))) return;
+
+    // Real rows only: optimistic ones carry the device clock, not server time.
+    const held = prev.filter((m) => !m.id.startsWith("temp-"));
+    const newestHeld = held.reduce<string | null>(
+      (acc, m) => (!acc || m.created_at > acc ? m.created_at : acc),
+      null,
+    );
+    const oldestFresh = fresh.reduce(
+      (acc, m) => (m.created_at < acc ? m.created_at : acc),
+      fresh[0].created_at,
+    );
+    const disjoint = newestHeld !== null && oldestFresh > newestHeld;
+
+    if (!nearBottomRef.current) skipNextAutoScroll.current = true;
+
+    if (disjoint) {
+      setHasMore(true);
+      setMessages([...fresh, ...prev.filter((m) => m.id.startsWith("temp-"))]);
+      return;
+    }
+    setMessages((p) => {
+      const byId = new Map(p.map((m) => [m.id, m] as const));
+      for (const m of fresh) byId.set(m.id, m);
+      return [...byId.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
+    });
+  }
+
+  // A fresh server snapshot arrived (pull-to-refresh, or any router.refresh()
+  // from HouseRealtime) — without this the chat ignored it entirely, because
+  // useState only ever reads initialMessages once.
+  useEffect(() => {
+    applyServerBatch(initialMessages);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMessages]);
 
   // Stream new messages for this house live.
   useEffect(() => {
@@ -188,23 +252,42 @@ export function Chat({
   // Catch up after the app was backgrounded: realtime events are missed while
   // the webview is suspended, so refetch the tail when we become visible again.
   useEffect(() => {
+    // Page FORWARD from the newest message we hold, rather than grabbing the
+    // newest N. Fetching forward makes the result contiguous by construction,
+    // so no hole can ever appear in the thread — and nothing already loaded
+    // gets thrown away just because a lot arrived while we were away.
     async function catchUp() {
+      const held = messagesRef.current.filter((m) => !m.id.startsWith("temp-"));
+      if (held.length === 0) return;
+      let after = held.reduce((a, b) => (a.created_at > b.created_at ? a : b)).created_at;
+      const collected: Message[] = [];
+
+      for (let page = 0; page < 6; page++) {
+        const { data } = await supabase
+          .from("messages")
+          .select("*")
+          .eq("house_id", houseId)
+          .gt("created_at", after)
+          .order("created_at", { ascending: true })
+          .limit(50);
+        const rows = (data as Message[] | null) ?? [];
+        collected.push(...rows);
+        if (rows.length < 50) {
+          applyServerBatch(collected);
+          return;
+        }
+        after = rows[rows.length - 1].created_at;
+      }
+
+      // 300+ behind (away for days): stop paging and reload the newest window.
+      // applyServerBatch spots that it doesn't join up and replaces cleanly.
       const { data } = await supabase
         .from("messages")
         .select("*")
         .eq("house_id", houseId)
         .order("created_at", { ascending: false })
-        .limit(50);
-      if (!data) return;
-      const fresh = (data as Message[]).reverse();
-      // Don't drag a reader who's scrolled up back down to the newest message
-      // every time they return to the app.
-      if (!nearBottomRef.current) skipNextAutoScroll.current = true;
-      setMessages((prev) => {
-        const byId = new Map(prev.map((m) => [m.id, m]));
-        for (const m of fresh) byId.set(m.id, m);
-        return [...byId.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
-      });
+        .limit(100);
+      applyServerBatch(((data as Message[] | null) ?? []).reverse());
     }
     function onVisible() {
       if (document.visibilityState === "visible") void catchUp();
@@ -219,10 +302,22 @@ export function Chat({
   // on this account's other devices/platforms too. We mark read up to the
   // newest loaded message's own server timestamp (not the device clock) — using
   // Date.now() let clock skew leave already-read messages counted as unread.
+  // Only ever mark read up to a REAL server row. An optimistic bubble carries
+  // the device clock, and because swapping in the real row leaves the array
+  // length unchanged, a length-keyed effect would save that skewed time
+  // permanently — hiding a housemate's next message from the unread badge.
+  // MAX, not "last in the array": send() appends the confirmed row at the end,
+  // so if a housemate's message arrived mid-send the tail is older than what's
+  // above it. Taking the last element would move the read watermark BACKWARDS
+  // and re-mark an already-read message as unread.
+  const lastRealCreatedAt = messages.reduce<string | null>(
+    (acc, m) =>
+      m.id.startsWith("temp-") ? acc : !acc || m.created_at > acc ? m.created_at : acc,
+    null,
+  );
+
   useEffect(() => {
-    const lastReadAt = messages.length
-      ? messages[messages.length - 1].created_at
-      : new Date().toISOString();
+    const lastReadAt = lastRealCreatedAt ?? new Date().toISOString();
     // supabase-js queries are lazy: they only execute when awaited or .then()'d.
     // A bare `void query` builds the request but never sends it — which is why
     // read state was never saved and the unread badge came back on every
@@ -241,8 +336,10 @@ export function Chat({
     // Clear this house's badge in the switcher right away (don't wait for the
     // next server render of the layout).
     emitChatRead(houseId);
+    // Keyed on the real-row timestamp, not messages.length, so the watermark
+    // updates when an optimistic bubble is swapped for its server row.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [houseId, currentUserId, messages.length]);
+  }, [houseId, currentUserId, lastRealCreatedAt]);
 
   // Close the emoji picker when tapping elsewhere.
   useEffect(() => {
@@ -337,8 +434,12 @@ export function Chat({
       const real = data as Message;
       setMessages((prev) => {
         const withoutTemp = prev.filter((m) => m.id !== tempId);
-        // The realtime echo may already have delivered the real row.
-        return withoutTemp.some((m) => m.id === real.id) ? withoutTemp : [...withoutTemp, real];
+        // The realtime echo may already have delivered the real row. Sort on
+        // insert: a housemate's message can land while ours is in flight, so
+        // appending blindly would leave the thread out of order.
+        return withoutTemp.some((m) => m.id === real.id)
+          ? withoutTemp
+          : [...withoutTemp, real].sort((a, b) => a.created_at.localeCompare(b.created_at));
       });
       // Notify the other housemates (best-effort; server decides who's opted in).
       void fetch("/api/push/notify", {
@@ -420,7 +521,12 @@ export function Chat({
                 </p>
               );
             }
-            const prev = messages[i - 1];
+            // Group and time-separate against the previous REAL message: a
+            // centred system notice in between must not swallow the next
+            // bubble's avatar, name and date header.
+            let p = i - 1;
+            while (p >= 0 && messages[p].kind === "system") p--;
+            const prev = p >= 0 ? messages[p] : undefined;
             const gap = prev
               ? new Date(m.created_at).getTime() - new Date(prev.created_at).getTime()
               : Infinity;
