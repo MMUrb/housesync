@@ -89,7 +89,7 @@ export function Chat({
    *    head) — so replace the window instead of faking continuity.
    *  - Never drags a reader who has scrolled up back down to the newest.
    */
-  function applyServerBatch(fresh: Message[]) {
+  function applyServerBatch(fresh: Message[], opts?: { contiguous?: boolean }) {
     if (fresh.length === 0) return;
     const prev = messagesRef.current;
     const heldIds = new Set(prev.map((m) => m.id));
@@ -105,7 +105,13 @@ export function Chat({
       (acc, m) => (m.created_at < acc ? m.created_at : acc),
       fresh[0].created_at,
     );
-    const disjoint = newestHeld !== null && oldestFresh > newestHeld;
+    // Contiguity is an INPUT, not something to infer: forward paging queries
+    // `.gt(newestHeld)`, so "oldest fetched is newer than everything held" is
+    // trivially true for it and would replace the thread on every catch-up.
+    // Only a caller that may hand over an unrelated window (a fresh snapshot)
+    // can trigger the replace.
+    const disjoint =
+      !opts?.contiguous && newestHeld !== null && oldestFresh > newestHeld;
 
     if (!nearBottomRef.current) skipNextAutoScroll.current = true;
 
@@ -174,7 +180,10 @@ export function Chat({
 
   async function loadOlder() {
     const el = scrollerRef.current;
-    const oldest = messages[0]?.created_at;
+    // Read the cursor from the live mirror, not the render closure: the
+    // observer is only rebuilt on [hasMore, length], so a replaced window of
+    // the same length would leave it paging from a discarded head.
+    const oldest = messagesRef.current[0]?.created_at;
     if (!el || !oldest || loadingOlderRef.current) return;
     loadingOlderRef.current = true;
     setLoadingOlder(true);
@@ -220,7 +229,9 @@ export function Chat({
     obs.observe(el);
     return () => obs.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasMore, messages.length]);
+    // messages[0]?.id in the deps so a same-length window swap still rebuilds.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMore, messages.length, messages[0]?.id]);
 
   // WhatsApp behaviour for the keyboard: when it opens (or closes) the chat
   // box resizes — if you were reading the newest messages, stay pinned to
@@ -228,10 +239,15 @@ export function Chat({
   // reading history? We leave your position alone.
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const nearBottomRef = useRef(true);
+  // atBottom mirrors nearBottomRef as state, so the mark-read effect re-runs
+  // when the reader scrolls back down to the live end of the thread.
+  const [atBottom, setAtBottom] = useState(true);
   function trackScroll() {
     const el = scrollerRef.current;
     if (!el) return;
-    nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    nearBottomRef.current = near;
+    setAtBottom((prev) => (prev === near ? prev : near));
   }
   useEffect(() => {
     const vv = window.visualViewport;
@@ -256,9 +272,27 @@ export function Chat({
     // newest N. Fetching forward makes the result contiguous by construction,
     // so no hole can ever appear in the thread — and nothing already loaded
     // gets thrown away just because a lot arrived while we were away.
+    // Fetch the newest window from scratch — used when there's no cursor to
+    // page from, and as the tail of a very long catch-up.
+    async function loadNewestWindow() {
+      const { data } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("house_id", houseId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      applyServerBatch(((data as Message[] | null) ?? []).reverse());
+    }
+
     async function catchUp() {
       const held = messagesRef.current.filter((m) => !m.id.startsWith("temp-"));
-      if (held.length === 0) return;
+      // Nothing to page from (e.g. the chat was empty when we backgrounded) —
+      // grab the newest window instead of giving up, or messages posted while
+      // away would never appear at all.
+      if (held.length === 0) {
+        await loadNewestWindow();
+        return;
+      }
       let after = held.reduce((a, b) => (a.created_at > b.created_at ? a : b)).created_at;
       const collected: Message[] = [];
 
@@ -273,21 +307,18 @@ export function Chat({
         const rows = (data as Message[] | null) ?? [];
         collected.push(...rows);
         if (rows.length < 50) {
-          applyServerBatch(collected);
+          // Joins directly onto what we hold, so merge — never replace.
+          applyServerBatch(collected, { contiguous: true });
           return;
         }
         after = rows[rows.length - 1].created_at;
       }
 
-      // 300+ behind (away for days): stop paging and reload the newest window.
-      // applyServerBatch spots that it doesn't join up and replaces cleanly.
-      const { data } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("house_id", houseId)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      applyServerBatch(((data as Message[] | null) ?? []).reverse());
+      // 300+ behind. Keep what we already paid to fetch, then jump to the
+      // newest window (which may legitimately not join up, hence no
+      // contiguous flag).
+      applyServerBatch(collected, { contiguous: true });
+      await loadNewestWindow();
     }
     function onVisible() {
       if (document.visibilityState === "visible") void catchUp();
@@ -317,6 +348,11 @@ export function Chat({
   );
 
   useEffect(() => {
+    // Only mark read what the reader could actually SEE. When they're scrolled
+    // up in history we deliberately don't scroll them to new arrivals, so
+    // advancing the watermark would bury those messages as "read" on every
+    // device, permanently. The effect re-runs when they scroll back down.
+    if (!atBottom) return;
     const lastReadAt = lastRealCreatedAt ?? new Date().toISOString();
     // supabase-js queries are lazy: they only execute when awaited or .then()'d.
     // A bare `void query` builds the request but never sends it — which is why
@@ -339,7 +375,7 @@ export function Chat({
     // Keyed on the real-row timestamp, not messages.length, so the watermark
     // updates when an optimistic bubble is swapped for its server row.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [houseId, currentUserId, lastRealCreatedAt]);
+  }, [houseId, currentUserId, lastRealCreatedAt, atBottom]);
 
   // Close the emoji picker when tapping elsewhere.
   useEffect(() => {
@@ -461,9 +497,11 @@ export function Chat({
           const real = landed as Message;
           setMessages((prev) => {
             const withoutTemp = prev.filter((m) => m.id !== tempId);
+            // Sorted, same as the success path: a housemate's message can have
+            // landed while ours was in flight.
             return withoutTemp.some((m) => m.id === real.id)
               ? withoutTemp
-              : [...withoutTemp, real];
+              : [...withoutTemp, real].sort((a, b) => a.created_at.localeCompare(b.created_at));
           });
           return;
         }
