@@ -198,7 +198,7 @@ export default async function AcquisitionPage() {
       >
         <div className="card space-y-2 p-4">
           <BarHeader left={`${signups30} new sign-ups`} right={`${users.length} all-time`} />
-          <Bars data={signupBars} color="mint" />
+          <Bars data={signupBars} color="mint" unit="sign-ups" />
           <AxisLabels days={days} />
         </div>
         <Grid>

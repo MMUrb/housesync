@@ -145,7 +145,7 @@ export default async function AdminOverviewPage() {
       >
         <div className="card space-y-2 p-4">
           <BarHeader left={`${signups30} new sign-ups`} right={`${totalUsers} all-time`} />
-          <Bars data={signupBars} color="mint" />
+          <Bars data={signupBars} color="mint" unit="sign-ups" />
           <AxisLabels days={days} />
         </div>
       </Section>

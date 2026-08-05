@@ -117,7 +117,7 @@ export default async function EngagementPage() {
             left={`${dau} active today`}
             right={`${wau} this week · ${mau} this month`}
           />
-          <Bars data={dauSeries} color="brand" />
+          <Bars data={dauSeries} color="brand" unit="active users" />
           <AxisLabels days={days} />
         </div>
       </Section>

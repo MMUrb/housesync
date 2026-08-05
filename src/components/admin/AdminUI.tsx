@@ -160,18 +160,48 @@ export function StatCard({
   );
 }
 
-export function Bars({ data, color }: { data: Bucket[]; color: "brand" | "mint" }) {
+/** "2026-07-30" -> "Thu 30 Jul"; non-date labels (e.g. "14:00") pass through. */
+const dayLabel = (d: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(d)
+    ? new Date(`${d}T00:00:00Z`).toLocaleDateString("en-GB", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      })
+    : d;
+
+/** The styled hover tooltip shared by every bar chart. */
+function BarTip({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="pointer-events-none absolute -top-10 left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-center text-[11px] font-semibold leading-tight text-white shadow-lg group-hover:block dark:bg-black/85">
+      {children}
+    </div>
+  );
+}
+
+export function Bars({
+  data,
+  color,
+  unit = "",
+}: {
+  data: Bucket[];
+  color: "brand" | "mint";
+  unit?: string;
+}) {
   const max = Math.max(1, ...data.map((d) => d.value));
   const bar = color === "mint" ? "bg-mint-600" : "bg-brand-500";
   return (
     <div className="flex h-32 items-end gap-1">
       {data.map((d) => (
-        <div
-          key={d.day}
-          title={`${d.day}: ${d.value}`}
-          className="flex h-full flex-1 items-end rounded-t bg-slate-100"
-        >
-          <div className={`${bar} w-full rounded-t`} style={{ height: `${(d.value / max) * 100}%` }} />
+        <div key={d.day} className="group relative flex h-full flex-1 items-end rounded-t bg-slate-100">
+          <div
+            className={`${bar} w-full rounded-t transition-opacity group-hover:opacity-75`}
+            style={{ height: `${(d.value / max) * 100}%` }}
+          />
+          <BarTip>
+            {dayLabel(d.day)} · {d.value.toLocaleString()}
+            {unit ? ` ${unit}` : ""}
+          </BarTip>
         </div>
       ))}
     </div>
@@ -186,13 +216,22 @@ export function StackedBars({ data }: { data: StackedBucket[] }) {
   return (
     <div className="flex h-32 items-end gap-1">
       {data.map((d) => (
-        <div
-          key={d.day}
-          title={`${d.day}: ${d.a + d.b} (iOS ${d.a} · Android ${d.b})`}
-          className="flex h-full flex-1 flex-col justify-end overflow-hidden rounded-t bg-slate-100"
-        >
-          <div className="w-full bg-brand-500" style={{ height: `${(d.a / max) * 100}%` }} />
-          <div className="w-full bg-mint-600" style={{ height: `${(d.b / max) * 100}%` }} />
+        <div key={d.day} className="group relative flex h-full flex-1 flex-col justify-end rounded-t bg-slate-100">
+          <div
+            className="w-full rounded-t bg-brand-500 transition-opacity group-hover:opacity-75"
+            style={{ height: `${(d.a / max) * 100}%` }}
+          />
+          <div
+            className="w-full bg-mint-600 transition-opacity group-hover:opacity-75"
+            style={{ height: `${(d.b / max) * 100}%` }}
+          />
+          <BarTip>
+            {dayLabel(d.day)} · {(d.a + d.b).toLocaleString()} download{d.a + d.b === 1 ? "" : "s"}
+            <br />
+            <span className="font-normal opacity-80">
+              iOS {d.a.toLocaleString()} · Android {d.b.toLocaleString()}
+            </span>
+          </BarTip>
         </div>
       ))}
     </div>
@@ -202,11 +241,15 @@ export function StackedBars({ data }: { data: StackedBucket[] }) {
 export function AxisLabels({ days }: { days: string[] }) {
   const fmt = (d: string) =>
     new Date(`${d}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const n = days.length;
+  if (n === 0) return null;
+  // Five evenly spaced ticks instead of three: start, quartiles, end.
+  const idx = [...new Set([0, Math.round((n - 1) / 4), Math.round((n - 1) / 2), Math.round((3 * (n - 1)) / 4), n - 1])];
   return (
     <div className="flex justify-between text-[10px] text-slate-400">
-      <span>{fmt(days[0])}</span>
-      <span>{fmt(days[Math.floor(days.length / 2)])}</span>
-      <span>{fmt(days[days.length - 1])}</span>
+      {idx.map((i) => (
+        <span key={i}>{fmt(days[i])}</span>
+      ))}
     </div>
   );
 }

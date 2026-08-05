@@ -174,7 +174,7 @@ export default async function VisitorsPage() {
             left={`${visits30.toLocaleString()} visits`}
             right={`${visits7.toLocaleString()} this week · ${visits1.toLocaleString()} in the last day`}
           />
-          <Bars data={visitBars} color="brand" />
+          <Bars data={visitBars} color="brand" unit="visits" />
           <AxisLabels days={days} />
         </div>
         {sampleCapped && (
@@ -248,7 +248,7 @@ export default async function VisitorsPage() {
             left="By hour of day"
             right={`UK time · peak ${String(peakHour).padStart(2, "0")}:00 on ${peakDay}s`}
           />
-          <Bars data={hourBars} color="brand" />
+          <Bars data={hourBars} color="brand" unit="visits" />
           <div className="flex justify-between text-[10px] text-slate-400">
             <span>00:00</span>
             <span>06:00</span>
