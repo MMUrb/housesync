@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { ADMIN_BASE } from "@/lib/constants";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { uaPlatform, uaBrowser } from "@/lib/ua";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,12 +60,19 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient();
-    await admin.from("page_views").insert({
+    const row = {
       path,
       referrer: refHost,
       visitor_hash: hashVisitor(ip, ua),
       country: country || null,
-    });
+    };
+    // Coarse platform/browser labels (never the raw user agent). If migration
+    // 0036 hasn't run yet these columns don't exist, so fall back to the
+    // legacy shape rather than silently dropping the page view.
+    const { error } = await admin
+      .from("page_views")
+      .insert({ ...row, platform: uaPlatform(ua), browser: uaBrowser(ua) });
+    if (error) await admin.from("page_views").insert(row);
   } catch {
     /* swallow — analytics must never break navigation */
   }

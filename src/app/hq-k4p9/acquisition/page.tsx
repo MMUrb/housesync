@@ -1,33 +1,40 @@
 import "server-only";
+import Link from "next/link";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { adminGate } from "@/components/admin/guard";
-import { listAllUsers, tableCount, countSince, msOf } from "@/lib/adminData";
-import { DAY, lastNDays, bucketByDay, topCounts } from "@/lib/adminMetrics";
+import { listAllUsers, countSince, msOf } from "@/lib/adminData";
+import { DAY, lastNDays, bucketByDay } from "@/lib/adminMetrics";
+import { playConfig, ascConfig } from "@/lib/storeSync";
+import { ADMIN_BASE } from "@/lib/constants";
 import {
   AdminShell,
   Section,
   Grid,
   StatCard,
   Bars,
+  StackedBars,
   AxisLabels,
   BarHeader,
-  RankList,
 } from "@/components/admin/AdminUI";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Acquisition", robots: { index: false, follow: false } };
 
-// Rows pulled back to build the breakdowns. Totals are counted in Postgres, so
-// hitting this only coarsens the charts, it never makes the headline wrong.
-const VIEW_SAMPLE_CAP = 50_000;
-
-type View = {
-  path: string;
-  referrer: string | null;
-  visitor_hash: string | null;
-  country: string | null;
-  created_at: string;
+type StoreRow = {
+  day: string;
+  platform: "ios" | "android";
+  downloads: number | null;
+  updates: number | null;
+  uninstalls: number | null;
+  synced_at: string;
 };
+
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/London",
+  });
 
 export default async function AcquisitionPage() {
   const gate = await adminGate();
@@ -45,30 +52,47 @@ export default async function AcquisitionPage() {
 
   const admin = createAdminClient();
   const now = Date.now();
-  const since1 = new Date(now - DAY).toISOString();
-  const since7 = new Date(now - 7 * DAY).toISOString();
   const since30 = new Date(now - 30 * DAY).toISOString();
+  const day30 = since30.slice(0, 10);
 
-  const [users, viewsRes, totalViews, visits1, visits7, visits30] = await Promise.all([
+  const [users, storeRes, visits30] = await Promise.all([
     listAllUsers(admin),
-    admin
-      .from("page_views")
-      .select("path, referrer, visitor_hash, country, created_at")
-      .gte("created_at", since30)
-      .order("created_at", { ascending: false })
-      .limit(VIEW_SAMPLE_CAP),
-    tableCount(admin, "page_views"),
-    countSince(admin, "page_views", since1),
-    countSince(admin, "page_views", since7),
+    // All-time is small (one row per day per platform), so fetch everything.
+    admin.from("store_daily").select("*").order("day", { ascending: true }).limit(3000),
     countSince(admin, "page_views", since30),
   ]);
 
-  const views = (viewsRes.data ?? []) as View[];
-  const sampleCapped = views.length >= VIEW_SAMPLE_CAP;
-  const days = lastNDays(30);
+  const store = (storeRes.data ?? []) as StoreRow[];
+  const store30 = store.filter((r) => r.day >= day30);
 
-  const uniques30 = new Set(views.map((v) => v.visitor_hash ?? "")).size;
-  const visitBars = bucketByDay(views, days);
+  const sum = (rows: StoreRow[], field: "downloads" | "updates" | "uninstalls") =>
+    rows.reduce((s, r) => s + (r[field] ?? 0), 0);
+  const ios30 = sum(store30.filter((r) => r.platform === "ios"), "downloads");
+  const and30 = sum(store30.filter((r) => r.platform === "android"), "downloads");
+  const total30 = ios30 + and30;
+  const iosAll = sum(store.filter((r) => r.platform === "ios"), "downloads");
+  const andAll = sum(store.filter((r) => r.platform === "android"), "downloads");
+  const totalAll = iosAll + andAll;
+  const share = (n: number, of: number) => (of > 0 ? Math.round((n / of) * 100) : 0);
+
+  const lastSync = store.length
+    ? [...store].sort((a, b) => (a.synced_at < b.synced_at ? 1 : -1))[0].synced_at
+    : null;
+
+  // Stacked per-day chart for the last 30 days.
+  const days = lastNDays(30);
+  const byDay = new Map(days.map((d) => [d, { a: 0, b: 0 }]));
+  for (const r of store30) {
+    const slot = byDay.get(r.day);
+    if (!slot) continue;
+    if (r.platform === "ios") slot.a += r.downloads ?? 0;
+    else slot.b += r.downloads ?? 0;
+  }
+  const stacked = days.map((d) => ({ day: d, ...(byDay.get(d) ?? { a: 0, b: 0 }) }));
+
+  const playReady = Boolean(playConfig());
+  const ascReady = Boolean(ascConfig());
+  const anyData = store.length > 0;
 
   const d30 = now - 30 * DAY;
   const signups30 = users.filter((u) => msOf(u.created_at) >= d30).length;
@@ -76,104 +100,159 @@ export default async function AcquisitionPage() {
     users.filter((u) => u.created_at).map((u) => ({ created_at: u.created_at as string })),
     days,
   );
-  // Visit-to-sign-up is aggregate only: page_views has no user_id, so a visit
-  // can never be tied to the account it eventually produced.
-  const conversion = visits30 > 0 ? ((signups30 / visits30) * 100).toFixed(1) : "0.0";
-
-  const topPaths = topCounts(views.map((v) => v.path || "/"), 8);
-  const topRefs = topCounts(views.map((v) => v.referrer || "Direct"), 8);
-  const topCountries = topCounts(views.map((v) => v.country || "Unknown"), 8);
 
   return (
     <AdminShell email={gate.user.email} active="acquisition">
-      <Section title="Web acquisition · last 30 days">
-        <Grid>
-          <StatCard label="Visits (1d)" value={visits1} />
-          <StatCard label="Visits (7d)" value={visits7} sub={`~${Math.round(visits7 / 7)}/day`} />
-          <StatCard
-            label="Visits (30d)"
-            value={visits30}
-            sub={`~${Math.round(visits30 / 30)}/day`}
-          />
-          <StatCard
-            label="Unique visitors"
-            value={uniques30}
-            sub={sampleCapped ? "sampled" : "30d"}
-          />
-          <StatCard label="Sign-ups (30d)" value={signups30} />
-          <StatCard label="Visit → sign-up" value={`${conversion}%`} sub="aggregate only" />
-        </Grid>
-      </Section>
-
-      <Section title="Traffic">
-        <div className="card space-y-2 p-4">
-          <BarHeader
-            left={`${visits30.toLocaleString()} visits`}
-            right={`${uniques30.toLocaleString()} unique · ${visits7.toLocaleString()} this week`}
-          />
-          <Bars data={visitBars} color="brand" />
-          <AxisLabels days={days} />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <RankList title="Top pages" rows={topPaths} />
-          <RankList title="Top sources" rows={topRefs} />
-          <RankList title="Countries" rows={topCountries} />
-        </div>
-        {sampleCapped && (
-          <p className="text-xs text-amber-600">
-            Over {VIEW_SAMPLE_CAP.toLocaleString()} views in 30 days. Totals above are exact, but
-            the chart, unique count and top-lists cover only the most recent{" "}
-            {VIEW_SAMPLE_CAP.toLocaleString()}.
-          </p>
+      <Section title="Downloads">
+        {anyData ? (
+          <>
+            <Grid>
+              <StatCard label="Downloads (30d)" value={total30} sub={`~${Math.round(total30 / 30)}/day`} />
+              <StatCard label="iOS (30d)" value={ios30} sub={`${share(ios30, total30)}% share`} />
+              <StatCard label="Android (30d)" value={and30} sub={`${share(and30, total30)}% share`} />
+              <StatCard label="All-time total" value={totalAll} sub="since 25/07/2026 launch" />
+              <StatCard label="All-time iOS" value={iosAll} sub={`${share(iosAll, totalAll)}% of installs`} />
+              <StatCard label="All-time Android" value={andAll} sub={`${share(andAll, totalAll)}% of installs`} />
+            </Grid>
+            <p className="text-xs text-slate-400">
+              Store installs, not sign-ups: a device can install without ever creating an account.
+              Store days are bucketed in Pacific time and lag one to two days.
+              {lastSync && <> Last sync {fmtDate(lastSync)}.</>}
+            </p>
+          </>
+        ) : (
+          <SetupCard playReady={playReady} ascReady={ascReady} />
         )}
-        <p className="text-xs text-slate-400">
-          All-time page views: {totalViews.toLocaleString()}
-        </p>
       </Section>
 
-      <Section title="Sign-ups">
+      {anyData && (
+        <Section title="Downloads per day · last 30 days">
+          <div className="card space-y-2 p-4">
+            <BarHeader
+              left={`${total30.toLocaleString()} downloads`}
+              right={`iOS ${ios30.toLocaleString()} · Android ${and30.toLocaleString()}`}
+            />
+            <StackedBars data={stacked} />
+            <AxisLabels days={days} />
+            <div className="flex gap-4 text-[11px] font-medium text-slate-500">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-sm bg-brand-500" /> iOS
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-sm bg-mint-600" /> Android
+              </span>
+            </div>
+          </div>
+        </Section>
+      )}
+
+      {anyData && (
+        <Section title="Store detail">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="card p-5">
+              <p className="text-sm font-semibold text-slate-900">App Store</p>
+              <p className="text-xs text-slate-400">uk.co.housesync · iOS</p>
+              <dl className="mt-3 space-y-2 text-sm">
+                <Row k="Downloads (30d)" v={ios30.toLocaleString()} />
+                <Row k="Updates installed (30d)" v={sum(store30.filter((r) => r.platform === "ios"), "updates").toLocaleString()} />
+                <Row k="All-time downloads" v={iosAll.toLocaleString()} />
+              </dl>
+            </div>
+            <div className="card p-5">
+              <p className="text-sm font-semibold text-slate-900">Google Play</p>
+              <p className="text-xs text-slate-400">uk.co.housesync · Android</p>
+              <dl className="mt-3 space-y-2 text-sm">
+                <Row k="Downloads (30d)" v={and30.toLocaleString()} />
+                <Row
+                  k="Uninstalls (30d)"
+                  v={sum(store30.filter((r) => r.platform === "android"), "uninstalls").toLocaleString()}
+                />
+                <Row k="All-time downloads" v={andAll.toLocaleString()} />
+              </dl>
+            </div>
+          </div>
+          <p className="text-xs text-slate-400">
+            Ratings, impressions and store-listing conversion aren&rsquo;t synced yet; they need a
+            second pass on each store&rsquo;s reporting API once these numbers are proven right.
+          </p>
+        </Section>
+      )}
+
+      <Section
+        title="Sign-ups · last 30 days"
+        action={
+          <Link
+            href={`${ADMIN_BASE}/visitors`}
+            className="text-xs font-medium text-brand-600 hover:underline"
+          >
+            Full visitor report →
+          </Link>
+        }
+      >
         <div className="card space-y-2 p-4">
           <BarHeader left={`${signups30} new sign-ups`} right={`${users.length} all-time`} />
           <Bars data={signupBars} color="mint" />
           <AxisLabels days={days} />
         </div>
-      </Section>
-
-      <Section title="App stores">
-        <div className="card space-y-3 p-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="chip bg-amber-50 text-amber-700">Not connected</span>
-            <span className="text-sm text-slate-600">
-              Downloads, installs, uninstalls, ratings and store conversion are not in this
-              dashboard yet.
-            </span>
-          </div>
-          <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600 dark:bg-white/[0.04]">
-            <p className="font-medium text-slate-700">What connecting them needs:</p>
-            <ul className="ml-4 mt-2 list-disc space-y-1.5">
-              <li>
-                <strong>App Store Connect API</strong> for downloads, redownloads, updates,
-                impressions, product page views and territories. Uses an issuer ID plus a{" "}
-                <code className="rounded bg-slate-100 px-1 dark:bg-white/10">.p8</code> key.
-              </li>
-              <li>
-                <strong>Google Play</strong> does not expose install counts through the Developer
-                API at all. They arrive as CSV reports in a Cloud Storage bucket, read with a
-                service account. Crash and ANR rates come from the separate Play Developer
-                Reporting API.
-              </li>
-              <li>
-                Neither is fast enough to query while a page loads, so both would sync nightly
-                into a table here and this page would read that.
-              </li>
-            </ul>
-          </div>
-          <p className="text-xs text-slate-400">
-            Deliberately left empty rather than filled with estimates: a made-up download number
-            is worse than none.
-          </p>
-        </div>
+        <Grid>
+          <StatCard label="Site visits (30d)" value={visits30} />
+          <StatCard label="Sign-ups (30d)" value={signups30} />
+          <StatCard
+            label="Visit → sign-up"
+            value={`${visits30 > 0 ? ((signups30 / visits30) * 100).toFixed(1) : "0.0"}%`}
+            sub="aggregate only"
+          />
+          <StatCard
+            label="Installs → sign-up"
+            value={total30 > 0 ? `${Math.min(999, Math.round((signups30 / total30) * 100))}%` : "n/a"}
+            sub={total30 > 0 ? "rough: includes web sign-ups" : "needs store data"}
+          />
+        </Grid>
       </Section>
     </AdminShell>
+  );
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex justify-between border-b border-slate-50 pb-2 last:border-0 last:pb-0">
+      <dt className="text-slate-500">{k}</dt>
+      <dd className="font-semibold text-slate-900">{v}</dd>
+    </div>
+  );
+}
+
+function SetupCard({ playReady, ascReady }: { playReady: boolean; ascReady: boolean }) {
+  const Badge = ({ ok }: { ok: boolean }) =>
+    ok ? (
+      <span className="chip bg-mint-50 text-mint-600">configured</span>
+    ) : (
+      <span className="chip bg-amber-50 text-amber-700">not configured</span>
+    );
+  return (
+    <div className="card space-y-3 p-5">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+        No download data yet. The nightly sync fills this section once the stores are connected.
+      </div>
+      <dl className="space-y-2 text-sm">
+        <div className="flex items-center justify-between border-b border-slate-50 pb-2">
+          <dt className="text-slate-600">
+            App Store <span className="text-xs text-slate-400">(ASC_ISSUER_ID, ASC_KEY_ID, ASC_PRIVATE_KEY, ASC_VENDOR_NUMBER)</span>
+          </dt>
+          <dd><Badge ok={ascReady} /></dd>
+        </div>
+        <div className="flex items-center justify-between">
+          <dt className="text-slate-600">
+            Google Play <span className="text-xs text-slate-400">(PLAY_REPORTS_KEY, PLAY_REPORTS_BUCKET)</span>
+          </dt>
+          <dd><Badge ok={playReady} /></dd>
+        </div>
+      </dl>
+      <p className="text-xs text-slate-400">
+        {playReady || ascReady
+          ? "Configured but empty: run the backfill (hit /api/cron/store-sync?days=400 with the cron secret) or wait for tonight's sync."
+          : "Set the env vars in Vercel, redeploy, then run the backfill once."}
+      </p>
+    </div>
   );
 }

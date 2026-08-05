@@ -150,7 +150,17 @@ export default async function AdminOverviewPage() {
         </div>
       </Section>
 
-      <Section title="Traffic">
+      <Section
+        title="Traffic"
+        action={
+          <Link
+            href={`${ADMIN_BASE}/visitors`}
+            className="text-xs font-medium text-brand-600 hover:underline"
+          >
+            Full visitor report →
+          </Link>
+        }
+      >
         <Grid>
           <StatCard label="Visits (1d)" value={visits1} />
           <StatCard label="Visits (7d)" value={visits7} sub={`~${Math.round(visits7 / 7)}/day`} />

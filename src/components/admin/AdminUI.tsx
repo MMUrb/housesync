@@ -11,6 +11,7 @@ export type Bucket = { day: string; value: number };
 export type AdminTab =
   | "overview"
   | "acquisition"
+  | "visitors"
   | "engagement"
   | "directory"
   | "churn"
@@ -59,6 +60,7 @@ export function AdminShell({
           <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <Tab href={ADMIN_BASE} label="Overview" k="overview" />
             <Tab href={`${ADMIN_BASE}/acquisition`} label="Acquisition" k="acquisition" />
+            <Tab href={`${ADMIN_BASE}/visitors`} label="Visitors" k="visitors" />
             <Tab href={`${ADMIN_BASE}/engagement`} label="Engagement" k="engagement" />
             <Tab href={`${ADMIN_BASE}/directory`} label="Directory" k="directory" />
             <Tab href={`${ADMIN_BASE}/churn`} label="Churn" k="churn" />
@@ -170,6 +172,27 @@ export function Bars({ data, color }: { data: Bucket[]; color: "brand" | "mint" 
           className="flex h-full flex-1 items-end rounded-t bg-slate-100"
         >
           <div className={`${bar} w-full rounded-t`} style={{ height: `${(d.value / max) * 100}%` }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export type StackedBucket = { day: string; a: number; b: number };
+
+/** Two-series stacked bars: `a` in brand on top of `b` in mint (iOS/Android). */
+export function StackedBars({ data }: { data: StackedBucket[] }) {
+  const max = Math.max(1, ...data.map((d) => d.a + d.b));
+  return (
+    <div className="flex h-32 items-end gap-1">
+      {data.map((d) => (
+        <div
+          key={d.day}
+          title={`${d.day}: ${d.a + d.b} (iOS ${d.a} · Android ${d.b})`}
+          className="flex h-full flex-1 flex-col justify-end overflow-hidden rounded-t bg-slate-100"
+        >
+          <div className="w-full bg-brand-500" style={{ height: `${(d.a / max) * 100}%` }} />
+          <div className="w-full bg-mint-600" style={{ height: `${(d.b / max) * 100}%` }} />
         </div>
       ))}
     </div>
