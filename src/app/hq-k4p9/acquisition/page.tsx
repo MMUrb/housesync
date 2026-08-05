@@ -30,6 +30,12 @@ type StoreRow = {
   synced_at: string;
 };
 
+/** "~0/day" is useless at small volumes; show one decimal until ~10/day. */
+const perDay = (total: number) => {
+  const avg = total / 30;
+  return `~${avg < 10 ? avg.toFixed(1) : Math.round(avg)}/day`;
+};
+
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", {
     dateStyle: "medium",
@@ -108,7 +114,7 @@ export default async function AcquisitionPage() {
         {anyData ? (
           <>
             <Grid>
-              <StatCard label="Downloads (30d)" value={total30} sub={`~${Math.round(total30 / 30)}/day`} />
+              <StatCard label="Downloads (30d)" value={total30} sub={perDay(total30)} />
               <StatCard label="iOS (30d)" value={ios30} sub={`${share(ios30, total30)}% share`} />
               <StatCard label="Android (30d)" value={and30} sub={`${share(and30, total30)}% share`} />
               <StatCard label="All-time total" value={totalAll} sub="since 25/07/2026 launch" />
