@@ -16,6 +16,7 @@ import {
   AxisLabels,
   BarHeader,
 } from "@/components/admin/AdminUI";
+import { SyncStoresButton } from "@/components/admin/SyncStoresButton";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Acquisition", robots: { index: false, follow: false } };
@@ -103,7 +104,7 @@ export default async function AcquisitionPage() {
 
   return (
     <AdminShell email={gate.user.email} active="acquisition">
-      <Section title="Downloads">
+      <Section title="Downloads" action={<SyncStoresButton />}>
         {anyData ? (
           <>
             <Grid>
@@ -250,8 +251,8 @@ function SetupCard({ playReady, ascReady }: { playReady: boolean; ascReady: bool
       </dl>
       <p className="text-xs text-slate-400">
         {playReady || ascReady
-          ? "Configured but empty: run the backfill (hit /api/cron/store-sync?days=400 with the cron secret) or wait for tonight's sync."
-          : "Set the env vars in Vercel, redeploy, then run the backfill once."}
+          ? "Configured but empty: press Sync now above, or wait for tonight's 06:30 run."
+          : "Set the env vars in Vercel, redeploy, then press Sync now."}
       </p>
     </div>
   );

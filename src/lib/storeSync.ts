@@ -1,6 +1,7 @@
 import "server-only";
 import { createSign, sign as cryptoSign } from "crypto";
 import { gunzipSync } from "zlib";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Pulls download numbers from both app stores into the store_daily table.
 // No SDKs: both APIs are called with hand-rolled JWTs over fetch, because the
@@ -207,4 +208,90 @@ export async function fetchAscDay(day: string): Promise<DailyRow | null> {
     else if (isUpdate(type)) updates += units;
   }
   return { day, downloads, updates, uninstalls: null };
+}
+
+/* ------------------------------- Orchestrator ------------------------------- */
+
+// Launch day: no point asking either store for anything earlier.
+export const LAUNCH_DAY = "2026-07-25";
+
+const dayString = (msAgo: number) => new Date(Date.now() - msAgo).toISOString().slice(0, 10);
+
+export type SyncResult = {
+  since: string;
+  android:
+    | { configured: false }
+    | { configured: true; upserted?: number; error?: string };
+  ios:
+    | { configured: false }
+    | { configured: true; upserted?: number; notPublishedYet?: number; error?: string };
+};
+
+/**
+ * Pull download numbers from both stores into store_daily for the last
+ * `days` days (clamped to launch). Shared by the nightly cron and the
+ * admin "Sync now" button; each store fails independently.
+ */
+export async function runStoreSync(admin: SupabaseClient, daysWanted: number): Promise<SyncResult> {
+  const days = Math.min(Math.max(Number.isFinite(daysWanted) ? daysWanted : 5, 1), 400);
+  let since = dayString(days * 86_400_000);
+  if (since < LAUNCH_DAY) since = LAUNCH_DAY;
+
+  const result: SyncResult = {
+    since,
+    android: { configured: false },
+    ios: { configured: false },
+  };
+
+  // Android: monthly CSVs, so one fetch covers the whole window.
+  if (playConfig()) {
+    try {
+      const rows = await fetchPlayDaily(since);
+      if (rows.length) {
+        const { error } = await admin.from("store_daily").upsert(
+          rows.map((r) => ({ ...r, platform: "android", synced_at: new Date().toISOString() })),
+          { onConflict: "day,platform" },
+        );
+        if (error) throw new Error(error.message);
+      }
+      result.android = { configured: true, upserted: rows.length };
+    } catch (e) {
+      result.android = { configured: true, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  // iOS: one report per day. Yesterday's often isn't published yet; that's
+  // fine, the next run picks it up.
+  if (ascConfig()) {
+    let upserted = 0;
+    let missing = 0;
+    try {
+      for (let i = 1; i <= days; i++) {
+        const day = dayString(i * 86_400_000);
+        if (day < LAUNCH_DAY) break;
+        const row = await fetchAscDay(day);
+        if (!row) {
+          missing++;
+          continue;
+        }
+        const { error } = await admin
+          .from("store_daily")
+          .upsert(
+            { ...row, platform: "ios", synced_at: new Date().toISOString() },
+            { onConflict: "day,platform" },
+          );
+        if (error) throw new Error(error.message);
+        upserted++;
+      }
+      result.ios = { configured: true, upserted, notPublishedYet: missing };
+    } catch (e) {
+      result.ios = {
+        configured: true,
+        upserted,
+        error: e instanceof Error ? e.message : String(e),
+      };
+    }
+  }
+
+  return result;
 }
