@@ -1,7 +1,8 @@
 import "server-only";
-import { createSign, sign as cryptoSign } from "crypto";
+import { createSign, sign as cryptoSign, createHash } from "crypto";
 import { gunzipSync } from "zlib";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { parseCsv } from "@/lib/csv";
 
 // Pulls download numbers from both app stores into the store_daily table.
 // No SDKs: both APIs are called with hand-rolled JWTs over fetch, because the
@@ -210,6 +211,123 @@ export async function fetchAscDay(day: string): Promise<DailyRow | null> {
   return { day, downloads, updates, uninstalls: null };
 }
 
+/* -------------------------------- Reviews -------------------------------- */
+
+// Numeric App Store id for uk.co.housesync, resolved once via GET /v1/apps.
+const ASC_APP_ID = "6783905558";
+
+// Reviews reach back before launch (the closed-testing period), so their
+// window is fixed rather than tied to the sync's days parameter.
+const REVIEWS_SINCE = "2026-06-01";
+
+export type ReviewRow = {
+  id: string;
+  platform: "ios" | "android";
+  rating: number;
+  title: string | null;
+  body: string | null;
+  author: string | null;
+  territory: string | null;
+  app_version: string | null;
+  reviewed_at: string;
+};
+
+/** All written App Store reviews, newest first, via the customerReviews API. */
+export async function fetchAscReviews(cap = 400): Promise<ReviewRow[]> {
+  const cfg = ascConfig();
+  if (!cfg) throw new Error("App Store Connect not configured");
+
+  const out: ReviewRow[] = [];
+  let url: string | null =
+    `https://api.appstoreconnect.apple.com/v1/apps/${ASC_APP_ID}/customerReviews?limit=200&sort=-createdDate`;
+  while (url && out.length < cap) {
+    const res = await fetch(url, { headers: { authorization: `Bearer ${ascToken(cfg)}` } });
+    if (!res.ok) throw new Error(`ASC reviews: ${res.status} ${await res.text()}`);
+    const j = (await res.json()) as {
+      data?: { id: string; attributes?: Record<string, unknown> }[];
+      links?: { next?: string };
+    };
+    for (const r of j.data ?? []) {
+      const a = r.attributes ?? {};
+      const rating = Number(a.rating);
+      if (!(rating >= 1 && rating <= 5) || typeof a.createdDate !== "string") continue;
+      out.push({
+        id: `ios-${r.id}`,
+        platform: "ios",
+        rating,
+        title: typeof a.title === "string" && a.title ? a.title : null,
+        body: typeof a.body === "string" && a.body ? a.body : null,
+        author: typeof a.reviewerNickname === "string" && a.reviewerNickname ? a.reviewerNickname : null,
+        territory: typeof a.territory === "string" && a.territory ? a.territory : null,
+        app_version: null, // not exposed by this endpoint
+        reviewed_at: a.createdDate,
+      });
+    }
+    url = j.links?.next ?? null;
+  }
+  return out;
+}
+
+/**
+ * All written Play reviews from the monthly reviews CSVs in the stats bucket.
+ * Play includes no reviewer name in these exports, so author stays null.
+ */
+export async function fetchPlayReviews(): Promise<ReviewRow[]> {
+  const cfg = playConfig();
+  if (!cfg) throw new Error("Play reports not configured");
+  const token = await playAccessToken(cfg.sa);
+
+  const months: string[] = [];
+  const start = new Date(`${REVIEWS_SINCE}T00:00:00Z`);
+  const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+  const now = new Date();
+  while (cursor <= now) {
+    months.push(`${cursor.getUTCFullYear()}${String(cursor.getUTCMonth() + 1).padStart(2, "0")}`);
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+
+  const out: ReviewRow[] = [];
+  for (const month of months) {
+    const object = `reviews/reviews_${APP_PACKAGE}_${month}.csv`;
+    const url = `https://storage.googleapis.com/storage/v1/b/${cfg.bucket}/o/${encodeURIComponent(object)}?alt=media`;
+    const res = await fetch(url, { headers: { authorization: `Bearer ${token}` } });
+    if (res.status === 404) continue; // month with no reviews
+    if (!res.ok) throw new Error(`Play reviews ${month}: ${res.status} ${await res.text()}`);
+
+    const rows = parseCsv(decodeCsv(Buffer.from(await res.arrayBuffer())));
+    if (rows.length < 2) continue;
+    const headers = rows[0].map((h) => h.trim().toLowerCase());
+    const col = (name: string) => headers.indexOf(name);
+    const iMs = col("review submit millis since epoch");
+    const iRating = col("star rating");
+    const iTitle = col("review title");
+    const iText = col("review text");
+    const iLang = col("reviewer language");
+    const iVersion = col("app version name");
+    if (iMs < 0 || iRating < 0) continue;
+
+    for (const c of rows.slice(1)) {
+      const ms = Number(c[iMs]);
+      const rating = Number(c[iRating]);
+      if (!Number.isFinite(ms) || ms <= 0 || !(rating >= 1 && rating <= 5)) continue;
+      const text = (iText >= 0 ? c[iText] : "") ?? "";
+      const hash = createHash("sha256").update(text).digest("hex").slice(0, 10);
+      out.push({
+        id: `and-${ms}-${hash}`,
+        platform: "android",
+        rating,
+        title: iTitle >= 0 && c[iTitle] ? c[iTitle] : null,
+        body: text || null,
+        author: null,
+        territory: iLang >= 0 && c[iLang] ? c[iLang] : null,
+        app_version: iVersion >= 0 && c[iVersion] ? c[iVersion] : null,
+        reviewed_at: new Date(ms).toISOString(),
+      });
+    }
+  }
+  return out;
+}
+
 /* ------------------------------- Orchestrator ------------------------------- */
 
 // Launch day: no point asking either store for anything earlier.
@@ -221,11 +339,28 @@ export type SyncResult = {
   since: string;
   android:
     | { configured: false }
-    | { configured: true; upserted?: number; error?: string };
+    | { configured: true; upserted?: number; reviews?: number; error?: string };
   ios:
-    | { configured: false }
-    | { configured: true; upserted?: number; notPublishedYet?: number; error?: string };
+    | {
+        configured: false;
+      }
+    | {
+        configured: true;
+        upserted?: number;
+        notPublishedYet?: number;
+        reviews?: number;
+        error?: string;
+      };
 };
+
+async function upsertReviews(admin: SupabaseClient, rows: ReviewRow[]): Promise<void> {
+  if (!rows.length) return;
+  const { error } = await admin.from("store_reviews").upsert(
+    rows.map((r) => ({ ...r, synced_at: new Date().toISOString() })),
+    { onConflict: "id" },
+  );
+  if (error) throw new Error(error.message);
+}
 
 /**
  * Pull download numbers from both stores into store_daily for the last
@@ -245,6 +380,7 @@ export async function runStoreSync(admin: SupabaseClient, daysWanted: number): P
 
   // Android: monthly CSVs, so one fetch covers the whole window.
   if (playConfig()) {
+    const android: Extract<SyncResult["android"], { configured: true }> = { configured: true };
     try {
       const rows = await fetchPlayDaily(since);
       if (rows.length) {
@@ -254,15 +390,25 @@ export async function runStoreSync(admin: SupabaseClient, daysWanted: number): P
         );
         if (error) throw new Error(error.message);
       }
-      result.android = { configured: true, upserted: rows.length };
+      android.upserted = rows.length;
     } catch (e) {
-      result.android = { configured: true, error: e instanceof Error ? e.message : String(e) };
+      android.error = e instanceof Error ? e.message : String(e);
     }
+    // Reviews fail independently of the daily numbers.
+    try {
+      const reviews = await fetchPlayReviews();
+      await upsertReviews(admin, reviews);
+      android.reviews = reviews.length;
+    } catch (e) {
+      android.error = android.error ?? (e instanceof Error ? e.message : String(e));
+    }
+    result.android = android;
   }
 
   // iOS: one report per day. Yesterday's often isn't published yet; that's
   // fine, the next run picks it up.
   if (ascConfig()) {
+    const ios: Extract<SyncResult["ios"], { configured: true }> = { configured: true };
     let upserted = 0;
     let missing = 0;
     try {
@@ -283,14 +429,21 @@ export async function runStoreSync(admin: SupabaseClient, daysWanted: number): P
         if (error) throw new Error(error.message);
         upserted++;
       }
-      result.ios = { configured: true, upserted, notPublishedYet: missing };
+      ios.upserted = upserted;
+      ios.notPublishedYet = missing;
     } catch (e) {
-      result.ios = {
-        configured: true,
-        upserted,
-        error: e instanceof Error ? e.message : String(e),
-      };
+      ios.upserted = upserted;
+      ios.error = e instanceof Error ? e.message : String(e);
     }
+    // Reviews fail independently of the daily numbers.
+    try {
+      const reviews = await fetchAscReviews();
+      await upsertReviews(admin, reviews);
+      ios.reviews = reviews.length;
+    } catch (e) {
+      ios.error = ios.error ?? (e instanceof Error ? e.message : String(e));
+    }
+    result.ios = ios;
   }
 
   return result;

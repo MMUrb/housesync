@@ -17,6 +17,7 @@ import {
   BarHeader,
 } from "@/components/admin/AdminUI";
 import { SyncStoresButton } from "@/components/admin/SyncStoresButton";
+import { ReviewColumn, type ReviewView } from "@/components/admin/StoreReviews";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Acquisition", robots: { index: false, follow: false } };
@@ -29,6 +30,35 @@ type StoreRow = {
   uninstalls: number | null;
   synced_at: string;
 };
+
+type ReviewRow = {
+  id: string;
+  platform: "ios" | "android";
+  rating: number;
+  title: string | null;
+  body: string | null;
+  author: string | null;
+  territory: string | null;
+  app_version: string | null;
+  reviewed_at: string;
+};
+
+/** "3 days ago" style recency for review meta lines. */
+function agoLabel(iso: string): string {
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / DAY);
+  if (d < 1) return "today";
+  if (d === 1) return "yesterday";
+  if (d < 30) return `${d} days ago`;
+  const mo = Math.round(d / 30);
+  return mo < 12 ? `${mo} month${mo === 1 ? "" : "s"} ago` : `${Math.round(mo / 12)} years ago`;
+}
+
+function toReviewView(r: ReviewRow): ReviewView {
+  const meta = [r.author ?? (r.platform === "android" ? "Play user" : null), r.territory, r.app_version ? `v${r.app_version}` : null, agoLabel(r.reviewed_at)]
+    .filter(Boolean)
+    .join(" · ");
+  return { id: r.id, rating: r.rating, title: r.title, body: r.body, metaLabel: meta };
+}
 
 /** "~0/day" is useless at small volumes; show one decimal until ~10/day. */
 const perDay = (total: number) => {
@@ -62,10 +92,15 @@ export default async function AcquisitionPage() {
   const since30 = new Date(now - 30 * DAY).toISOString();
   const day30 = since30.slice(0, 10);
 
-  const [users, storeRes, visits30] = await Promise.all([
+  const [users, storeRes, reviewsRes, visits30] = await Promise.all([
     listAllUsers(admin),
     // All-time is small (one row per day per platform), so fetch everything.
     admin.from("store_daily").select("*").order("day", { ascending: true }).limit(3000),
+    admin
+      .from("store_reviews")
+      .select("*")
+      .order("reviewed_at", { ascending: false })
+      .limit(1000),
     countSince(admin, "page_views", since30),
   ]);
 
@@ -100,6 +135,14 @@ export default async function AcquisitionPage() {
   const playReady = Boolean(playConfig());
   const ascReady = Boolean(ascConfig());
   const anyData = store.length > 0;
+
+  const reviews = (reviewsRes.data ?? []) as ReviewRow[];
+  const iosReviews = reviews.filter((r) => r.platform === "ios");
+  const andReviews = reviews.filter((r) => r.platform === "android");
+  const avg = (rows: ReviewRow[]) =>
+    rows.length ? (rows.reduce((s, r) => s + r.rating, 0) / rows.length).toFixed(1) : null;
+  const iosAvg = avg(iosReviews);
+  const andAvg = avg(andReviews);
 
   const d30 = now - 30 * DAY;
   const signups30 = users.filter((u) => msOf(u.created_at) >= d30).length;
@@ -184,6 +227,51 @@ export default async function AcquisitionPage() {
           </p>
         </Section>
       )}
+
+      <Section title="Reviews">
+        {reviews.length > 0 && (
+          <Grid>
+            <StatCard
+              label="App Store average"
+              value={iosAvg ? `${iosAvg} ★` : "–"}
+              sub={iosAvg ? "from written reviews" : "no reviews yet"}
+            />
+            <StatCard
+              label="App Store written"
+              value={iosReviews.length}
+              sub={iosReviews.length ? `latest ${agoLabel(iosReviews[0].reviewed_at)}` : undefined}
+            />
+            <StatCard
+              label="Google Play average"
+              value={andAvg ? `${andAvg} ★` : "–"}
+              sub={andAvg ? "from written reviews" : "no reviews yet"}
+            />
+            <StatCard
+              label="Google Play written"
+              value={andReviews.length}
+              sub={andReviews.length ? `latest ${agoLabel(andReviews[0].reviewed_at)}` : undefined}
+            />
+          </Grid>
+        )}
+        <div className="grid items-start gap-4 sm:grid-cols-2">
+          <ReviewColumn
+            store="App Store"
+            tone="ios"
+            reviews={iosReviews.map(toReviewView)}
+            emptyText="No written App Store reviews yet. They appear here as soon as someone leaves one."
+          />
+          <ReviewColumn
+            store="Google Play"
+            tone="android"
+            reviews={andReviews.map(toReviewView)}
+            emptyText="No written Play reviews yet. Google generates the report once the first one lands."
+          />
+        </div>
+        <p className="text-xs text-slate-400">
+          Written reviews only: star-only ratings have no text to show and are not included in
+          these averages. Replying still happens in App Store Connect and Play Console.
+        </p>
+      </Section>
 
       <Section
         title="Sign-ups · last 30 days"

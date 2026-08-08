@@ -7,13 +7,19 @@ type StoreOutcome = {
   configured: boolean;
   upserted?: number;
   notPublishedYet?: number;
+  reviews?: number;
   error?: string;
 };
 
 function label(name: string, o?: StoreOutcome): string {
   if (!o || !o.configured) return `${name}: not configured`;
   if (o.error) return `${name}: failed (${o.error.slice(0, 80)}…)`;
-  return `${name}: ${o.upserted ?? 0} day${(o.upserted ?? 0) === 1 ? "" : "s"} synced`;
+  const days = `${o.upserted ?? 0} day${(o.upserted ?? 0) === 1 ? "" : "s"}`;
+  const reviews =
+    typeof o.reviews === "number"
+      ? `, ${o.reviews} review${o.reviews === 1 ? "" : "s"}`
+      : "";
+  return `${name}: ${days}${reviews} synced`;
 }
 
 /** Runs the store sync on demand, admin-session authenticated. */
