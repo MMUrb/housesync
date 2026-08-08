@@ -109,9 +109,13 @@ export function RowLink({
 
   useEffect(() => {
     if (!download && !isMailto) return;
-    void import("@capacitor/core").then(({ Capacitor }) => {
-      if (Capacitor.isNativePlatform()) setIsNative(true);
-    });
+    // .catch so a failed chunk load can't surface as an unhandled rejection;
+    // staying on the web path is the safe default.
+    void import("@capacitor/core")
+      .then(({ Capacitor }) => {
+        if (Capacitor.isNativePlatform()) setIsNative(true);
+      })
+      .catch(() => {});
   }, [download, isMailto]);
 
   async function onDownloadClick(e: React.MouseEvent) {

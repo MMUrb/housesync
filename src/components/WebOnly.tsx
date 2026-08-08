@@ -12,9 +12,14 @@ export function WebOnly({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    void import("@capacitor/core").then(({ Capacitor }) => {
-      if (!cancelled && Capacitor.isNativePlatform()) setNative(true);
-    });
+    // .catch matters: an unguarded dynamic import turns a failed chunk load
+    // (stale deploy, flaky network) into an unhandled rejection. Failing here
+    // just means we stay on the web default, which is already correct.
+    void import("@capacitor/core")
+      .then(({ Capacitor }) => {
+        if (!cancelled && Capacitor.isNativePlatform()) setNative(true);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
