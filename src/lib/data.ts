@@ -18,6 +18,7 @@ import type {
   PaymentDetails,
   Profile,
   RecurringBill,
+  Settlement,
   ShoppingItem,
 } from "@/lib/types";
 
@@ -301,6 +302,17 @@ export async function getShoppingItems(houseId: string): Promise<ShoppingItem[]>
     .eq("house_id", houseId)
     .order("created_at", { ascending: true });
   return (data ?? []) as ShoppingItem[];
+}
+
+/** All settlement rows for a house (simplified settle mode), oldest first. */
+export async function getSettlements(houseId: string): Promise<Settlement[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("settlements")
+    .select("*")
+    .eq("house_id", houseId)
+    .order("created_at", { ascending: true });
+  return (data ?? []) as Settlement[];
 }
 
 /** Recent house chat messages, oldest first (capped at `limit`). */

@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getExpensesAndSplits, getVisiblePaymentDetails, requireHouse } from "@/lib/data";
+import {
+  getExpensesAndSplits,
+  getSettlements,
+  getVisiblePaymentDetails,
+  requireHouse,
+} from "@/lib/data";
 import { computeBalances } from "@/lib/balances";
 import { formatDate, formatMoney } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
@@ -23,11 +28,12 @@ export default async function HousemateProfilePage({
   const member = members.find((m) => m.user_id === id);
   if (!member) notFound();
 
-  const [{ expenses, splits }, payMap] = await Promise.all([
+  const [{ expenses, splits }, payMap, settlements] = await Promise.all([
     getExpensesAndSplits(house.id),
     getVisiblePaymentDetails(),
+    house.settle_mode === "simplified" ? getSettlements(house.id) : Promise.resolve([]),
   ]);
-  const balances = computeBalances(expenses, splits, user.id);
+  const balances = computeBalances(expenses, splits, user.id, settlements);
   const net = round2(balances.netByUser[id] ?? 0);
 
   const isMe = id === user.id;

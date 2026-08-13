@@ -1,4 +1,4 @@
-import type { Expense, ExpenseSplit } from "@/lib/types";
+import type { Expense, ExpenseSplit, Settlement } from "@/lib/types";
 
 export interface PairBalance {
   userId: string;
@@ -26,11 +26,18 @@ function round2(n: number): number {
  *
  * Each split row means `user_id` owes `amount_owed` to the expense's payer,
  * unless the user IS the payer or the split is already confirmed/settled.
+ *
+ * Settlements (simplified settle mode) adjust the NET positions only. They are
+ * deliberately kept out of the pairwise map: a rerouted payment (you pay Sam
+ * to cover what you owed Alex) has no honest pairwise representation, so
+ * `pairwise` always shows the raw per-person debts. Absorbed settlements are
+ * skipped: the sweep that flagged them also confirmed the matching splits.
  */
 export function computeBalances(
   expenses: Expense[],
   splits: ExpenseSplit[],
   currentUserId: string,
+  settlements: Settlement[] = [],
 ): BalanceResult {
   const payerOf = new Map(expenses.map((e) => [e.id, e.paid_by]));
 
@@ -56,6 +63,12 @@ export function computeBalances(
       netByUser[creditor] = round2((netByUser[creditor] ?? 0) + amt);
       netByUser[debtor] = round2((netByUser[debtor] ?? 0) - amt);
     }
+  }
+  for (const s of settlements) {
+    if (s.absorbed) continue;
+    const amt = Number(s.amount);
+    netByUser[s.from_user] = round2((netByUser[s.from_user] ?? 0) + amt);
+    netByUser[s.to_user] = round2((netByUser[s.to_user] ?? 0) - amt);
   }
 
   // Pairwise balances relative to the current user.

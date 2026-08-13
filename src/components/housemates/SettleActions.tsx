@@ -412,7 +412,7 @@ function cleanHandle(s: string): string {
     .replace(/\/.*$/, "");
 }
 
-function PayLinks({ pay, amount }: { pay: NonNullable<SettleVM["pay"]>; amount: number }) {
+export function PayLinks({ pay, amount }: { pay: NonNullable<SettleVM["pay"]>; amount: number }) {
   const amt = amount.toFixed(2);
   const links: { label: string; href: string }[] = [];
   if (pay.monzo) links.push({ label: "Monzo", href: `https://monzo.me/${cleanHandle(pay.monzo)}/${amt}` });

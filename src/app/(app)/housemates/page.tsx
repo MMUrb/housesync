@@ -1,11 +1,18 @@
 import Link from "next/link";
-import { getExpensesAndSplits, getVisiblePaymentDetails, requireHouse } from "@/lib/data";
+import {
+  getExpensesAndSplits,
+  getSettlements,
+  getVisiblePaymentDetails,
+  requireHouse,
+} from "@/lib/data";
 import { computeBalances } from "@/lib/balances";
+import { netCents, buildPlan, countPairwiseDebts, houseIsSquare, sweepTargets } from "@/lib/settle";
 import { formatMoney, formatDate } from "@/lib/format";
 import { PageTitle } from "@/components/app/PageTitle";
 import { Avatar } from "@/components/Avatar";
 import { InviteBox } from "@/components/house/InviteBox";
 import { SettleActions, type SettleVM } from "@/components/housemates/SettleActions";
+import { SimplifySettle } from "@/components/housemates/SimplifySettle";
 import { IconBroom, IconCart } from "@/components/icons";
 
 export const metadata = { title: "Housemates" };
@@ -15,11 +22,13 @@ const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 export default async function HousematesPage() {
   const { user, house, members } = await requireHouse();
-  const [{ expenses, splits }, payMap] = await Promise.all([
+  const simplified = house.settle_mode === "simplified";
+  const [{ expenses, splits }, payMap, settlements] = await Promise.all([
     getExpensesAndSplits(house.id),
     getVisiblePaymentDetails(),
+    simplified ? getSettlements(house.id) : Promise.resolve([]),
   ]);
-  const balances = computeBalances(expenses, splits, user.id);
+  const balances = computeBalances(expenses, splits, user.id, settlements);
 
   const profileOf = (id: string) => members.find((m) => m.user_id === id)?.profile;
   const nameOf = (id: string) =>
@@ -86,6 +95,68 @@ export default async function HousematesPage() {
     .filter((vm) => vm.owe + vm.owePending + vm.owed + vm.owedPending > 0.004)
     .sort((a, b) => b.owe + b.owePending - (a.owe + a.owePending));
 
+  // Simplified mode: fewest-payments plan instead of per-person rows.
+  const nets = simplified ? netCents(expenses, splits, settlements) : {};
+  const plan = simplified ? buildPlan(nets) : [];
+  const square = simplified ? houseIsSquare(nets, settlements) : false;
+  const pending = settlements.filter((s) => !s.absorbed && s.status === "pending");
+  const payOf = (uid: string) => ({
+    monzo: payMap.get(uid)?.monzo ?? null,
+    paypal: payMap.get(uid)?.paypal ?? null,
+    revolut: payMap.get(uid)?.revolut ?? null,
+  });
+  const simplifyVM = simplified
+    ? {
+        houseId: house.id,
+        currentUserId: user.id,
+        currency: house.currency,
+        myOut: plan
+          .filter((t) => t.from === me)
+          .map((t) => ({
+            toId: t.to,
+            name: profileOf(t.to)?.name ?? "Housemate",
+            color: profileOf(t.to)?.avatar_color ?? "#6f53f5",
+            amount: t.amount,
+            pay: payOf(t.to),
+          })),
+        myIn: plan
+          .filter((t) => t.to === me)
+          .map((t) => ({
+            fromId: t.from,
+            name: profileOf(t.from)?.name ?? "Housemate",
+            color: profileOf(t.from)?.avatar_color ?? "#6f53f5",
+            amount: t.amount,
+          })),
+        pendingOut: pending
+          .filter((s) => s.from_user === me)
+          .map((s) => ({
+            id: s.id,
+            name: profileOf(s.to_user)?.name ?? "Housemate",
+            amount: Number(s.amount),
+          })),
+        pendingIn: pending
+          .filter((s) => s.to_user === me)
+          .map((s) => ({
+            id: s.id,
+            name: profileOf(s.from_user)?.name ?? "Housemate",
+            amount: Number(s.amount),
+          })),
+        rawPairs: balances.pairwise.map((p) => ({
+          userId: p.userId,
+          name: profileOf(p.userId)?.name ?? "Housemate",
+          color: profileOf(p.userId)?.avatar_color ?? "#6f53f5",
+          amount: p.amount,
+          direction: p.direction,
+        })),
+        planCount: plan.length,
+        pairCount: countPairwiseDebts(expenses, splits),
+        // A square house with open splits or unabsorbed settlements means an
+        // earlier sweep never finished — the client heals it on mount.
+        sweepDue: square ? sweepTargets(splits, settlements) : { splitIds: [], settlementIds: [] },
+        square,
+      }
+    : null;
+
   return (
     <div className="space-y-6">
       <PageTitle title={house.name} subtitle={`${members.length} housemates`} />
@@ -115,12 +186,16 @@ export default async function HousematesPage() {
       {/* Settle up */}
       <section className="space-y-2">
         <h2 className="px-1 text-sm font-semibold text-slate-900">Settle up</h2>
-        <SettleActions
-          items={settleItems}
-          houseId={house.id}
-          currentUserId={user.id}
-          currency={house.currency}
-        />
+        {simplifyVM ? (
+          <SimplifySettle {...simplifyVM} />
+        ) : (
+          <SettleActions
+            items={settleItems}
+            houseId={house.id}
+            currentUserId={user.id}
+            currency={house.currency}
+          />
+        )}
       </section>
 
       {/* Members */}

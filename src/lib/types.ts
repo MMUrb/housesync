@@ -45,6 +45,8 @@ export interface PaymentDetails {
   updated_at: string;
 }
 
+export type SettleMode = "itemised" | "simplified";
+
 export interface House {
   id: string;
   name: string;
@@ -54,6 +56,26 @@ export interface House {
   invite_code: string;
   created_by: string | null;
   created_at: string;
+  /** How the house settles up: per-debt (itemised) or fewest-payments netting. */
+  settle_mode: SettleMode;
+}
+
+/**
+ * A payment between housemates in simplified settle mode. Its own row (not a
+ * split-status flip) so one transfer can clear debts to several people.
+ * "absorbed" means it has been reconciled into split statuses by the
+ * house-is-square sweep and must be ignored by all balance maths.
+ */
+export interface Settlement {
+  id: string;
+  house_id: string;
+  from_user: string;
+  to_user: string;
+  amount: number;
+  status: "pending" | "confirmed";
+  absorbed: boolean;
+  created_at: string;
+  confirmed_at: string | null;
 }
 
 export interface HouseMember {

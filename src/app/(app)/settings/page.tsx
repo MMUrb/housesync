@@ -1,11 +1,14 @@
 import Link from "next/link";
 import {
   getAccountSettings,
+  getExpensesAndSplits,
   getHouseCategories,
   getMyHouses,
+  getSettlements,
   getVisiblePaymentDetails,
   requireHouse,
 } from "@/lib/data";
+import { netCents, buildPlan, countPairwiseDebts } from "@/lib/settle";
 import { PageTitle } from "@/components/app/PageTitle";
 import { ProfileForm } from "@/components/settings/ProfileForm";
 import { PaymentDetailsForm } from "@/components/settings/PaymentDetailsForm";
@@ -14,6 +17,7 @@ import { HouseSettingsForm } from "@/components/settings/HouseSettingsForm";
 import { DangerZone } from "@/components/settings/DangerZone";
 import { ThemeToggle } from "@/components/settings/ThemeToggle";
 import { DisplayCurrencyForm } from "@/components/settings/DisplayCurrencyForm";
+import { SettleModeForm } from "@/components/settings/SettleModeForm";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { SettingsHero } from "@/components/settings/SettingsHero";
 import { NotificationsPanel } from "@/components/settings/NotificationsPanel";
@@ -58,15 +62,27 @@ function ordinal(n: number): string {
 
 export default async function SettingsPage() {
   const { user, profile, house, members } = await requireHouse();
-  const [account, payMap, houses, categories] = await Promise.all([
-    getAccountSettings(),
-    getVisiblePaymentDetails(),
-    getMyHouses(),
-    getHouseCategories(house.id),
-  ]);
+  const [account, payMap, houses, categories, { expenses, splits }, settlements] =
+    await Promise.all([
+      getAccountSettings(),
+      getVisiblePaymentDetails(),
+      getMyHouses(),
+      getHouseCategories(house.id),
+      getExpensesAndSplits(house.id),
+      getSettlements(house.id),
+    ]);
   const pay = payMap.get(user.id);
   const isOwner = house.created_by === user.id;
   const emailVerified = Boolean(account?.email_verified_at);
+
+  // Settle up style: live counts for the option badges, plus switch guards.
+  // See SettleModeForm for why each direction can be blocked.
+  const settleNets = netCents(expenses, splits, settlements);
+  const settlePlanCount = buildPlan(settleNets).length;
+  const settlePairCount = countPairwiseDebts(expenses, splits);
+  const activeSettlements = settlements.filter((s) => !s.absorbed);
+  const toSimplifiedBlocked = splits.some((s) => s.status === "paid");
+  const toItemisedBlocked = activeSettlements.length > 0;
 
   // Row summaries: read your setup without opening anything.
   const filledMethods = [
@@ -215,6 +231,26 @@ export default async function SettingsPage() {
         >
           <HouseSettingsForm bare house={house} userId={user.id} />
         </RowDisclosure>
+
+        {/* Hidden until migration 0038 has run (settle_mode column exists). */}
+        {Boolean(house.settle_mode) && (
+          <RowDisclosure
+            icon={<RowIcon tone="house"><GlyphCoin /></RowIcon>}
+            label="Settle up style"
+            value={house.settle_mode === "simplified" ? "Simplified" : "Itemised"}
+          >
+            <SettleModeForm
+              houseId={house.id}
+              userId={user.id}
+              isOwner={isOwner}
+              mode={house.settle_mode}
+              planCount={settlePlanCount}
+              pairCount={settlePairCount}
+              toSimplifiedBlocked={toSimplifiedBlocked}
+              toItemisedBlocked={toItemisedBlocked}
+            />
+          </RowDisclosure>
+        )}
 
         <RowLink
           href="/categories"

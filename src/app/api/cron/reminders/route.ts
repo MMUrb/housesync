@@ -151,7 +151,13 @@ export async function GET(request: Request) {
           .in("expense_id", expIds);
         splits = (sp ?? []) as any[];
       }
-      const balances = computeBalances(expenses as any, splits as any, userIds[0]);
+      // Settlements (simplified settle mode) shift net positions; without them
+      // the nudge would chase money that's already been paid via a reroute.
+      const { data: setts } = await supabase
+        .from("settlements")
+        .select("*")
+        .eq("house_id", houseId);
+      const balances = computeBalances(expenses as any, splits as any, userIds[0], (setts ?? []) as any);
       for (const uid of userIds) {
         const net = balances.netByUser[uid] ?? 0;
         if (net >= -0.5) continue; // only nudge people who actually owe

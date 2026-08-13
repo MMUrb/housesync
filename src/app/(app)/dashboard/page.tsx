@@ -7,11 +7,13 @@ import {
   getExpensesAndSplits,
   getHouseCategories,
   getNotices,
+  getSettlements,
   getShoppingItems,
   requireHouse,
 } from "@/lib/data";
 import { NoticeBoard } from "@/components/notices/NoticeBoard";
 import { computeBalances } from "@/lib/balances";
+import { netCents, buildPlan } from "@/lib/settle";
 import { getRate } from "@/lib/rates";
 import { formatMoney, formatConverted, firstName } from "@/lib/format";
 import { RelativeDay, TimeAgo } from "@/components/LocalTime";
@@ -33,7 +35,8 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const { user, profile, house, members } = await requireHouse();
-  const [{ expenses, splits }, bills, chores, activity, categories, account, notices, shopping] =
+  const simplified = house.settle_mode === "simplified";
+  const [{ expenses, splits }, bills, chores, activity, categories, account, notices, shopping, settlements] =
     await Promise.all([
       getExpensesAndSplits(house.id),
       getBills(house.id),
@@ -43,6 +46,7 @@ export default async function DashboardPage() {
       getAccountSettings(),
       getNotices(house.id),
       getShoppingItems(house.id),
+      simplified ? getSettlements(house.id) : Promise.resolve([]),
     ]);
 
   // The user's own share spent in the current calendar month (for the budget).
@@ -57,9 +61,27 @@ export default async function DashboardPage() {
     }
   }
 
-  const balances = computeBalances(expenses, splits, user.id);
+  const balances = computeBalances(expenses, splits, user.id, settlements);
   const memberOf = (id: string | null): MemberWithProfile | undefined =>
     members.find((m) => m.user_id === id);
+
+  // Simplified settle mode: the headline numbers and the per-person list come
+  // from the fewest-payments plan, so the dashboard always agrees with the
+  // settle card on Housemates. Pairwise sums would disagree after a rerouted
+  // payment (paying Sam can cover what you owed Alex).
+  const plan = simplified ? buildPlan(netCents(expenses, splits, settlements)) : [];
+  const myNet = balances.netByUser[user.id] ?? 0;
+  const youOwe = simplified ? Math.max(0, -myNet) : balances.totalYouOwe;
+  const youAreOwed = simplified ? Math.max(0, myNet) : balances.totalYouAreOwed;
+  const personRows = simplified
+    ? plan
+        .filter((t) => t.from === user.id || t.to === user.id)
+        .map((t) => ({
+          userId: t.from === user.id ? t.to : t.from,
+          amount: t.amount,
+          direction: (t.from === user.id ? "you_owe" : "owes_you") as "you_owe" | "owes_you",
+        }))
+    : balances.pairwise;
 
   // Optional per-user second currency: shows an approximate "≈ $X" under house
   // totals. Only fetch a rate when the user picked a currency other than the
@@ -122,22 +144,22 @@ export default async function DashboardPage() {
         <div className="card p-4">
           <p className="text-xs font-medium text-slate-500">You owe</p>
           <p className="mt-1 text-2xl font-bold text-red-600">
-            {formatMoney(balances.totalYouOwe, house.currency)}
+            {formatMoney(youOwe, house.currency)}
           </p>
           {display && (
             <p className="mt-0.5 text-xs text-slate-400">
-              {formatConverted(balances.totalYouOwe, house.currency, display)}
+              {formatConverted(youOwe, house.currency, display)}
             </p>
           )}
         </div>
         <div className="card p-4">
           <p className="text-xs font-medium text-slate-500">You&apos;re owed</p>
           <p className="mt-1 text-2xl font-bold text-mint-600">
-            {formatMoney(balances.totalYouAreOwed, house.currency)}
+            {formatMoney(youAreOwed, house.currency)}
           </p>
           {display && (
             <p className="mt-0.5 text-xs text-slate-400">
-              {formatConverted(balances.totalYouAreOwed, house.currency, display)}
+              {formatConverted(youAreOwed, house.currency, display)}
             </p>
           )}
         </div>
@@ -170,9 +192,9 @@ export default async function DashboardPage() {
       </section>
 
       {/* Per-person breakdown */}
-      {balances.pairwise.length > 0 ? (
+      {personRows.length > 0 ? (
         <section className="card divide-y divide-slate-100">
-          {balances.pairwise.map((p) => {
+          {personRows.map((p) => {
             const m = memberOf(p.userId);
             return (
               <div key={p.userId} className="flex items-center gap-3 p-3.5">
