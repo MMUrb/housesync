@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 // The "how does simplified settle up work?" bottom sheet. Static worked
 // example (fictional housemates) rather than live house data: the point is to
 // teach the idea once, and the settle card already shows the real numbers.
@@ -39,19 +41,40 @@ function AmountTag({ x, y, dark, children }: { x: number; y: number; dark?: bool
 }
 
 export function SettleExplainer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  // Same dialog manners as the rest of the app (see BillDetailsButton):
+  // Escape closes, and the page behind stops scrolling while it's up.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (ev: KeyboardEvent) => ev.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settle-explainer-title"
+    >
       <button
         type="button"
         aria-label="Close"
         onClick={onClose}
         className="absolute inset-0 bg-slate-900/55"
       />
-      <div className="relative max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 pb-6 shadow-soft">
+      <div className="card relative max-h-[88vh] w-full max-w-md overflow-y-auto rounded-b-none rounded-t-3xl p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-200" />
-        <h2 className="text-lg font-bold text-slate-900">How simplified settle up works</h2>
+        <h2 id="settle-explainer-title" className="text-lg font-bold text-slate-900">
+          How simplified settle up works
+        </h2>
         <p className="mt-1 text-sm leading-relaxed text-slate-500">
           Nobody pays more or less. The app just finds a shorter route for the same money.
         </p>

@@ -150,9 +150,13 @@ export default async function HousematesPage() {
         })),
         planCount: plan.length,
         pairCount: countPairwiseDebts(expenses, splits),
-        // A square house with open splits or unabsorbed settlements means an
-        // earlier sweep never finished — the client heals it on mount.
-        sweepDue: square ? sweepTargets(splits, settlements) : { splitIds: [], settlementIds: [] },
+        // A square house with open splits or unabsorbed settlements means a
+        // confirm landed but its sweep call never ran; the client asks the DB
+        // to finish it on mount (settle_sweep is atomic and idempotent).
+        sweepDue:
+          square &&
+          (sweepTargets(splits, settlements).splitIds.length > 0 ||
+            sweepTargets(splits, settlements).settlementIds.length > 0),
         square,
       }
     : null;

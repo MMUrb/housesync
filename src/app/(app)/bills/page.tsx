@@ -209,7 +209,19 @@ export default async function BillsPage() {
                       })}
                     </ul>
 
-                    {mine && mine.status === "unpaid" && mine.user_id !== payer && (
+                    {/* Simplified settle up: per-bill "mark as paid" would create
+                        an itemised claim nobody can confirm, while the netted
+                        plan still asks for the money. All paying happens on
+                        Housemates in that mode. */}
+                    {mine && mine.status === "unpaid" && mine.user_id !== payer && house.settle_mode === "simplified" && (
+                      <Link
+                        href="/housemates"
+                        className="btn-secondary btn-block mt-3 text-sm"
+                      >
+                        Settle up on Housemates
+                      </Link>
+                    )}
+                    {mine && mine.status === "unpaid" && mine.user_id !== payer && house.settle_mode !== "simplified" && (
                       <div className="mt-3">
                         <BillPay
                           splitId={mine.id}

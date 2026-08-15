@@ -51,6 +51,8 @@ export async function GET() {
     messages,
     paymentDetails,
     activity,
+    settleFrom,
+    settleTo,
   ] = await Promise.all([
     grab("profiles", "id"),
     grab("house_members", "user_id"),
@@ -63,6 +65,8 @@ export async function GET() {
     grab("messages", "user_id"),
     grab("payment_details", "user_id"),
     grab("activity", "user_id"),
+    grab("settlements", "from_user"),
+    grab("settlements", "to_user"),
   ]);
 
   const payload = {
@@ -78,6 +82,8 @@ export async function GET() {
     chores: dedupe([...choreAssigned, ...choreCreated]),
     messages,
     activity,
+    // Simplified settle up payments you sent or received.
+    settlements: dedupe([...settleFrom, ...settleTo]),
   };
 
   const stamp = new Date().toISOString().slice(0, 10);

@@ -97,10 +97,15 @@ export function countPairwiseDebts(expenses: Expense[], splits: ExpenseSplit[]):
  * The house is square when nobody is owed anything and no payment is still
  * waiting on a confirm. This is the only moment split statuses and the
  * settlements ledger can be reconciled without lying to anyone.
+ *
+ * Exact zero, no penny tolerance: every amount is a 2dp numeric so the pence
+ * sums are exact, and buildPlan's transfers sum precisely to the nets. A 1p
+ * residue is a real 1p debt (a part-payment short by a penny) and the plan
+ * shows it as such. Mirrors settle_sweep() in migration 0039.
  */
 export function houseIsSquare(nets: Record<string, number>, settlements: Settlement[]): boolean {
   if (settlements.some((s) => !s.absorbed && s.status === "pending")) return false;
-  return Object.values(nets).every((c) => Math.abs(c) <= 1);
+  return Object.values(nets).every((c) => c === 0);
 }
 
 /** Rows the square-house sweep should touch (both updates are idempotent). */

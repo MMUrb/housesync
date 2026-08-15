@@ -69,10 +69,12 @@ export default async function DashboardPage() {
   // from the fewest-payments plan, so the dashboard always agrees with the
   // settle card on Housemates. Pairwise sums would disagree after a rerouted
   // payment (paying Sam can cover what you owed Alex).
-  const plan = simplified ? buildPlan(netCents(expenses, splits, settlements)) : [];
-  const myNet = balances.netByUser[user.id] ?? 0;
-  const youOwe = simplified ? Math.max(0, -myNet) : balances.totalYouOwe;
-  const youAreOwed = simplified ? Math.max(0, myNet) : balances.totalYouAreOwed;
+  const nets = simplified ? netCents(expenses, splits, settlements) : {};
+  const plan = simplified ? buildPlan(nets) : [];
+  // Exact pence, the same numbers the settle card and settle_sweep() use.
+  const myNetCents = nets[user.id] ?? 0;
+  const youOwe = simplified ? Math.max(0, -myNetCents) / 100 : balances.totalYouOwe;
+  const youAreOwed = simplified ? Math.max(0, myNetCents) / 100 : balances.totalYouAreOwed;
   const personRows = simplified
     ? plan
         .filter((t) => t.from === user.id || t.to === user.id)

@@ -5,20 +5,29 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney } from "@/lib/format";
 import { buildReminderMessage } from "@/lib/reminders";
-import { netCents, houseIsSquare, sweepTargets } from "@/lib/settle";
 import { Avatar } from "@/components/Avatar";
 import { haptic } from "@/lib/haptics";
 import { PayLinks, type SettleVM } from "@/components/housemates/SettleActions";
 import { SettleExplainer } from "@/components/housemates/SettleExplainer";
 import { reportClientError } from "@/components/ErrorReporter";
-import type { Expense, ExpenseSplit, Settlement } from "@/lib/types";
 
 // Simplified settle up (house.settle_mode === "simplified"). Payments are
 // settlement rows, not split-status flips, so one transfer can clear debts to
-// several people. Split statuses reconcile in one sweep when the whole house
-// reaches zero, see maybeSweep below.
+// several people. Split statuses reconcile when the whole house reaches zero,
+// via the settle_sweep() Postgres function (migration 0039): it recomputes the
+// nets and does both updates in ONE transaction, so an interrupted sweep can
+// never leave half the ledger reconciled.
 
 type PayInfo = NonNullable<SettleVM["pay"]>;
+
+/** Friendly copy for the DB guard errors raised by migration 0039. */
+function friendlyError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  if (msg.includes("settlement_requires_simplified"))
+    return "This house isn't using simplified settle up any more. Refreshing…";
+  if (msg.includes("settle_mode_")) return "The house settings changed underneath you. Refreshing…";
+  return msg || "Something went wrong.";
+}
 
 export interface SimplifyVM {
   houseId: string;
@@ -43,39 +52,12 @@ export interface SimplifyVM {
   /** House-wide counts for the "5 payments into 3" footnote. */
   planCount: number;
   pairCount: number;
-  /** Self-heal: the server saw a square house with an unfinished sweep. */
-  sweepDue: { splitIds: string[]; settlementIds: string[] };
+  /**
+   * Self-heal: the server saw a square house that still has open splits or
+   * unabsorbed settlements (a confirm landed but the sweep call never ran).
+   */
+  sweepDue: boolean;
   square: boolean;
-}
-
-/** PostgREST puts .in() lists in the URL, so keep each request comfortably small. */
-function chunk<T>(arr: T[], size = 80): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
-/** Confirm all open splits + absorb all settlements once the house is square. */
-async function runSweep(
-  supabase: ReturnType<typeof createClient>,
-  splitIds: string[],
-  settlementIds: string[],
-): Promise<void> {
-  const now = new Date().toISOString();
-  for (const ids of chunk(splitIds)) {
-    const { error } = await supabase
-      .from("expense_splits")
-      .update({ status: "confirmed", confirmed_at: now })
-      .in("id", ids);
-    if (error) throw error;
-  }
-  for (const ids of chunk(settlementIds)) {
-    const { error } = await supabase
-      .from("settlements")
-      .update({ absorbed: true })
-      .in("id", ids);
-    if (error) throw error;
-  }
 }
 
 export function SimplifySettle(vm: SimplifyVM) {
@@ -83,84 +65,75 @@ export function SimplifySettle(vm: SimplifyVM) {
   const supabase = createClient();
   const [loading, setLoading] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [partError, setPartError] = useState<string | null>(null);
   const [showHow, setShowHow] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   const [partFor, setPartFor] = useState<string | null>(null);
   const [partAmount, setPartAmount] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
   const healed = useRef(false);
+  // Idempotency key for the in-flight payment: a retry after a timed-out
+  // request reuses the same id, so a payment that actually landed can never
+  // be recorded twice. Cleared once the server confirms it.
+  const payKey = useRef<{ key: string; id: string } | null>(null);
 
   const { currency } = vm;
 
-  // Self-heal: a previous confirm crashed between "confirmed" and the sweep.
-  // Any member's device can finish it, both updates are idempotent.
+  /**
+   * Ask the database to reconcile if the house is square. Atomic and
+   * idempotent (settle_sweep in migration 0039); returns true only for the
+   * caller whose call actually swept, which is who posts the chat note.
+   */
+  async function sweep(): Promise<boolean> {
+    const { data, error } = await supabase.rpc("settle_sweep", { p_house_id: vm.houseId });
+    if (error) throw error;
+    return data === true;
+  }
+
+  async function announceSettled(): Promise<void> {
+    await supabase.from("messages").insert({
+      house_id: vm.houseId,
+      user_id: vm.currentUserId,
+      kind: "system",
+      body: "confirmed the last payment, the whole house is settled up 🎉",
+    });
+  }
+
+  // Self-heal on mount: any member's device can finish an unswept square house.
   useEffect(() => {
-    if (healed.current) return;
-    if (vm.sweepDue.splitIds.length === 0 && vm.sweepDue.settlementIds.length === 0) return;
+    if (healed.current || !vm.sweepDue) return;
     healed.current = true;
-    runSweep(supabase, vm.sweepDue.splitIds, vm.sweepDue.settlementIds)
-      .then(() => router.refresh())
+    sweep()
+      .then(async (swept) => {
+        if (swept) await announceSettled();
+        router.refresh();
+      })
       .catch((e) => reportClientError(`settle sweep self-heal: ${e instanceof Error ? e.message : e}`));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  /**
-   * After MY confirm, check whether the house just hit zero, and if so run
-   * the reconciling sweep (fresh data, not the page's stale props).
-   */
-  async function maybeSweep(): Promise<void> {
-    const { data: expData, error: expErr } = await supabase
-      .from("expenses")
-      .select("id, paid_by")
-      .eq("house_id", vm.houseId);
-    if (expErr) throw expErr;
-    const expenses = (expData ?? []) as Expense[];
-    let splits: ExpenseSplit[] = [];
-    if (expenses.length > 0) {
-      const { data, error } = await supabase
-        .from("expense_splits")
-        .select("id, expense_id, user_id, amount_owed, status")
-        .in("expense_id", expenses.map((e) => e.id));
-      if (error) throw error;
-      splits = (data ?? []) as ExpenseSplit[];
-    }
-    const { data: setts, error: settErr } = await supabase
-      .from("settlements")
-      .select("*")
-      .eq("house_id", vm.houseId);
-    if (settErr) throw settErr;
-    const settlements = (setts ?? []) as Settlement[];
-
-    const nets = netCents(expenses, splits, settlements);
-    if (!houseIsSquare(nets, settlements)) return;
-
-    const targets = sweepTargets(splits, settlements);
-    await runSweep(supabase, targets.splitIds, targets.settlementIds);
-    // Tell the house in chat, the same way settings changes do.
-    void supabase
-      .from("messages")
-      .insert({
-        house_id: vm.houseId,
-        user_id: vm.currentUserId,
-        kind: "system",
-        body: "confirmed the last payment, the whole house is settled up 🎉",
-      })
-      .then(() => {});
-  }
+  }, [vm.sweepDue]);
 
   async function pay(toId: string, name: string, amount: number): Promise<void> {
     setError(null);
+    setPartError(null);
     setLoading(`pay:${toId}`);
     void haptic("light");
     try {
+      const key = `${toId}:${amount}`;
+      if (!payKey.current || payKey.current.key !== key) {
+        payKey.current = { key, id: crypto.randomUUID() };
+      }
       const { error } = await supabase.from("settlements").insert({
+        id: payKey.current.id,
         house_id: vm.houseId,
         from_user: vm.currentUserId,
         to_user: toId,
         amount,
         status: "pending",
       });
-      if (error) throw error;
+      // 23505 = unique_violation on the id: the earlier attempt landed after
+      // all, so this retry is a success, not a second payment.
+      if (error && error.code !== "23505") throw error;
+      payKey.current = null;
       await supabase.from("activity").insert({
         house_id: vm.houseId,
         user_id: vm.currentUserId,
@@ -182,7 +155,9 @@ export function SimplifySettle(vm: SimplifyVM) {
       setPartAmount("");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      const msg = friendlyError(err);
+      setError(msg);
+      if (msg.endsWith("Refreshing…")) router.refresh();
     } finally {
       setLoading("");
     }
@@ -245,9 +220,10 @@ export function SimplifySettle(vm: SimplifyVM) {
         message: `confirmed ${name} paid ${formatMoney(amount, currency)}`,
       });
       try {
-        await maybeSweep();
+        if (await sweep()) await announceSettled();
       } catch (e) {
-        // The confirm itself succeeded; the sweep self-heals on next load.
+        // The confirm itself succeeded; the mount-time self-heal retries the
+        // sweep on the next load of this page, by any housemate.
         reportClientError(`settle sweep: ${e instanceof Error ? e.message : e}`);
       }
       router.refresh();
@@ -310,7 +286,6 @@ export function SimplifySettle(vm: SimplifyVM) {
   }
 
   const busy = loading !== "";
-  const totalOut = vm.myOut.reduce((s, t) => s + t.amount, 0);
   const nothingForMe =
     vm.myOut.length === 0 && vm.myIn.length === 0 && vm.pendingOut.length === 0 && vm.pendingIn.length === 0;
 
@@ -353,7 +328,7 @@ export function SimplifySettle(vm: SimplifyVM) {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-white">Pay {t.name}</p>
                       {t.toId === vm.myOut[0].toId && alsoCovers.length > 0 && (
-                        <p className="truncate text-xs text-brand-100">
+                        <p className="truncate text-xs text-[#e7e5ff]">
                           Settles things with {alsoCovers.join(" and ")} too
                         </p>
                       )}
@@ -367,13 +342,14 @@ export function SimplifySettle(vm: SimplifyVM) {
                     <PayLinks pay={t.pay} amount={t.amount} />
                   </div>
 
-                  {/* Arbitrary-value white: the dark remap rewrites the
-                      bg-white utility, but this button must stay white on the
-                      purple card in both themes. */}
+                  {/* Everything on this purple card uses arbitrary-value colours:
+                      the dark remap layer rewrites bg-white, text-brand-*, the
+                      .input class etc., and this card must read the same in
+                      both themes. */}
                   <button
                     onClick={() => pay(t.toId, t.name, t.amount)}
                     disabled={busy}
-                    className="btn btn-block mt-2 bg-[#ffffff] text-brand-700 hover:bg-[#f2f1ff]"
+                    className="btn btn-block mt-2 bg-[#ffffff] text-[#4f31bd] hover:bg-[#f2f1ff]"
                   >
                     {loading === `pay:${t.toId}`
                       ? "Saving…"
@@ -381,41 +357,49 @@ export function SimplifySettle(vm: SimplifyVM) {
                   </button>
 
                   {partFor === t.toId ? (
-                    <div className="mt-2 flex items-center gap-2">
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min="0.01"
-                        max={t.amount}
-                        step="0.01"
-                        placeholder={`Up to ${t.amount.toFixed(2)}`}
-                        value={partAmount}
-                        onChange={(e) => setPartAmount(e.target.value)}
-                        className="input flex-1 bg-white/95"
-                      />
-                      <button
-                        onClick={() => {
-                          const n = Math.round(Number(partAmount) * 100) / 100;
-                          if (!Number.isFinite(n) || n <= 0 || n > t.amount + 0.005) {
-                            setError(`Enter an amount up to ${formatMoney(t.amount, currency)}.`);
-                            return;
-                          }
-                          void pay(t.toId, t.name, n);
-                        }}
-                        disabled={busy}
-                        className="btn shrink-0 bg-white/20 text-white hover:bg-white/30"
-                      >
-                        Save
-                      </button>
+                    <div className="mt-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min="0.01"
+                          max={t.amount}
+                          step="0.01"
+                          placeholder={`Up to ${t.amount.toFixed(2)}`}
+                          value={partAmount}
+                          onChange={(e) => setPartAmount(e.target.value)}
+                          aria-label={`Amount to pay ${t.name}`}
+                          className="w-full flex-1 rounded-xl border border-[#d2ceff] bg-[#ffffff] px-3.5 py-2.5 text-[15px] text-[#15151c] outline-none placeholder:text-[#94a3b8] focus:ring-4 focus:ring-[#ffffff]/40"
+                        />
+                        <button
+                          onClick={() => {
+                            const n = Math.round(Number(partAmount) * 100) / 100;
+                            if (!Number.isFinite(n) || n <= 0 || n > t.amount + 0.005) {
+                              setPartError(`Enter an amount up to ${formatMoney(t.amount, currency)}.`);
+                              return;
+                            }
+                            void pay(t.toId, t.name, n);
+                          }}
+                          disabled={busy}
+                          className="btn shrink-0 bg-white/20 text-white hover:bg-white/30"
+                        >
+                          Save
+                        </button>
+                      </div>
+                      {partError && (
+                        <p className="mt-1.5 rounded-lg bg-[#ffffff]/15 px-2.5 py-1.5 text-xs font-medium text-white">
+                          {partError}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <button
                       onClick={() => {
                         setPartFor(t.toId);
                         setPartAmount("");
-                        setError(null);
+                        setPartError(null);
                       }}
-                      className="mt-1 w-full py-1.5 text-center text-xs font-semibold text-brand-100 underline decoration-brand-300 underline-offset-2"
+                      className="mt-1 w-full py-1.5 text-center text-xs font-semibold text-[#e7e5ff] underline decoration-[#b3aaff] underline-offset-2"
                     >
                       Pay part of it
                     </button>
@@ -443,13 +427,13 @@ export function SimplifySettle(vm: SimplifyVM) {
               ))}
 
               {vm.pairCount > vm.planCount && (
-                <p className="mt-3 text-center text-[11px] font-medium text-brand-100">
+                <p className="mt-3 text-center text-[11px] font-medium text-[#e7e5ff]">
                   Across the house this turns {vm.pairCount} payments into {vm.planCount}
                 </p>
               )}
               <button
                 onClick={() => setShowHow(true)}
-                className="mt-1 w-full pb-0.5 text-center text-xs font-semibold text-brand-100 underline underline-offset-2"
+                className="mt-1 w-full pb-0.5 text-center text-xs font-semibold text-[#e7e5ff] underline underline-offset-2"
               >
                 How does this work?
               </button>

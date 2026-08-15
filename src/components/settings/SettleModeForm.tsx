@@ -10,12 +10,25 @@ import type { SettleMode } from "@/lib/types";
 // everyone, so no two housemates ever see different amounts, and changing it
 // posts a system note in chat. Owner-only by design: it changes who pays whom.
 //
-// Switching has guards, computed server-side and passed in:
+// Switching has guards:
 // - to simplified: blocked while itemised "paid" claims await a confirm
 //   (their confirm buttons live in the itemised rows about to disappear).
 // - to itemised: blocked while unabsorbed settlements exist. A rerouted
 //   payment has no pairwise representation, so the itemised view can only be
 //   trusted again once the house has fully settled (the sweep absorbs all).
+// The props below only shape the UI; the database trigger in migration 0039
+// enforces the same rules (plus owner-only) on the write itself, so a stale
+// screen or a direct API call cannot bypass them.
+
+/** The trigger raises short codes; turn them into sentences. */
+function friendlyError(message: string): string {
+  if (message.includes("settle_mode_owner_only")) return "Only the house owner can change this.";
+  if (message.includes("settle_mode_pending_claims"))
+    return "Confirm or undo the payment marks waiting on Housemates first.";
+  if (message.includes("settle_mode_open_settlements"))
+    return "Finish settling up first, then the house can switch back.";
+  return message;
+}
 
 export function SettleModeForm({
   houseId,
@@ -52,7 +65,9 @@ export function SettleModeForm({
       .eq("id", houseId);
     setSaving(false);
     if (error) {
-      setError(error.message);
+      setError(friendlyError(error.message));
+      // The guard state on screen was stale; pull the current one.
+      router.refresh();
       return;
     }
     // Everyone's Housemates tab just changed shape, so say so in chat.
@@ -86,7 +101,7 @@ export function SettleModeForm({
       badge: pairCount > 0 ? `${planCount} payment${planCount === 1 ? "" : "s"}` : "fewest payments",
       body: "HouseSync nets everything off and shows each person the fewest transfers that clear them.",
       blocked: toSimplifiedBlocked,
-      blockedNote: "Confirm or undo the waiting payment marks below first.",
+      blockedNote: "Confirm or undo the payment marks waiting on Housemates first.",
     },
     {
       value: "itemised",
@@ -100,7 +115,11 @@ export function SettleModeForm({
 
   return (
     <div className="space-y-3">
-      <div className="overflow-hidden rounded-xl border border-slate-200">
+      <div
+        role="radiogroup"
+        aria-label="Settle up style"
+        className="overflow-hidden rounded-xl border border-slate-200"
+      >
         {options.map((opt, i) => {
           const active = mode === opt.value;
           const disabled = !isOwner || saving || (!active && opt.blocked);
@@ -108,6 +127,8 @@ export function SettleModeForm({
             <button
               key={opt.value}
               type="button"
+              role="radio"
+              aria-checked={active}
               onClick={() => setMode(opt.value)}
               disabled={disabled}
               className={`flex w-full items-start gap-3 p-3.5 text-left transition ${
@@ -127,10 +148,12 @@ export function SettleModeForm({
               <span className="min-w-0">
                 <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                   {opt.title}
+                  {/* bg-mint-50 has a dark remap (translucent tint); text-mint-700
+                      brightens in dark. Together they stay legible in both themes. */}
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                       opt.value === "simplified"
-                        ? "bg-mint-100 text-mint-700"
+                        ? "bg-mint-50 text-mint-700"
                         : "bg-slate-100 text-slate-600"
                     }`}
                   >

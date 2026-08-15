@@ -153,10 +153,16 @@ export async function GET(request: Request) {
       }
       // Settlements (simplified settle mode) shift net positions; without them
       // the nudge would chase money that's already been paid via a reroute.
-      const { data: setts } = await supabase
+      // If that read fails we skip this house's nudges rather than email
+      // balances we know are missing a piece.
+      const { data: setts, error: settErr } = await supabase
         .from("settlements")
         .select("*")
         .eq("house_id", houseId);
+      if (settErr) {
+        errors.push(`digest ${houseId}: settlements read failed: ${settErr.message}`);
+        continue;
+      }
       const balances = computeBalances(expenses as any, splits as any, userIds[0], (setts ?? []) as any);
       for (const uid of userIds) {
         const net = balances.netByUser[uid] ?? 0;
