@@ -61,7 +61,7 @@ export function SettingsHero({
           </span>
           <span className="block truncate text-xs text-slate-500">{email}</span>
           <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            {isOwner && <span className="chip bg-mint-50 text-[10px] text-mint-600">✓ Owner</span>}
+            {isOwner && <span className="chip bg-mint-50 text-[10px] text-mint-600">✓ Admin</span>}
             <span className="chip bg-slate-100 text-[10px] text-slate-500">
               {houseCount === 1 ? "1 house" : `${houseCount} houses`}
             </span>

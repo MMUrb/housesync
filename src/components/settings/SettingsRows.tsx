@@ -357,6 +357,14 @@ export function GlyphWarn() {
     </G>
   );
 }
+export function GlyphKey() {
+  return (
+    <G>
+      <circle cx="8" cy="14.5" r="4.2" />
+      <path d="M11 11.5 20 2.5M16 6.5l2.5 2.5M13.5 9l2.5 2.5" />
+    </G>
+  );
+}
 export function GlyphDownload() {
   return (
     <G>

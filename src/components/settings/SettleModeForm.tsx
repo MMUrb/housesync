@@ -22,7 +22,7 @@ import type { SettleMode } from "@/lib/types";
 
 /** The trigger raises short codes; turn them into sentences. */
 function friendlyError(message: string): string {
-  if (message.includes("settle_mode_owner_only")) return "Only the house owner can change this.";
+  if (message.includes("settle_mode_owner_only")) return "Only the house admin can change this.";
   if (message.includes("settle_mode_pending_claims"))
     return "Confirm or undo the payment marks waiting on Housemates first.";
   if (message.includes("settle_mode_open_settlements"))
@@ -175,7 +175,7 @@ export function SettleModeForm({
       <p className="text-xs leading-relaxed text-slate-500">
         {isOwner
           ? "Applies to everyone in the house so no two people see different amounts. Changing it posts a note in chat."
-          : "Only the house owner can change this."}{" "}
+          : "Only the house admin can change this."}{" "}
         <button
           type="button"
           onClick={() => setShowHow(true)}

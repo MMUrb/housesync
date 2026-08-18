@@ -18,6 +18,7 @@ import { DangerZone } from "@/components/settings/DangerZone";
 import { ThemeToggle } from "@/components/settings/ThemeToggle";
 import { DisplayCurrencyForm } from "@/components/settings/DisplayCurrencyForm";
 import { SettleModeForm } from "@/components/settings/SettleModeForm";
+import { TransferAdminForm } from "@/components/settings/TransferAdminForm";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { SettingsHero } from "@/components/settings/SettingsHero";
 import { NotificationsPanel } from "@/components/settings/NotificationsPanel";
@@ -38,6 +39,7 @@ import {
   GlyphDownload,
   GlyphHelp,
   GlyphHouse,
+  GlyphKey,
   GlyphMail,
   GlyphMoon,
   GlyphTag,
@@ -266,6 +268,39 @@ export default async function SettingsPage() {
           value={`${members.length} in the house`}
         />
 
+        {/* House admin: the admin can hand the role to someone else; everyone
+            else just sees who holds it. */}
+        {isOwner ? (
+          <RowDisclosure
+            icon={<RowIcon tone="house"><GlyphKey /></RowIcon>}
+            label="House admin"
+            value="You"
+          >
+            <TransferAdminForm
+              houseId={house.id}
+              houseName={house.name}
+              candidates={members
+                .filter((m) => m.user_id !== user.id)
+                .map((m) => ({
+                  userId: m.user_id,
+                  name: m.profile?.name ?? "Housemate",
+                  color: m.profile?.avatar_color ?? "#6f53f5",
+                  avatarUrl: m.profile?.avatar_url ?? null,
+                }))}
+            />
+          </RowDisclosure>
+        ) : (
+          <RowStatic
+            icon={<RowIcon tone="house"><GlyphKey /></RowIcon>}
+            label="House admin"
+            right={
+              <span className="truncate text-sm text-slate-500">
+                {members.find((m) => m.user_id === house.created_by)?.profile?.name ?? "Housemate"}
+              </span>
+            }
+          />
+        )}
+
         <RowDisclosure
           icon={<RowIcon><GlyphWarn /></RowIcon>}
           label="Leave or delete this house"
@@ -275,6 +310,7 @@ export default async function SettingsPage() {
             userId={user.id}
             isOwner={isOwner}
             houseName={house.name}
+            othersCount={members.length - 1}
           />
         </RowDisclosure>
       </RowGroup>
