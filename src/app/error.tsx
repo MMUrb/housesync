@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
-import { reportClientError } from "@/components/ErrorReporter";
+import { reportClientError, isNetworkError } from "@/components/ErrorReporter";
 
 // Segment-level error boundary. Catches render/runtime errors anywhere in the
 // app tree (the root layout still renders, so nav/theme stay intact) and reports
@@ -14,7 +14,15 @@ import { reportClientError } from "@/components/ErrorReporter";
 // up the new build and fixes it, so that's done automatically (once per tab —
 // the sessionStorage guard stops a genuinely broken build from reload-looping).
 function isChunkError(error: Error): boolean {
-  return error.name === "ChunkLoadError" || /loading chunk .+ failed/i.test(error.message);
+  return (
+    error.name === "ChunkLoadError" ||
+    /loading chunk .+ failed/i.test(error.message) ||
+    // Safari/Firefox wording for the same failure. WebKit's is just "Load
+    // failed": at render time that's a chunk or RSC-payload fetch dying, the
+    // same stale-deploy/flaky-network family, so it gets the same remedy.
+    /dynamically imported module/i.test(error.message) ||
+    isNetworkError(error.message)
+  );
 }
 
 export default function Error({
@@ -26,6 +34,10 @@ export default function Error({
 }) {
   useEffect(() => {
     if (isChunkError(error)) {
+      // Offline, a reload can't succeed — in the app's webview it would land
+      // on the platform error page, which is worse than this screen. Show the
+      // screen and stay quiet; being offline is not an application bug.
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
       try {
         if (sessionStorage.getItem("hs_chunk_reload") !== "1") {
           sessionStorage.setItem("hs_chunk_reload", "1");
@@ -35,6 +47,8 @@ export default function Error({
       } catch {
         /* storage unavailable — fall through to the normal error screen */
       }
+      // A reload was already tried and it still failed while online: that IS
+      // worth logging, so fall through.
     }
     reportClientError(`Render error: ${error.message}`, {
       stack: error.stack ?? null,

@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { emitChatRead } from "@/lib/chatRead";
-import { reportClientError } from "@/components/ErrorReporter";
+import { reportClientError, isNetworkError } from "@/components/ErrorReporter";
 import { Avatar } from "@/components/Avatar";
 import { EmojiPicker } from "@/components/chat/EmojiPicker";
 import type { MemberWithProfile, Message } from "@/lib/types";
@@ -365,7 +365,11 @@ export function Chat({
         { onConflict: "user_id,house_id" },
       )
       .then(({ error }) => {
-        if (error) {
+        // Network blips are routine here: iOS suspends the webview the moment
+        // the app is backgrounded and kills the in-flight request. The effect
+        // re-runs on the next message or reopen, so the watermark heals itself.
+        // Only genuine failures (RLS, constraint) are worth the error log.
+        if (error && !isNetworkError(error.message)) {
           reportClientError(`Chat mark-read failed: ${error.message}`, { url: "/chat" });
         }
       });

@@ -9,6 +9,19 @@ import { useEffect } from "react";
 let reportedCount = 0;
 const seen = new Set<string>();
 
+/**
+ * The request died in transit, not the app: WebKit says "Load failed" (and
+ * kills in-flight fetches whenever iOS backgrounds the webview), Chromium says
+ * "Failed to fetch", Firefox "NetworkError when attempting to fetch resource".
+ * These are connectivity weather, not bugs — callers use this to skip
+ * reporting them into the admin error log.
+ */
+export function isNetworkError(message: string): boolean {
+  return /load failed|failed to fetch|network ?error|connection was lost|request timed out/i.test(
+    message,
+  );
+}
+
 export function reportClientError(
   message: string,
   extra?: { stack?: string | null; url?: string | null },
@@ -43,7 +56,12 @@ export function reportClientError(
  * reload in turn) to pick up the new build.
  */
 function isChunkError(msg: string, name?: string): boolean {
-  return name === "ChunkLoadError" || /loading chunk .+ failed/i.test(msg);
+  return (
+    name === "ChunkLoadError" ||
+    /loading chunk .+ failed/i.test(msg) ||
+    // Safari/Firefox wording for the same stale-deploy failure.
+    /dynamically imported module/i.test(msg)
+  );
 }
 function healStaleDeploy(): boolean {
   try {
@@ -61,6 +79,7 @@ export function ErrorReporter() {
     const onError = (e: ErrorEvent) => {
       if (!e?.message) return;
       if (isChunkError(e.message, e.error?.name) && healStaleDeploy()) return;
+      if (isNetworkError(e.message)) return; // connectivity noise, not a bug
       reportClientError(e.message, {
         stack: e.error?.stack ?? null,
         url: window.location.pathname,
@@ -70,6 +89,7 @@ export function ErrorReporter() {
       const r = e?.reason as { message?: string; stack?: string; name?: string } | undefined;
       const msg = r?.message ?? String(r ?? "Unhandled promise rejection");
       if (isChunkError(msg, r?.name) && healStaleDeploy()) return;
+      if (isNetworkError(msg)) return; // connectivity noise, not a bug
       reportClientError(`Unhandled rejection: ${msg}`, {
         stack: r?.stack ?? null,
         url: window.location.pathname,
