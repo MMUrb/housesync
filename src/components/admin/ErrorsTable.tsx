@@ -11,6 +11,9 @@ export type ErrorRowView = {
   whenLabel: string;
   source: string;
   message: string;
+  /** Plain-English "what this is" and "where it likely came from" (errorExplain). */
+  whatLabel: string;
+  causeLabel: string;
   url: string | null;
   user_id: string | null;
   user_agent: string | null;
@@ -111,8 +114,17 @@ export function ErrorsTable({ rows }: { rows: ErrorRowView[] }) {
                       <span className={open ? "break-words" : "line-clamp-2 break-words"}>
                         {r.message}
                       </span>
+                      {!open && (
+                        <span className="mt-0.5 line-clamp-1 block text-xs font-normal text-slate-400">
+                          {r.whatLabel}
+                        </span>
+                      )}
                       {open && (
                         <div className="mt-3 space-y-3 border-t border-slate-100 pt-3 font-normal">
+                          <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600 dark:bg-white/[0.04]">
+                            💡 <span className="font-semibold text-slate-700">{r.whatLabel}</span>{" "}
+                            {r.causeLabel}
+                          </div>
                           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
                             <Field label="When" value={r.whenLabel} />
                             <Field label="Source" value={r.source} />

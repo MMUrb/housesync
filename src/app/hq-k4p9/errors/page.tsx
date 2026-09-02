@@ -4,6 +4,7 @@ import { adminGate } from "@/components/admin/guard";
 import { AdminShell, Section, Grid, StatCard } from "@/components/admin/AdminUI";
 import { ResolveAllButton } from "@/components/admin/ErrorActions";
 import { ErrorsTable, type ErrorRowView } from "@/components/admin/ErrorsTable";
+import { explainError } from "@/lib/errorExplain";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Errors", robots: { index: false, follow: false } };
@@ -61,19 +62,24 @@ export default async function ErrorsAdminPage() {
 
   // Format dates here on the server so the table (a client component) never
   // formats locale-dependent times during hydration.
-  const rowViews: ErrorRowView[] = rows.map((r) => ({
-    id: r.id,
-    whenLabel: fmt(r.created_at),
-    source: r.source,
-    message: r.message,
-    url: r.url,
-    user_id: r.user_id,
-    user_agent: r.user_agent,
-    stack: r.stack,
-    digest: r.digest,
-    resolved: r.resolved_at != null,
-    resolvedLabel: r.resolved_at ? fmt(r.resolved_at) : null,
-  }));
+  const rowViews: ErrorRowView[] = rows.map((r) => {
+    const explanation = explainError(r.message, r.source);
+    return {
+      id: r.id,
+      whenLabel: fmt(r.created_at),
+      source: r.source,
+      message: r.message,
+      whatLabel: explanation.what,
+      causeLabel: explanation.cause,
+      url: r.url,
+      user_id: r.user_id,
+      user_agent: r.user_agent,
+      stack: r.stack,
+      digest: r.digest,
+      resolved: r.resolved_at != null,
+      resolvedLabel: r.resolved_at ? fmt(r.resolved_at) : null,
+    };
+  });
 
   return (
     <AdminShell email={user.email} active="errors">
