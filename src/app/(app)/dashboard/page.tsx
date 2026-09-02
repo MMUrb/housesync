@@ -15,7 +15,7 @@ import { NoticeBoard } from "@/components/notices/NoticeBoard";
 import { computeBalances } from "@/lib/balances";
 import { netCents, buildPlan } from "@/lib/settle";
 import { getRate } from "@/lib/rates";
-import { formatMoney, formatConverted, firstName } from "@/lib/format";
+import { formatMoney, formatConverted, firstName, ukToday } from "@/lib/format";
 import { RelativeDay, TimeAgo } from "@/components/LocalTime";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -189,6 +189,7 @@ export default async function DashboardPage() {
           categories={spendCategories}
           meId={user.id}
           currency={house.currency}
+          today={ukToday()}
           display={display}
         />
       </section>

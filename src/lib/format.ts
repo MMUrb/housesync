@@ -86,3 +86,13 @@ export function firstName(name?: string | null): string {
   if (!name) return "there";
   return name.trim().split(/\s+/)[0];
 }
+
+/**
+ * Today's date (YYYY-MM-DD) in the app's home timezone. Server pages pass
+ * this into client charts so the SSR HTML and the first client render agree
+ * (hydration); the client then corrects to the device's own calendar after
+ * mount. en-CA is the locale whose date format IS YYYY-MM-DD.
+ */
+export function ukToday(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+}

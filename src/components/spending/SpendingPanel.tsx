@@ -12,57 +12,71 @@ export type SpendCategory = { code: string; name: string; emoji: string; color: 
 
 type Period = "month" | "week" | "custom";
 const DAY = 86_400_000;
-const dateMs = (d: string) => new Date(`${d}T00:00:00`).getTime();
+
+// Everything below must render IDENTICALLY on the server and on the first
+// client pass, or hydration fails (React #418 — seen live from iPhones, where
+// the device's clock/timezone/ICU disagreed with Vercel's). So during render:
+// no `new Date()` for "now", no toLocaleString. Buckets are pure UTC
+// arithmetic anchored on a server-supplied "today", labels come from fixed
+// tables, and expense dates parse as UTC. After mount, an effect corrects the
+// anchor to the device's own calendar, re-rendering cleanly outside hydration.
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+const dateMs = (d: string) => {
+  const [y, m, day] = d.split("-").map(Number);
+  return Date.UTC(y, (m ?? 1) - 1, day ?? 1);
+};
+const dayLabel = (ms: number) => {
+  const d = new Date(ms);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+};
 
 type Bucket = { label: string; start: number; end: number };
+type Anchor = { y: number; m: number; d: number };
 
-function monthBuckets(n: number): Bucket[] {
-  const now = new Date();
+const parseAnchor = (today: string): Anchor => {
+  const [y, m, day] = today.split("-").map(Number);
+  return { y: y ?? 1970, m: (m ?? 1) - 1, d: day ?? 1 };
+};
+
+function monthBuckets(a: Anchor, n: number): Bucket[] {
   const out: Bucket[] = [];
   for (let i = n - 1; i >= 0; i--) {
-    const s = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const e = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-    out.push({ label: s.toLocaleString("en-GB", { month: "short" }), start: s.getTime(), end: e.getTime() });
-  }
-  return out;
-}
-
-function weekBuckets(n: number): Bucket[] {
-  const todayMid = new Date(new Date().toDateString()).getTime();
-  const out: Bucket[] = [];
-  for (let j = 0; j < n; j++) {
-    const end = todayMid + DAY - (n - 1 - j) * 7 * DAY;
-    const start = end - 7 * DAY;
+    const start = Date.UTC(a.y, a.m - i, 1);
     out.push({
-      label: new Date(start).toLocaleString("en-GB", { day: "numeric", month: "short" }),
+      label: MONTHS[new Date(start).getUTCMonth()],
       start,
-      end,
+      end: Date.UTC(a.y, a.m - i + 1, 1),
     });
   }
   return out;
 }
 
-function customBuckets(from: string, to: string): Bucket[] {
-  let start = from ? dateMs(from) : Date.now() - 30 * DAY;
-  let end = (to ? dateMs(to) : Date.now()) + DAY;
+function weekBuckets(a: Anchor, n: number): Bucket[] {
+  const todayMid = Date.UTC(a.y, a.m, a.d);
+  const out: Bucket[] = [];
+  for (let j = 0; j < n; j++) {
+    const end = todayMid + DAY - (n - 1 - j) * 7 * DAY;
+    const start = end - 7 * DAY;
+    out.push({ label: dayLabel(start), start, end });
+  }
+  return out;
+}
+
+function customBuckets(a: Anchor, from: string, to: string): Bucket[] {
+  const todayMid = Date.UTC(a.y, a.m, a.d);
+  let start = from ? dateMs(from) : todayMid - 29 * DAY;
+  let end = (to ? dateMs(to) : todayMid) + DAY;
   if (end <= start) [start, end] = [end - DAY, start + DAY];
   const spanDays = Math.max(1, Math.round((end - start) / DAY));
   const out: Bucket[] = [];
   if (spanDays <= 31) {
     for (let t = start; t < end; t += DAY) {
-      out.push({
-        label: new Date(t).toLocaleString("en-GB", { day: "numeric", month: "short" }),
-        start: t,
-        end: t + DAY,
-      });
+      out.push({ label: dayLabel(t), start: t, end: t + DAY });
     }
   } else {
     for (let t = start; t < end; t += 7 * DAY) {
-      out.push({
-        label: new Date(t).toLocaleString("en-GB", { day: "numeric", month: "short" }),
-        start: t,
-        end: Math.min(t + 7 * DAY, end),
-      });
+      out.push({ label: dayLabel(t), start: t, end: Math.min(t + 7 * DAY, end) });
     }
   }
   return out;
@@ -75,6 +89,7 @@ export function SpendingPanel({
   categories,
   meId,
   currency,
+  today,
   display = null,
 }: {
   expenses: SpendExpense[];
@@ -83,6 +98,8 @@ export function SpendingPanel({
   categories: SpendCategory[];
   meId: string;
   currency: string;
+  /** Server-computed "today" (YYYY-MM-DD) so SSR and hydration agree. */
+  today: string;
   /** Optional second currency for an approximate "≈" line under the total. */
   display?: { currency: string; rate: number } | null;
 }) {
@@ -103,6 +120,20 @@ export function SpendingPanel({
   const [period, setPeriod] = useState<Period>("month");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+
+  // Render from the server's "today" first (identical on both sides of
+  // hydration), then adopt the device's own calendar once mounted. For a UK
+  // viewer these match almost always; for others the chart shifts one clean
+  // re-render after load.
+  const [anchor, setAnchor] = useState<Anchor>(() => parseAnchor(today));
+  useEffect(() => {
+    const n = new Date();
+    setAnchor((a) =>
+      a.y === n.getFullYear() && a.m === n.getMonth() && a.d === n.getDate()
+        ? a
+        : { y: n.getFullYear(), m: n.getMonth(), d: n.getDate() },
+    );
+  }, []);
 
   // Close the custom scope dropdown on outside click (matches HouseSwitcher).
   const scopeRef = useRef<HTMLDivElement>(null);
@@ -131,18 +162,18 @@ export function SpendingPanel({
     scope.key === "house" ? Number(e.amount) : shareOf.get(`${e.id}:${scope.key}`) ?? 0;
 
   const buckets = useMemo<Bucket[]>(() => {
-    if (period === "month") return monthBuckets(6);
-    if (period === "week") return weekBuckets(8);
-    return customBuckets(from, to);
+    if (period === "month") return monthBuckets(anchor, 6);
+    if (period === "week") return weekBuckets(anchor, 8);
+    return customBuckets(anchor, from, to);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, from, to]);
+  }, [period, from, to, anchor]);
 
   // Series + category breakdown for the visible window.
   const { series, total, max, cats } = useMemo(() => {
     const series = buckets.map((b) => ({ label: b.label, total: 0 }));
     const byCat: Record<string, number> = {};
     const wStart = buckets[0]?.start ?? 0;
-    const wEnd = buckets[buckets.length - 1]?.end ?? Date.now();
+    const wEnd = buckets[buckets.length - 1]?.end ?? 0;
     for (const e of expenses) {
       const t = dateMs(e.date);
       if (t < wStart || t >= wEnd) continue;

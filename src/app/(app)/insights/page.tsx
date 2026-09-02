@@ -5,6 +5,7 @@ import {
 } from "@/lib/data";
 import { PageTitle } from "@/components/app/PageTitle";
 import { SpendingPanel } from "@/components/spending/SpendingPanel";
+import { ukToday } from "@/lib/format";
 import { SpendByPerson } from "@/components/spending/SpendByPerson";
 
 export const metadata = { title: "Spending insights" };
@@ -54,6 +55,7 @@ export default async function InsightsPage() {
           categories={spendCategories}
           meId={user.id}
           currency={house.currency}
+          today={ukToday()}
         />
       </section>
 
