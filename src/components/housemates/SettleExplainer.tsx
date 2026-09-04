@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { lockScroll, onHardwareBack } from "@/lib/launchPrompts";
 
 // The "how does simplified settle up work?" bottom sheet. Static worked
 // example (fictional housemates) rather than live house data: the point is to
@@ -47,11 +48,12 @@ export function SettleExplainer({ open, onClose }: { open: boolean; onClose: () 
     if (!open) return;
     const onKey = (ev: KeyboardEvent) => ev.key === "Escape" && onClose();
     document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
+    const offBack = onHardwareBack(onClose);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
+      unlock();
+      offBack();
     };
   }, [open, onClose]);
 

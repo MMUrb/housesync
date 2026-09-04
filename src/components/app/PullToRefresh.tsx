@@ -81,6 +81,9 @@ export function PullToRefresh() {
         return;
       }
       if (refreshingRef.current || window.scrollY > 0) return;
+      // A bottom sheet or gate has locked the page: a drag on it must not
+      // drive the pull indicator or refresh the route underneath.
+      if (document.body.style.overflow === "hidden") return;
       if (innerScrollerNotAtTop(e.target as Element)) return;
       startYRef.current = e.touches[0].clientY;
     }

@@ -54,6 +54,8 @@ export function Walkthrough() {
       /* ignore */
     }
     setOpen(false);
+    // The notifications ask waits for the tour to finish before it appears.
+    window.dispatchEvent(new CustomEvent("hs:tour-done"));
   }, []);
 
   if (!open) return null;

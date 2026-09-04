@@ -17,6 +17,11 @@ export function BackButton() {
         if (Capacitor.getPlatform() !== "android") return;
         const { App } = await import("@capacitor/app");
         const listener = await App.addListener("backButton", ({ canGoBack }) => {
+          // An open bottom sheet claims the press (see onHardwareBack in
+          // lib/launchPrompts) so back closes it instead of navigating behind it.
+          const claim = new CustomEvent("hs:back", { cancelable: true });
+          window.dispatchEvent(claim);
+          if (claim.defaultPrevented) return;
           if (canGoBack) window.history.back();
           else void App.minimizeApp();
         });

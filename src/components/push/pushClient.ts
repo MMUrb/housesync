@@ -2,6 +2,8 @@
 // Detects platform: native app -> Capacitor Push Notifications (FCM); browser
 // -> Web Push (service worker + VAPID).
 
+import { PUSH_OPTOUT_KEY } from "@/lib/launchPrompts";
+
 const VAPID_PUBLIC = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "").replace(
   /^[\s﻿​]+|[\s﻿​]+$/g,
   "",
@@ -63,20 +65,21 @@ export async function getPushEnabled(): Promise<boolean> {
   }
 }
 
-export async function enablePush(): Promise<{ ok: boolean; reason?: string }> {
+export async function enablePush(): Promise<{ ok: boolean; reason?: string; denied?: boolean }> {
   try {
     if (await isNative()) {
       const { PushNotifications } = await import("@capacitor/push-notifications");
       const perm = await PushNotifications.requestPermissions();
-      if (perm.receive !== "granted") return { ok: false, reason: "Permission was denied." };
+      if (perm.receive !== "granted") return { ok: false, reason: "Permission was denied.", denied: true };
       await PushNotifications.register(); // the registration listener posts the token
       localStorage.setItem("hs_push", "1");
+      localStorage.removeItem(PUSH_OPTOUT_KEY);
       return { ok: true };
     }
     if (!webPushSupported()) return { ok: false, reason: "This browser can't do notifications." };
     if (!VAPID_PUBLIC) return { ok: false, reason: "Push isn't configured." };
     const perm = await Notification.requestPermission();
-    if (perm !== "granted") return { ok: false, reason: "Permission was denied." };
+    if (perm !== "granted") return { ok: false, reason: "Permission was denied.", denied: true };
     const reg = await navigator.serviceWorker.register("/sw.js");
     await navigator.serviceWorker.ready;
     // Clear any stale subscription from a previous attempt first.
@@ -107,6 +110,7 @@ export async function enablePush(): Promise<{ ok: boolean; reason?: string }> {
     });
     if (!res.ok) return { ok: false, reason: "Couldn't save the subscription." };
     localStorage.setItem("hs_push", "1");
+    localStorage.removeItem(PUSH_OPTOUT_KEY);
     return { ok: true };
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : "Something went wrong." };
@@ -116,6 +120,9 @@ export async function enablePush(): Promise<{ ok: boolean; reason?: string }> {
 export async function disablePush(): Promise<void> {
   try {
     localStorage.removeItem("hs_push");
+    // Remember this was a choice, so the launch-time ask does not quietly
+    // re-enable on a device whose OS permission is still granted.
+    localStorage.setItem(PUSH_OPTOUT_KEY, "1");
     if (await isNative()) {
       const token = (window as unknown as { __hsPushToken?: string }).__hsPushToken;
       if (token) {

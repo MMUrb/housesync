@@ -10,6 +10,7 @@ import { AppHeader } from "@/components/app/AppHeader";
 import { TopNav } from "@/components/app/TopNav";
 import { FollowUs } from "@/components/SocialLinks";
 import { PushInit } from "@/components/push/PushInit";
+import { PushPrimer } from "@/components/push/PushPrimer";
 import { NativeShell } from "@/components/app/NativeShell";
 import { UpdatePrompt } from "@/components/app/UpdatePrompt";
 import { PullToRefresh } from "@/components/app/PullToRefresh";
@@ -52,6 +53,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </main>
       <PushInit />
+      <PushPrimer userCreatedAt={user.created_at} />
       <NativeShell />
       <HouseRealtime houseId={house.id} />
       <Walkthrough />
