@@ -8,6 +8,10 @@ export type AdminUserRow = {
   email?: string;
   created_at?: string;
   last_sign_in_at?: string | null;
+  /** Auth provider ("email" | "google" | "apple"). */
+  provider?: string | null;
+  /** Exact registration channel stamped by SignupPlatformStamp, when present. */
+  signup_platform?: string | null;
 };
 
 export const msOf = (iso?: string | null) => (iso ? new Date(iso).getTime() : 0);
@@ -47,6 +51,8 @@ export async function listAllUsers(admin: SupabaseClient): Promise<AdminUserRow[
         email: u.email ?? undefined,
         created_at: u.created_at,
         last_sign_in_at: u.last_sign_in_at,
+        provider: (u.app_metadata?.provider as string | undefined) ?? null,
+        signup_platform: (u.user_metadata?.signup_platform as string | undefined) ?? null,
       })),
     );
     if (users.length < 1000) break;

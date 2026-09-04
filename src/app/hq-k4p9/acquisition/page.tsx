@@ -3,8 +3,9 @@ import Link from "next/link";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { adminGate } from "@/components/admin/guard";
 import { listAllUsers, countSince, msOf } from "@/lib/adminData";
-import { DAY, lastNDays, bucketByDay } from "@/lib/adminMetrics";
+import { DAY, lastNDays } from "@/lib/adminMetrics";
 import { playConfig, ascConfig } from "@/lib/storeSync";
+import { channelOf } from "@/lib/signupChannel";
 import { ADMIN_BASE } from "@/lib/constants";
 import {
   AdminShell,
@@ -92,17 +93,22 @@ export default async function AcquisitionPage() {
   const since30 = new Date(now - 30 * DAY).toISOString();
   const day30 = since30.slice(0, 10);
 
-  const [users, storeRes, reviewsRes, visits30] = await Promise.all([
-    listAllUsers(admin),
-    // All-time is small (one row per day per platform), so fetch everything.
-    admin.from("store_daily").select("*").order("day", { ascending: true }).limit(3000),
-    admin
-      .from("store_reviews")
-      .select("*")
-      .order("reviewed_at", { ascending: false })
-      .limit(1000),
-    countSince(admin, "page_views", since30),
-  ]);
+  const [users, storeRes, reviewsRes, visits30, pushRes, membersRes, housesRes, profilesRes] =
+    await Promise.all([
+      listAllUsers(admin),
+      // All-time is small (one row per day per platform), so fetch everything.
+      admin.from("store_daily").select("*").order("day", { ascending: true }).limit(3000),
+      admin
+        .from("store_reviews")
+        .select("*")
+        .order("reviewed_at", { ascending: false })
+        .limit(1000),
+      countSince(admin, "page_views", since30),
+      admin.from("push_subscriptions").select("user_id, platform"),
+      admin.from("house_members").select("user_id, house_id"),
+      admin.from("houses").select("id, name").limit(2000),
+      admin.from("profiles").select("id, name"),
+    ]);
 
   const store = (storeRes.data ?? []) as StoreRow[];
   const store30 = store.filter((r) => r.day >= day30);
@@ -146,10 +152,52 @@ export default async function AcquisitionPage() {
 
   const d30 = now - 30 * DAY;
   const signups30 = users.filter((u) => msOf(u.created_at) >= d30).length;
-  const signupBars = bucketByDay(
-    users.filter((u) => u.created_at).map((u) => ({ created_at: u.created_at as string })),
-    days,
+
+  // Sign-ups by channel: exact stamps where they exist (SignupPlatformStamp),
+  // honest estimates otherwise. See lib/signupChannel for the rules.
+  const pushByUser = new Map<string, Set<string>>();
+  for (const p of (pushRes.data ?? []) as { user_id: string; platform: string | null }[]) {
+    if (!p.platform) continue;
+    let set = pushByUser.get(p.user_id);
+    if (!set) pushByUser.set(p.user_id, (set = new Set()));
+    set.add(p.platform);
+  }
+  const houseNameById = new Map(
+    ((housesRes.data ?? []) as { id: string; name: string }[]).map((h) => [h.id, h.name]),
   );
+  const firstHouseOfUser = new Map<string, string>();
+  for (const m of (membersRes.data ?? []) as { user_id: string; house_id: string }[]) {
+    if (!firstHouseOfUser.has(m.user_id)) firstHouseOfUser.set(m.user_id, m.house_id);
+  }
+  const nameById = new Map<string, string>();
+  for (const p of (profilesRes.data ?? []) as { id: string; name: string | null }[]) {
+    if (p.name) nameById.set(p.id, p.name);
+  }
+
+  const channelled = users.map((u) => ({ ...u, ...channelOf(u, pushByUser.get(u.id)) }));
+  const recent30 = channelled.filter((u) => msOf(u.created_at) >= d30);
+  const web30 = recent30.filter((u) => u.channel === "web").length;
+  const iosSign30 = recent30.filter((u) => u.channel === "ios-app").length;
+  const andSign30 = recent30.filter((u) => u.channel === "android-app").length;
+  const chShare = (n: number) => (signups30 > 0 ? Math.round((n / signups30) * 100) : 0);
+  const webAll = channelled.filter((u) => u.channel === "web");
+  const webJoined = webAll.filter((u) => firstHouseOfUser.has(u.id)).length;
+  const estimatedCount = channelled.filter((u) => !u.exact).length;
+
+  const signupByDay = new Map(days.map((day) => [day, { a: 0, b: 0 }]));
+  for (const u of recent30) {
+    if (!u.created_at) continue;
+    const slot = signupByDay.get(u.created_at.slice(0, 10));
+    if (!slot) continue;
+    if (u.channel === "web") slot.b += 1;
+    else slot.a += 1;
+  }
+  const signupStacked = days.map((day) => ({ day, ...(signupByDay.get(day) ?? { a: 0, b: 0 }) }));
+
+  const latestWeb = webAll
+    .filter((u) => u.created_at)
+    .sort((a, b) => msOf(b.created_at) - msOf(a.created_at))
+    .slice(0, 8);
 
   return (
     <AdminShell email={gate.user.email} active="acquisition">
@@ -274,7 +322,7 @@ export default async function AcquisitionPage() {
       </Section>
 
       <Section
-        title="Sign-ups · last 30 days"
+        title="Sign-ups by channel"
         action={
           <Link
             href={`${ADMIN_BASE}/visitors`}
@@ -284,25 +332,127 @@ export default async function AcquisitionPage() {
           </Link>
         }
       >
-        <div className="card space-y-2 p-4">
-          <BarHeader left={`${signups30} new sign-ups`} right={`${users.length} all-time`} />
-          <Bars data={signupBars} color="mint" unit="sign-ups" />
-          <AxisLabels days={days} />
-        </div>
         <Grid>
-          <StatCard label="Site visits (30d)" value={visits30} />
-          <StatCard label="Sign-ups (30d)" value={signups30} />
+          <StatCard label="Web sign-ups (30d)" value={web30} sub={`${chShare(web30)}% of ${signups30}`} />
+          <StatCard label="iOS app (30d)" value={iosSign30} sub={`${chShare(iosSign30)}%`} />
+          <StatCard label="Android app (30d)" value={andSign30} sub={`${chShare(andSign30)}%`} />
           <StatCard
-            label="Visit → sign-up"
-            value={`${visits30 > 0 ? ((signups30 / visits30) * 100).toFixed(1) : "0.0"}%`}
-            sub="aggregate only"
+            label="All-time web"
+            value={webAll.length}
+            sub={`${users.length ? Math.round((webAll.length / users.length) * 100) : 0}% of accounts`}
           />
           <StatCard
-            label="Installs → sign-up"
-            value={total30 > 0 ? `${Math.min(999, Math.round((signups30 / total30) * 100))}%` : "n/a"}
-            sub={total30 > 0 ? "rough: includes web sign-ups" : "needs store data"}
+            label="Web → house joined"
+            value={webAll.length ? `${Math.round((webJoined / webAll.length) * 100)}%` : "n/a"}
+            sub={`${webJoined} of ${webAll.length} activate`}
           />
         </Grid>
+
+        <div className="card space-y-2 p-4">
+          <BarHeader
+            left={`${signups30} sign-ups`}
+            right={`apps ${iosSign30 + andSign30} · web ${web30}`}
+          />
+          <StackedBars
+            data={signupStacked}
+            aLabel="Apps"
+            bLabel="Web"
+            unit="sign-ups"
+            unitSingular="sign-up"
+          />
+          <AxisLabels days={days} />
+          <div className="flex gap-4 text-[11px] font-medium text-slate-500">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-sm bg-brand-500" /> In the apps
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-sm bg-mint-600" /> On the website
+            </span>
+          </div>
+        </div>
+
+        <div className="card p-0">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Latest website sign-ups</p>
+              <p className="text-xs text-slate-400">Exact date and time each one registered</p>
+            </div>
+            <span className="text-xs text-slate-400">{webAll.length} total</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
+                  <th className="px-4 py-2.5 font-medium">Name</th>
+                  <th className="px-4 py-2.5 font-medium">Email</th>
+                  <th className="px-4 py-2.5 font-medium">Signed up</th>
+                  <th className="px-4 py-2.5 font-medium">Joined a house</th>
+                </tr>
+              </thead>
+              <tbody>
+                {latestWeb.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-4 text-slate-400">
+                      No website sign-ups yet.
+                    </td>
+                  </tr>
+                ) : (
+                  latestWeb.map((u) => {
+                    const houseId = firstHouseOfUser.get(u.id);
+                    return (
+                      <tr
+                        key={u.id}
+                        className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
+                      >
+                        <td className="px-4 py-2.5">
+                          <Link
+                            href={`${ADMIN_BASE}/directory/u/${u.id}`}
+                            className="font-medium text-brand-700 hover:underline"
+                          >
+                            {nameById.get(u.id) ?? u.email ?? "Unnamed"}
+                          </Link>
+                          {!u.exact && (
+                            <span
+                              className="ml-2 text-[10px] uppercase tracking-wide text-slate-300"
+                              title="Channel estimated, not stamped at registration"
+                            >
+                              est.
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-500">{u.email ?? "-"}</td>
+                        <td className="px-4 py-2.5 font-medium text-slate-700">
+                          {u.created_at ? fmtDate(u.created_at) : "-"}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          {houseId ? (
+                            <span className="chip bg-mint-50 text-mint-600">
+                              Yes · {houseNameById.get(houseId) ?? "house"}
+                            </span>
+                          ) : (
+                            <span className="chip bg-red-50 text-red-600">Not yet</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <p className="text-xs text-slate-400">
+          Sign-ups from this deploy onwards are stamped exactly at registration. Older accounts are
+          estimated (Apple sign-in means the iOS app, a push token names its platform, the rest
+          lean web) and carry an &ldquo;est.&rdquo; mark: {estimatedCount} of {users.length}{" "}
+          accounts are estimates right now. Visit → sign-up{" "}
+          {visits30 > 0 ? ((signups30 / visits30) * 100).toFixed(1) : "0.0"}%
+          {total30 > 0 && (
+            <> · installs → sign-up roughly {Math.min(999, Math.round((signups30 / total30) * 100))}%</>
+          )}
+          .
+        </p>
       </Section>
     </AdminShell>
   );

@@ -210,8 +210,20 @@ export function Bars({
 
 export type StackedBucket = { day: string; a: number; b: number };
 
-/** Two-series stacked bars: `a` in brand on top of `b` in mint (iOS/Android). */
-export function StackedBars({ data }: { data: StackedBucket[] }) {
+/** Two-series stacked bars: `a` in brand on top of `b` in mint. */
+export function StackedBars({
+  data,
+  aLabel = "iOS",
+  bLabel = "Android",
+  unit = "downloads",
+  unitSingular = "download",
+}: {
+  data: StackedBucket[];
+  aLabel?: string;
+  bLabel?: string;
+  unit?: string;
+  unitSingular?: string;
+}) {
   const max = Math.max(1, ...data.map((d) => d.a + d.b));
   return (
     <div className="flex h-32 items-end gap-1">
@@ -226,10 +238,11 @@ export function StackedBars({ data }: { data: StackedBucket[] }) {
             style={{ height: `${(d.b / max) * 100}%` }}
           />
           <BarTip>
-            {dayLabel(d.day)} · {(d.a + d.b).toLocaleString()} download{d.a + d.b === 1 ? "" : "s"}
+            {dayLabel(d.day)} · {(d.a + d.b).toLocaleString()}{" "}
+            {d.a + d.b === 1 ? unitSingular : unit}
             <br />
             <span className="font-normal opacity-80">
-              iOS {d.a.toLocaleString()} · Android {d.b.toLocaleString()}
+              {aLabel} {d.a.toLocaleString()} · {bLabel} {d.b.toLocaleString()}
             </span>
           </BarTip>
         </div>

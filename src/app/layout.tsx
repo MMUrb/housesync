@@ -4,6 +4,7 @@ import "./globals.css";
 import { Analytics } from "@/components/Analytics";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeWatcher } from "@/components/ThemeWatcher";
+import { SignupPlatformStamp } from "@/components/SignupPlatformStamp";
 import { ErrorReporter } from "@/components/ErrorReporter";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import { SplashHide } from "@/components/app/SplashHide";
@@ -105,6 +106,7 @@ export default async function RootLayout({
         <Analytics />
         <SpeedInsights />
         <ThemeWatcher />
+        <SignupPlatformStamp />
         <ErrorReporter />
         <ServiceWorker />
         <SplashHide />
