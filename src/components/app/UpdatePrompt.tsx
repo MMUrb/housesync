@@ -7,7 +7,13 @@ import {
   UPDATE_NOTE,
   isOlderVersion,
 } from "@/lib/appVersions";
-import { afterTour, lockScroll, onHardwareBack, reportUpdatePrompt } from "@/lib/launchPrompts";
+import {
+  afterTour,
+  lockScroll,
+  onHardwareBack,
+  reportUpdatePrompt,
+  resetUpdatePromptDecision,
+} from "@/lib/launchPrompts";
 
 const PLAY_URL = "https://play.google.com/store/apps/details?id=uk.co.housesync";
 const IOS_URL = "https://apps.apple.com/app/id6783905558";
@@ -38,6 +44,8 @@ export function UpdatePrompt() {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Fresh verdict for this mount (see lib/launchPrompts).
+    resetUpdatePromptDecision();
     let decided = false;
     let cancelled = false;
     let tour: { promise: Promise<void>; cancel: () => void } | null = null;
@@ -151,7 +159,11 @@ export function UpdatePrompt() {
         aria-modal="true"
         aria-labelledby="update-gate-title"
       >
-        <div ref={panelRef} tabIndex={-1} className="card w-full max-w-sm p-7 text-center outline-none">
+        <div
+          ref={panelRef}
+          tabIndex={-1}
+          className="card max-h-[88vh] w-full max-w-sm overflow-y-auto p-7 text-center outline-none"
+        >
           <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-700 text-white shadow-soft">
             <UpdateIcon className="h-8 w-8" />
           </span>
@@ -192,7 +204,7 @@ export function UpdatePrompt() {
         <div
           ref={panelRef}
           tabIndex={-1}
-          className="card relative w-full max-w-md rounded-b-none rounded-t-3xl px-5 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-center outline-none"
+          className="card relative max-h-[88vh] w-full max-w-md overflow-y-auto rounded-b-none rounded-t-3xl px-5 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-center outline-none"
         >
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-200" />
           <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-mint-50 text-mint-700">

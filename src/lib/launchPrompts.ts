@@ -35,14 +35,34 @@ export const PUSH_TEST_KEY = "hs_test_push";
 // important); the notifications ask waits for that verdict and stands down if
 // an update sheet is showing. Module-level so the two components need not know
 // about each other's render tree.
+//
+// The verdict is PER MOUNT, not per page load: UpdatePrompt resets it at the
+// top of its effect. A single settle-once promise went stale the moment the
+// app layout unmounted before deciding (hardware back during the tour, or
+// StrictMode in dev), after which a real update sheet could never report
+// itself and both sheets stacked.
 // ---------------------------------------------------------------------------
-let resolveUpdateDecision: (showing: boolean) => void = () => {};
-export const updatePromptDecision: Promise<boolean> = new Promise((resolve) => {
-  resolveUpdateDecision = resolve;
-});
+type Deferred = { promise: Promise<boolean>; resolve: (showing: boolean) => void };
+function deferred(): Deferred {
+  let resolve: (showing: boolean) => void = () => {};
+  const promise = new Promise<boolean>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+let updateDecision: Deferred = deferred();
+
+/** UpdatePrompt calls this synchronously when it mounts, before any await. */
+export function resetUpdatePromptDecision(): void {
+  updateDecision = deferred();
+}
+/** The current mount's verdict. Read it at the moment you need it. */
+export function getUpdatePromptDecision(): Promise<boolean> {
+  return updateDecision.promise;
+}
 /** Called by UpdatePrompt once it knows whether it is showing anything. */
 export function reportUpdatePrompt(showing: boolean): void {
-  resolveUpdateDecision(showing);
+  updateDecision.resolve(showing);
 }
 
 // ---------------------------------------------------------------------------

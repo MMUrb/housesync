@@ -10,9 +10,9 @@ import {
   PUSH_PROMPT_SNOOZE_MS,
   PUSH_TEST_KEY,
   afterTour,
+  getUpdatePromptDecision,
   lockScroll,
   onHardwareBack,
-  updatePromptDecision,
 } from "@/lib/launchPrompts";
 
 // Native apps only: the launch-time "turn on notifications" ask. Push used to
@@ -31,14 +31,16 @@ import {
 // showing, so nobody gets two pop ups at once. A second "Not now" is taken
 // as a real answer and stops the asking for good.
 //
-// Silent path: on a device's FIRST run where the OS already allows
-// notifications (Android 12 and older, or a reinstall), there is no dialog
-// to earn, so it just registers. Deliberately first-run only: a long-used
-// device with permission granted but push off is someone who turned it off
-// before the opt-out marker existed, and they get the sheet, not a silent
+// Silent path: on a device's FIRST run, for an account under a week old,
+// where the OS already allows notifications (Android 12 and older, or a
+// reinstall), there is no dialog to earn, so it just registers. Both
+// conditions on purpose: a long-used device or an older account with
+// permission granted but push off may be someone who turned it off before
+// the opt-out marker existed, and they get the sheet, never a silent
 // re-enable.
 
 const TOUR_KEY = "hs_tour_v1";
+const FRESH_ACCOUNT_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function PushPrimer({ userCreatedAt }: { userCreatedAt: string }) {
   const [open, setOpen] = useState(false);
@@ -72,6 +74,8 @@ export function PushPrimer({ userCreatedAt }: { userCreatedAt: string }) {
 
         // Captured now, before the tour (which we may wait for) marks itself done.
         const firstRun = read(TOUR_KEY) !== "done";
+        const createdMs = Date.parse(userCreatedAt);
+        const freshAccount = Number.isFinite(createdMs) && Date.now() - createdMs < FRESH_ACCOUNT_MS;
 
         const { PushNotifications } = await import("@capacitor/push-notifications");
         const perm = (await PushNotifications.checkPermissions()).receive;
@@ -79,7 +83,7 @@ export function PushPrimer({ userCreatedAt }: { userCreatedAt: string }) {
         if (perm === "denied") return; // iOS: permanent, asking again is a no-op
         if (perm === "granted") {
           if (read("hs_push") === "1") return; // already on
-          if (firstRun) {
+          if (firstRun && freshAccount) {
             await enablePush(); // no dialog to show, just register
             return;
           }
@@ -97,10 +101,11 @@ export function PushPrimer({ userCreatedAt }: { userCreatedAt: string }) {
         await tour.promise;
         if (cancelled) return;
 
-        // One sheet per launch: the update prompt has priority. If it never
-        // reports (plugin hiccup), don't wait forever.
+        // One sheet per launch: the update prompt has priority. Read the
+        // verdict for the CURRENT mount at this moment; if it never reports
+        // (plugin hiccup), don't wait forever.
         const updateShowing = await Promise.race([
-          updatePromptDecision,
+          getUpdatePromptDecision(),
           new Promise<boolean>((r) => setTimeout(() => r(false), 4000)),
         ]);
         if (cancelled || updateShowing) return;
@@ -183,7 +188,7 @@ export function PushPrimer({ userCreatedAt }: { userCreatedAt: string }) {
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="card relative w-full max-w-md rounded-b-none rounded-t-3xl px-5 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-center outline-none"
+        className="card relative max-h-[88vh] w-full max-w-md overflow-y-auto rounded-b-none rounded-t-3xl px-5 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-center outline-none"
       >
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-200" />
         <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600">
