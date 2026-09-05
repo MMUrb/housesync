@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentType } from "react";
-import { CHAT_READ_EVENT, CHAT_UNREAD_EVENT, type ChatReadDetail } from "@/lib/chatRead";
+import { CHAT_READ_EVENT, type ChatReadDetail } from "@/lib/chatRead";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -56,12 +56,6 @@ export function TopNav({
   const [addOpen, setAddOpen] = useState(false);
   const addRef = useRef<HTMLDivElement>(null);
 
-  const onChat = pathname === "/chat" || pathname.startsWith("/chat/");
-  const onChatRef = useRef(onChat);
-  useEffect(() => {
-    onChatRef.current = onChat;
-  }, [onChat]);
-
   // Clear the badge when the chat actually marks itself read (it emits this
   // exactly when the watermark is written), not merely on landing on /chat:
   // a thread opened at an old message from search deliberately leaves the
@@ -74,18 +68,6 @@ export function TopNav({
     return () => window.removeEventListener(CHAT_READ_EVENT, onRead);
   }, [houseId]);
 
-  // The open chat held a message back (a thread opened at an old message
-  // from search): count it, since the realtime handler below stands down
-  // while the chat is on screen.
-  useEffect(() => {
-    function onUnread(e: Event) {
-      if ((e as CustomEvent<ChatReadDetail>).detail?.houseId === houseId) {
-        setUnreadCount((c) => c + 1);
-      }
-    }
-    window.addEventListener(CHAT_UNREAD_EVENT, onUnread);
-    return () => window.removeEventListener(CHAT_UNREAD_EVENT, onUnread);
-  }, [houseId]);
 
   // Close the quick-add menu when navigating.
   useEffect(() => setAddOpen(false), [pathname]);
@@ -116,7 +98,12 @@ export function TopNav({
         },
         (payload) => {
           const m = payload.new as { user_id: string };
-          if (m.user_id !== userId && !onChatRef.current) setUnreadCount((c) => c + 1);
+          // Counted even while the chat is open: the tab hides its own badge
+          // when active, and the chat's read event zeroes this the moment it
+          // actually marks the thread read. Anything it does NOT mark read
+          // (reader scrolled up, or a window opened at an old message) then
+          // survives correctly to the moment you leave.
+          if (m.user_id !== userId) setUnreadCount((c) => c + 1);
         },
       )
       .subscribe();

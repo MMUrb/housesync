@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { emitChatRead, emitChatUnread } from "@/lib/chatRead";
+import { emitChatRead } from "@/lib/chatRead";
 import { reportClientError, isNetworkError } from "@/components/ErrorReporter";
 import { Avatar } from "@/components/Avatar";
 import { EmojiPicker } from "@/components/chat/EmojiPicker";
@@ -213,15 +213,11 @@ export function Chat({
           filter: `house_id=eq.${houseId}`,
         },
         (payload) => {
-          const m = payload.new as Message;
-          if (hasNewerRef.current) {
-            // Held back so the thread cannot grow a hole. The nav suppresses
-            // its own increment while the chat is open, so tell it this one
-            // really is unread.
-            if (m.user_id !== currentUserId) emitChatUnread(houseId);
-            return;
-          }
-          addMessage(m);
+          // Held back while the window is not at the live end, so the thread
+          // cannot grow a hole. The nav counts it regardless, and the badge
+          // is only cleared once this chat actually marks the thread read.
+          if (hasNewerRef.current) return;
+          addMessage(payload.new as Message);
         },
       )
       .subscribe();
@@ -544,7 +540,7 @@ export function Chat({
       // old target back on a fresh draft would quote the wrong message.
       if (textRef.current.trim()) return;
       setText(body);
-      setReplyingTo((r) => r ?? replyTarget);
+      setReplyingTo(replyTarget);
     };
 
     // Replying from a search-opened window: get to the live end first, or the

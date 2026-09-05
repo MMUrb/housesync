@@ -60,7 +60,12 @@ export function SearchClient({
     if (initialQuery) return;
     try {
       const saved = sessionStorage.getItem(SESSION_KEY);
-      if (saved) setQ(saved);
+      if (saved) {
+        setQ(saved);
+        // Selected, so the first keystroke replaces it: handy coming Back to
+        // a search, out of the way when starting a new one.
+        requestAnimationFrame(() => inputRef.current?.select());
+      }
     } catch {
       /* ignore */
     }
