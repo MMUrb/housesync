@@ -125,7 +125,7 @@ export default async function BillsPage() {
             const mine = splits.find((s) => s.user_id === user.id);
 
             return (
-              <li key={b.id} className="card p-4">
+              <li key={b.id} id={`bill-${b.id}`} className="card scroll-mt-32 p-4">
                 {/* Header */}
                 <div className="flex items-start gap-3">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-lg">

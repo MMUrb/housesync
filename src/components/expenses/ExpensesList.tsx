@@ -51,6 +51,21 @@ export function ExpensesList({
   const [cat, setCat] = useState<string>("all");
   const [selected, setSelected] = useState<ExpenseVM | null>(null);
 
+  // Deep link from search: /expenses#expense-<id> opens that expense's
+  // details (and switches to the tab it lives on), then clears the hash.
+  useEffect(() => {
+    const match = window.location.hash.match(/^#expense-([0-9a-f-]{36})$/i);
+    if (!match) return;
+    const r = rows.find((x) => x.id === match[1]);
+    if (r) {
+      setStatus(r.settled ? "settled" : "ongoing");
+      setCat("all");
+      setSelected(r);
+    }
+    window.history.replaceState(null, "", window.location.pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const ongoingCount = rows.filter((r) => !r.settled).length;
   const settledCount = rows.length - ongoingCount;
 

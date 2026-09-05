@@ -44,7 +44,7 @@ export default async function DashboardPage() {
       getActivity(house.id, 8),
       getHouseCategories(house.id),
       getAccountSettings(),
-      getNotices(house.id),
+      getNotices(house.id, 200),
       getShoppingItems(house.id),
       simplified ? getSettlements(house.id) : Promise.resolve([]),
     ]);

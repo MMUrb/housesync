@@ -161,7 +161,7 @@ export function NoticeBoard({
       ) : (
         <ul className="card divide-y divide-slate-100">
           {notices.map((n) => (
-            <li key={n.id} className="p-3.5">
+            <li key={n.id} id={`notice-${n.id}`} className="scroll-mt-32 p-3.5">
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">

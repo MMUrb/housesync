@@ -315,6 +315,51 @@ export async function getSettlements(houseId: string): Promise<Settlement[]> {
   return (data ?? []) as Settlement[];
 }
 
+/**
+ * A window of chat around one message (for "open at this message" from
+ * search): up to 50 older, the message itself, up to 50 newer, oldest first.
+ * Null when the message is not in this house. The two flags say whether
+ * there is more history beyond each edge of the window.
+ */
+export async function getMessageWindow(
+  houseId: string,
+  messageId: string,
+): Promise<{ messages: Message[]; hasMoreOlder: boolean; hasMoreNewer: boolean } | null> {
+  const supabase = await createClient();
+  const { data: target } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("house_id", houseId)
+    .eq("id", messageId)
+    .maybeSingle();
+  if (!target) return null;
+  const t = target as Message;
+  const [{ data: before }, { data: after }] = await Promise.all([
+    supabase
+      .from("messages")
+      .select("*")
+      .eq("house_id", houseId)
+      .lt("created_at", t.created_at)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("messages")
+      .select("*")
+      .eq("house_id", houseId)
+      .gt("created_at", t.created_at)
+      .order("created_at", { ascending: true })
+      .limit(51),
+  ]);
+  const older = ((before ?? []) as Message[]).reverse();
+  const newerAll = (after ?? []) as Message[];
+  const newer = newerAll.slice(0, 50);
+  return {
+    messages: [...older, t, ...newer],
+    hasMoreOlder: older.length === 50,
+    hasMoreNewer: newerAll.length > 50,
+  };
+}
+
 /** Recent house chat messages, oldest first (capped at `limit`). */
 export async function getMessages(houseId: string, limit = 100): Promise<Message[]> {
   const supabase = await createClient();

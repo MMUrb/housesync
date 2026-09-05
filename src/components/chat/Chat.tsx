@@ -30,11 +30,19 @@ export function Chat({
   houseId,
   currentUserId,
   initialMessages,
+  openAtId = null,
+  initialHasMore,
+  initialHasNewer = false,
   members,
 }: {
   houseId: string;
   currentUserId: string;
   initialMessages: Message[];
+  /** Open the thread at this message (from search) instead of at the newest. */
+  openAtId?: string | null;
+  /** Whether history exists beyond each edge of a search-opened window. */
+  initialHasMore?: boolean;
+  initialHasNewer?: boolean;
   members: MemberWithProfile[];
 }) {
   const supabase = createClient();
@@ -62,6 +70,9 @@ export function Chat({
     members.find((m) => m.user_id === userId)?.profile ?? null;
 
   function addMessage(m: Message) {
+    // A reader who has scrolled up (or opened the thread at an old message)
+    // must not be yanked to the bottom by someone else's new message.
+    if (!nearBottomRef.current) skipNextAutoScroll.current = true;
     setMessages((prev) =>
       prev.some((x) => x.id === m.id)
         ? prev
@@ -69,9 +80,42 @@ export function Chat({
     );
   }
 
+  // Search can open the thread at an old message. While newer history exists
+  // beyond the loaded window, live inserts are held back (appending them
+  // would stitch a hole into the thread); "Jump to latest" or the visibility
+  // catch-up fills the gap and clears the flag.
+  const [hasNewer, setHasNewer] = useState(Boolean(openAtId) && initialHasNewer);
+  const hasNewerRef = useRef(hasNewer);
+  useEffect(() => {
+    hasNewerRef.current = hasNewer;
+  }, [hasNewer]);
+  const [highlightId, setHighlightId] = useState<string | null>(openAtId);
+
+  /** Replace the loaded window with the newest 100. False when nothing could be fetched. */
+  async function jumpToLatest(): Promise<boolean> {
+    const { data, error } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("house_id", houseId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    const rows = ((data as Message[] | null) ?? []).reverse();
+    if (error || rows.length === 0) return false; // nothing to jump to; keep the window as is
+    windowGen.current++;
+    setHasNewer(false);
+    nearBottomRef.current = true;
+    setAtBottom(true);
+    applyServerBatch(rows);
+    requestAnimationFrame(() => endRef.current?.scrollIntoView({ behavior: "auto" }));
+    return true;
+  }
+
   // Mirror of `messages` for use inside callbacks that must not re-subscribe
   // whenever the list changes (the catch-up refetch).
   const messagesRef = useRef<Message[]>(initialMessages);
+  // Bumped whenever the loaded window is REPLACED (not merged). Async work
+  // started against the old window checks it before touching state.
+  const windowGen = useRef(0);
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
@@ -117,6 +161,7 @@ export function Chat({
 
     if (disjoint) {
       setHasMore(true);
+      windowGen.current++;
       setMessages([...fresh, ...prev.filter((m) => m.id.startsWith("temp-"))]);
       return;
     }
@@ -131,6 +176,15 @@ export function Chat({
   // from HouseRealtime) — without this the chat ignored it entirely, because
   // useState only ever reads initialMessages once.
   useEffect(() => {
+    // Once the loaded window has been REPLACED (Jump to latest, or a long
+    // catch-up), a refreshed snapshot from the server may be an unrelated
+    // range: with ?m in the URL it is the original search window, which no
+    // longer touches what we hold. Catch up forward from what we have
+    // instead, which is contiguous by construction.
+    if (windowGen.current > 0) {
+      void catchUp();
+      return;
+    }
     applyServerBatch(initialMessages);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMessages]);
@@ -147,7 +201,10 @@ export function Chat({
           table: "messages",
           filter: `house_id=eq.${houseId}`,
         },
-        (payload) => addMessage(payload.new as Message),
+        (payload) => {
+          if (hasNewerRef.current) return; // window is not at the live end yet
+          addMessage(payload.new as Message);
+        },
       )
       .subscribe();
     return () => {
@@ -161,7 +218,7 @@ export function Chat({
   // only messages arriving while you watch scroll smoothly. Prepending older
   // history must NOT yank you back to the bottom — loadOlder sets the skip.
   const hasScrolled = useRef(false);
-  const skipNextAutoScroll = useRef(false);
+  const skipNextAutoScroll = useRef(Boolean(openAtId));
   useEffect(() => {
     if (skipNextAutoScroll.current) {
       skipNextAutoScroll.current = false;
@@ -171,10 +228,23 @@ export function Chat({
     hasScrolled.current = true;
   }, [messages]);
 
+  // Opened at a message (from search): bring it into view and flash it.
+  useEffect(() => {
+    if (!openAtId) return;
+    const el = document.getElementById(`msg-${openAtId}`);
+    el?.scrollIntoView({ block: "center", behavior: "auto" });
+    // A thread that fits on screen never fires onScroll, so settle the
+    // at-bottom state from geometry once the target is in view.
+    requestAnimationFrame(() => trackScroll());
+    const t = setTimeout(() => setHighlightId(null), 2500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Load older history when you scroll to the top (the server sends only the
   // newest 100). Scroll position is preserved across the prepend.
   const [loadingOlder, setLoadingOlder] = useState(false);
-  const [hasMore, setHasMore] = useState(initialMessages.length >= 100);
+  const [hasMore, setHasMore] = useState(initialHasMore ?? initialMessages.length >= 100);
   const loadingOlderRef = useRef(false);
   const topSentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -185,6 +255,7 @@ export function Chat({
     // the same length would leave it paging from a discarded head.
     const oldest = messagesRef.current[0]?.created_at;
     if (!el || !oldest || loadingOlderRef.current) return;
+    const gen = windowGen.current;
     loadingOlderRef.current = true;
     setLoadingOlder(true);
     try {
@@ -196,6 +267,9 @@ export function Chat({
         .order("created_at", { ascending: false })
         .limit(50);
       const older = ((data as Message[] | null) ?? []).reverse();
+      // The window was replaced while this page was in flight: these rows
+      // belong to the old head and would stitch a hole into the new one.
+      if (gen !== windowGen.current) return;
       setHasMore(older.length === 50);
       if (older.length > 0) {
         const prevHeight = el.scrollHeight;
@@ -238,10 +312,10 @@ export function Chat({
   // them instead of leaving them hidden behind the keyboard. Scrolled up
   // reading history? We leave your position alone.
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const nearBottomRef = useRef(true);
+  const nearBottomRef = useRef(!openAtId);
   // atBottom mirrors nearBottomRef as state, so the mark-read effect re-runs
   // when the reader scrolls back down to the live end of the thread.
-  const [atBottom, setAtBottom] = useState(true);
+  const [atBottom, setAtBottom] = useState(!openAtId);
   function trackScroll() {
     const el = scrollerRef.current;
     if (!el) return;
@@ -265,63 +339,66 @@ export function Chat({
     return () => vv.removeEventListener("resize", onResize);
   }, []);
 
-  // Catch up after the app was backgrounded: realtime events are missed while
-  // the webview is suspended, so refetch the tail when we become visible again.
-  useEffect(() => {
-    // Page FORWARD from the newest message we hold, rather than grabbing the
-    // newest N. Fetching forward makes the result contiguous by construction,
-    // so no hole can ever appear in the thread — and nothing already loaded
-    // gets thrown away just because a lot arrived while we were away.
-    // Fetch the newest window from scratch — used when there's no cursor to
-    // page from, and as the tail of a very long catch-up.
-    async function loadNewestWindow() {
+  // Page FORWARD from the newest message we hold, rather than grabbing the
+  // newest N. Fetching forward makes the result contiguous by construction,
+  // so no hole can ever appear in the thread, and nothing already loaded
+  // gets thrown away just because a lot arrived while we were away.
+  // Fetch the newest window from scratch, used when there's no cursor to
+  // page from, and as the tail of a very long catch-up.
+  async function loadNewestWindow() {
+    const { data } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("house_id", houseId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    applyServerBatch(((data as Message[] | null) ?? []).reverse());
+  }
+
+  async function catchUp() {
+    const held = messagesRef.current.filter((m) => !m.id.startsWith("temp-"));
+    // Nothing to page from (e.g. the chat was empty when we backgrounded),
+    // grab the newest window instead of giving up, or messages posted while
+    // away would never appear at all.
+    if (held.length === 0) {
+      await loadNewestWindow();
+      return;
+    }
+    let after = held.reduce((a, b) => (a.created_at > b.created_at ? a : b)).created_at;
+    const collected: Message[] = [];
+
+    for (let page = 0; page < 6; page++) {
       const { data } = await supabase
         .from("messages")
         .select("*")
         .eq("house_id", houseId)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      applyServerBatch(((data as Message[] | null) ?? []).reverse());
-    }
-
-    async function catchUp() {
-      const held = messagesRef.current.filter((m) => !m.id.startsWith("temp-"));
-      // Nothing to page from (e.g. the chat was empty when we backgrounded) —
-      // grab the newest window instead of giving up, or messages posted while
-      // away would never appear at all.
-      if (held.length === 0) {
-        await loadNewestWindow();
+        .gt("created_at", after)
+        .order("created_at", { ascending: true })
+        .limit(50);
+      const rows = (data as Message[] | null) ?? [];
+      collected.push(...rows);
+      if (rows.length < 50) {
+        // Joins directly onto what we hold, so merge, never replace.
+        applyServerBatch(collected, { contiguous: true });
+        setHasNewer(false); // the window now reaches the live end
         return;
       }
-      let after = held.reduce((a, b) => (a.created_at > b.created_at ? a : b)).created_at;
-      const collected: Message[] = [];
-
-      for (let page = 0; page < 6; page++) {
-        const { data } = await supabase
-          .from("messages")
-          .select("*")
-          .eq("house_id", houseId)
-          .gt("created_at", after)
-          .order("created_at", { ascending: true })
-          .limit(50);
-        const rows = (data as Message[] | null) ?? [];
-        collected.push(...rows);
-        if (rows.length < 50) {
-          // Joins directly onto what we hold, so merge — never replace.
-          applyServerBatch(collected, { contiguous: true });
-          return;
-        }
-        after = rows[rows.length - 1].created_at;
-      }
-
-      // 300+ behind. Keep what we already paid to fetch, then jump to the
-      // newest window (which may legitimately not join up, hence no
-      // contiguous flag).
-      applyServerBatch(collected, { contiguous: true });
-      await loadNewestWindow();
+      after = rows[rows.length - 1].created_at;
     }
+
+    // 300+ behind. Keep what we already paid to fetch, then jump to the
+    // newest window (which may legitimately not join up, hence no
+    // contiguous flag).
+    applyServerBatch(collected, { contiguous: true });
+    await loadNewestWindow();
+    setHasNewer(false);
+  }
+
+  // Catch up after the app was backgrounded: realtime events are missed while
+  // the webview is suspended, so refetch the tail when we become visible again.
+  useEffect(() => {
     function onVisible() {
-      if (document.visibilityState === "visible") void catchUp();
+      if (document.visibilityState === "visible" && !hasNewerRef.current) void catchUp();
     }
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
@@ -352,7 +429,7 @@ export function Chat({
     // up in history we deliberately don't scroll them to new arrivals, so
     // advancing the watermark would bury those messages as "read" on every
     // device, permanently. The effect re-runs when they scroll back down.
-    if (!atBottom) return;
+    if (!atBottom || hasNewer) return; // a search window is not the live end
     const lastReadAt = lastRealCreatedAt ?? new Date().toISOString();
     // supabase-js queries are lazy: they only execute when awaited or .then()'d.
     // A bare `void query` builds the request but never sends it — which is why
@@ -379,7 +456,7 @@ export function Chat({
     // Keyed on the real-row timestamp, not messages.length, so the watermark
     // updates when an optimistic bubble is swapped for its server row.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [houseId, currentUserId, lastRealCreatedAt, atBottom]);
+  }, [houseId, currentUserId, lastRealCreatedAt, atBottom, hasNewer]);
 
   // Close the emoji picker when tapping elsewhere.
   useEffect(() => {
@@ -432,6 +509,24 @@ export function Chat({
     setSending(true);
     setError(null);
     setShowEmoji(false);
+
+    // Replying from a search-opened window: get to the live end first, or the
+    // new bubble would sit after a gap of unloaded messages. The sending flag
+    // is already set, so a second tap during this round trip is ignored, and
+    // a failed jump aborts rather than posting into the stale window.
+    if (hasNewerRef.current) {
+      let jumped = false;
+      try {
+        jumped = await jumpToLatest();
+      } catch {
+        jumped = false;
+      }
+      if (!jumped) {
+        setError("Couldn't load the latest messages. Check your connection and try again.");
+        setSending(false);
+        return;
+      }
+    }
 
     // Optimistic: the message appears in the thread THE MOMENT you hit send
     // (slightly faded), like any messaging app. The insert result replaces it;
@@ -521,7 +616,16 @@ export function Chat({
   }
 
   return (
-    <div data-chat-shell className="flex h-[calc(100dvh-16rem)] flex-col">
+    <div data-chat-shell className="relative flex h-[calc(100dvh-16rem)] flex-col">
+      {hasNewer && (
+        <button
+          type="button"
+          onClick={() => void jumpToLatest()}
+          className="absolute bottom-[4.5rem] left-1/2 z-10 -translate-x-1/2 rounded-full bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-soft"
+        >
+          Jump to latest ↓
+        </button>
+      )}
       <div ref={scrollerRef} onScroll={trackScroll} className="flex-1 overflow-y-auto pb-2">
         {/* Pagination head: sentinel triggers loadOlder as it scrolls into view. */}
         {messages.length > 0 && (
@@ -601,7 +705,17 @@ export function Chat({
                     </span>
                   </div>
                 )}
-                <div className={m.id.startsWith("temp-") ? "opacity-60" : undefined}>
+                <div
+                  id={`msg-${m.id}`}
+                  className={[
+                    m.id.startsWith("temp-") ? "opacity-60" : "",
+                    m.id === highlightId
+                      ? "rounded-2xl bg-amber-100/70 ring-2 ring-amber-300 transition-colors duration-1000 dark:bg-amber-400/15 dark:ring-amber-400/50"
+                      : "transition-colors duration-1000",
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || undefined}
+                >
                   <Bubble
                     mine={m.user_id === currentUserId}
                     name={prof?.name ?? "Housemate"}
