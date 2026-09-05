@@ -1,6 +1,7 @@
 "use client";
 
 import type { ComponentType } from "react";
+import { CHAT_READ_EVENT, type ChatReadDetail } from "@/lib/chatRead";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -59,8 +60,19 @@ export function TopNav({
   const onChatRef = useRef(onChat);
   useEffect(() => {
     onChatRef.current = onChat;
-    if (onChat) setUnreadCount(0);
   }, [onChat]);
+
+  // Clear the badge when the chat actually marks itself read (it emits this
+  // exactly when the watermark is written), not merely on landing on /chat:
+  // a thread opened at an old message from search deliberately leaves the
+  // watermark alone until you reach the live end.
+  useEffect(() => {
+    function onRead(e: Event) {
+      if ((e as CustomEvent<ChatReadDetail>).detail?.houseId === houseId) setUnreadCount(0);
+    }
+    window.addEventListener(CHAT_READ_EVENT, onRead);
+    return () => window.removeEventListener(CHAT_READ_EVENT, onRead);
+  }, [houseId]);
 
   // Close the quick-add menu when navigating.
   useEffect(() => setAddOpen(false), [pathname]);

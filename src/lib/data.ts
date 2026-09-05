@@ -334,7 +334,7 @@ export async function getMessageWindow(
     .maybeSingle();
   if (!target) return null;
   const t = target as Message;
-  const [{ data: before }, { data: after }] = await Promise.all([
+  const [b, a] = await Promise.all([
     supabase
       .from("messages")
       .select("*")
@@ -350,6 +350,12 @@ export async function getMessageWindow(
       .order("created_at", { ascending: true })
       .limit(51),
   ]);
+  // A failed side query must not be read as "nothing beyond this edge": the
+  // client would treat the window as the live end and stitch a hole. Fall
+  // through to the normal thread instead.
+  if (b.error || a.error) return null;
+  const before = b.data;
+  const after = a.data;
   const older = ((before ?? []) as Message[]).reverse();
   const newerAll = (after ?? []) as Message[];
   const newer = newerAll.slice(0, 50);

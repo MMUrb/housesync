@@ -59,15 +59,34 @@ export function SearchClient({
   }, []);
 
   // Debounced fetch; an in-flight request for a stale query is abandoned.
-  useEffect(() => {
-    const term = q.trim();
-    // Keep the query in the URL so Back from a result restores this screen.
+  // Keep the query in the URL so Back from a result restores this screen.
+  // Written only once the query has settled (inside the debounce) and only
+  // when it differs: Safari throws after 100 history writes in 30 seconds,
+  // so a per-keystroke write would crash the app mid-search on iOS.
+  const wroteUrl = useRef("");
+  function syncUrl(term: string) {
+    const next = term.length >= 2 ? `/search?q=${encodeURIComponent(term)}` : "/search";
+    wroteUrl.current = term.length >= 2 ? term : "";
     try {
-      window.history.replaceState(null, "", term.length >= 2 ? `/search?q=${encodeURIComponent(term)}` : "/search");
+      if (window.location.pathname + window.location.search !== next) {
+        window.history.replaceState(null, "", next);
+      }
     } catch {
       /* ignore */
     }
+  }
+
+  // An external URL change (the header search icon while already here, or
+  // Back) must re-sync the box; our own writes are recognised via wroteUrl.
+  const urlQ = sp.get("q") ?? "";
+  useEffect(() => {
+    if (urlQ !== wroteUrl.current) setQ(urlQ);
+  }, [urlQ]);
+
+  useEffect(() => {
+    const term = q.trim();
     if (term.length < 2) {
+      syncUrl("");
       setResults(null);
       setLoading(false);
       setError(null);
@@ -75,6 +94,7 @@ export function SearchClient({
     }
     const ctrl = new AbortController();
     const t = setTimeout(async () => {
+      syncUrl(term);
       setLoading(true);
       setError(null);
       try {
@@ -95,6 +115,7 @@ export function SearchClient({
       clearTimeout(t);
       ctrl.abort();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
   function remember(term: string) {

@@ -71,8 +71,12 @@ export function Chat({
 
   function addMessage(m: Message) {
     // A reader who has scrolled up (or opened the thread at an old message)
-    // must not be yanked to the bottom by someone else's new message.
-    if (!nearBottomRef.current) skipNextAutoScroll.current = true;
+    // must not be yanked to the bottom by someone else's new message. Arm
+    // the skip only when a row will really be added: a duplicate delivery
+    // causes no render, and an armed flag would then swallow the next one.
+    if (!nearBottomRef.current && !messagesRef.current.some((x) => x.id === m.id)) {
+      skipNextAutoScroll.current = true;
+    }
     setMessages((prev) =>
       prev.some((x) => x.id === m.id)
         ? prev
@@ -510,6 +514,16 @@ export function Chat({
     setError(null);
     setShowEmoji(false);
 
+    // Snapshot the reply target and clear the composer NOW, before any await,
+    // so nothing typed or changed during the jump round trip is lost or
+    // mis-attributed. Both are restored below if the jump fails.
+    const replyTarget = replyingTo;
+    // Belt and braces alongside the startReply guard: never send a temp id as
+    // reply_to (the column is a uuid, it would 22P02 and stick).
+    const replyTo = replyingTo && !replyingTo.id.startsWith("temp-") ? replyingTo.id : null;
+    setText("");
+    setReplyingTo(null);
+
     // Replying from a search-opened window: get to the live end first, or the
     // new bubble would sit after a gap of unloaded messages. The sending flag
     // is already set, so a second tap during this round trip is ignored, and
@@ -523,6 +537,8 @@ export function Chat({
       }
       if (!jumped) {
         setError("Couldn't load the latest messages. Check your connection and try again.");
+        setText(body);
+        setReplyingTo(replyTarget);
         setSending(false);
         return;
       }
@@ -531,10 +547,6 @@ export function Chat({
     // Optimistic: the message appears in the thread THE MOMENT you hit send
     // (slightly faded), like any messaging app. The insert result replaces it;
     // a failure removes it and puts your text back.
-    const replyTarget = replyingTo;
-    // Belt and braces alongside the startReply guard: never send a temp id as
-    // reply_to (the column is a uuid — it would 22P02 and stick).
-    const replyTo = replyingTo && !replyingTo.id.startsWith("temp-") ? replyingTo.id : null;
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     // Client-generated row id so a lost response can be checked against the
     // server instead of assumed failed (which showed "Couldn't send" for a
@@ -550,8 +562,6 @@ export function Chat({
       created_at: new Date().toISOString(),
     } as Message;
     setMessages((prev) => [...prev, optimistic]);
-    setText("");
-    setReplyingTo(null);
 
     try {
       const { data, error } = await supabase
