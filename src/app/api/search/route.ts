@@ -22,12 +22,19 @@ export type SearchHit = {
   at: string;
 };
 
+export type SearchGroup = "money" | "chat" | "notices" | "shopping";
+
 export type SearchResponse = {
   q: string;
   money: SearchHit[];
   chat: SearchHit[];
   notices: SearchHit[];
   shopping: SearchHit[];
+  /**
+   * Groups whose query failed. Without this a broken query is indistinguishable
+   * from an empty one, and the screen would report "nothing found" as fact.
+   */
+  failed: SearchGroup[];
 };
 
 const PER_GROUP = 12;
@@ -68,7 +75,7 @@ export async function GET(request: Request) {
   if (!house) return NextResponse.json({ error: "No house." }, { status: 404 });
 
   const q = cleanQuery(new URL(request.url).searchParams.get("q") ?? "").slice(0, 80);
-  const empty: SearchResponse = { q, money: [], chat: [], notices: [], shopping: [] };
+  const empty: SearchResponse = { q, money: [], chat: [], notices: [], shopping: [], failed: [] };
   if (q.length < 2) return NextResponse.json(empty);
 
   const pat = pattern(q);
@@ -92,7 +99,7 @@ export async function GET(request: Request) {
             .eq("amount", amount)
             .order("date", { ascending: false })
             .limit(PER_GROUP)
-        : Promise.resolve({ data: [] as Expense[] }),
+        : Promise.resolve({ data: [] as Expense[], error: null }),
       supabase
         .from("recurring_bills")
         .select("*")
@@ -131,6 +138,24 @@ export async function GET(request: Request) {
         .limit(PER_GROUP),
     ]);
 
+  // A failed query must never render as "nothing found". Note which groups
+  // broke, keep serving the ones that worked, and give up entirely only when
+  // there is nothing trustworthy left to show.
+  const failed: SearchGroup[] = [];
+  const check = (group: SearchGroup, ...errs: ({ message: string } | null)[]) => {
+    const broken = errs.filter((e): e is { message: string } => Boolean(e));
+    if (broken.length === 0) return;
+    console.error(`search ${group} failed:`, broken.map((e) => e.message).join("; "));
+    failed.push(group);
+  };
+  check("money", expByTitle.error, expByAmount.error, bills.error);
+  check("chat", messages.error);
+  check("notices", noticesByTitle.error, noticesByBody.error);
+  check("shopping", shopping.error);
+  if (failed.length === 4) {
+    return NextResponse.json({ error: "Search failed." }, { status: 500 });
+  }
+
   const nameOf = (id: string | null) =>
     id === user.id ? "You" : members.find((m) => m.user_id === id)?.profile?.name ?? "Housemate";
   const dedupe = <T extends { id: string }>(rows: T[]): T[] => {
@@ -143,8 +168,8 @@ export async function GET(request: Request) {
     ...((expByAmount.data ?? []) as Expense[]),
   ]);
 
-  const money: SearchHit[] = [
-    ...expenses.map<SearchHit>((e) => ({
+  const expenseHits: SearchHit[] = expenses
+    .map<SearchHit>((e) => ({
       id: e.id,
       kind: "expense",
       title: e.title,
@@ -152,8 +177,13 @@ export async function GET(request: Request) {
       amount: Number(e.amount),
       href: `/expenses#expense-${e.id}`,
       at: e.date,
-    })),
-    ...((bills.data ?? []) as RecurringBill[]).map<SearchHit>((b) => ({
+    }))
+    // Title matches and amount matches arrive as two lists, so date order
+    // has to be restored across the join.
+    .sort((a, b) => (a.at < b.at ? 1 : -1));
+
+  // Left in the query's own order: soonest due first.
+  const billHits: SearchHit[] = ((bills.data ?? []) as RecurringBill[]).map<SearchHit>((b) => ({
       id: b.id,
       kind: "bill",
       title: b.title,
@@ -170,10 +200,19 @@ export async function GET(request: Request) {
       amount: Number(b.amount),
       href: `/bills#bill-${b.id}`,
       at: b.next_due_date ?? b.created_at,
-    })),
-  ]
-    .sort((a, b) => (a.at < b.at ? 1 : -1))
-    .slice(0, PER_GROUP);
+    }));
+
+  // A bill's due date and an expense's date are different axes, so the two
+  // are not sorted together. Bills lead, because a payment still to come is
+  // the more actionable of the two, but they are held to half the group
+  // whenever expenses also matched so neither kind can crowd out the other.
+  const billRoom = Math.min(
+    billHits.length,
+    expenseHits.length === 0
+      ? PER_GROUP
+      : Math.max(PER_GROUP - expenseHits.length, Math.floor(PER_GROUP / 2)),
+  );
+  const money: SearchHit[] = [...billHits.slice(0, billRoom), ...expenseHits].slice(0, PER_GROUP);
 
   const chat: SearchHit[] = ((messages.data ?? []) as Message[]).map((m) => ({
     id: m.id,
@@ -210,7 +249,7 @@ export async function GET(request: Request) {
     at: i.created_at,
   }));
 
-  return NextResponse.json({ q, money, chat, notices, shopping: shoppingHits } satisfies SearchResponse, {
+  return NextResponse.json({ q, money, chat, notices, shopping: shoppingHits, failed } satisfies SearchResponse, {
     headers: { "Cache-Control": "no-store" },
   });
 }

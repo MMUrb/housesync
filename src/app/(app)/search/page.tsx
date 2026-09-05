@@ -1,7 +1,7 @@
 import { getBills, getExpensesAndSplits, getSettlements, requireHouse } from "@/lib/data";
 import { computeBalances } from "@/lib/balances";
 import { netCents, buildPlan } from "@/lib/settle";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, ukToday } from "@/lib/format";
 import { SearchClient, type SearchShortcut } from "@/components/search/SearchClient";
 
 export const metadata = { title: "Search" };
@@ -40,10 +40,15 @@ export default async function SearchPage({
     if (dt && new Date(`${dt}T00:00:00`).getTime() >= startOfMonth) spent += Number(s.amount_owed);
   }
 
-  // Bills falling due in the next 7 days.
-  const today = new Date();
-  const weekOut = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7).toISOString().slice(0, 10);
-  const todayIso = today.toISOString().slice(0, 10);
+  // Bills falling due in the next 7 days. The server runs in UTC, so the
+  // window is anchored to the UK calendar rather than the server's own: a
+  // plain toISOString() still reads as yesterday between midnight and 1am
+  // British Summer Time. Week out is then pure calendar arithmetic, which
+  // no clock change can shift.
+  const todayIso = ukToday();
+  const weekOutDate = new Date(`${todayIso}T00:00:00Z`);
+  weekOutDate.setUTCDate(weekOutDate.getUTCDate() + 7);
+  const weekOut = weekOutDate.toISOString().slice(0, 10);
   const dueSoon = bills.filter(
     (b) => b.active && b.next_due_date && b.next_due_date >= todayIso && b.next_due_date <= weekOut,
   ).length;

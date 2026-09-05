@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { SearchHit, SearchResponse } from "@/app/api/search/route";
+import type { SearchGroup, SearchHit, SearchResponse } from "@/app/api/search/route";
 import { formatMoney } from "@/lib/format";
 
 // The search screen. Typing hits /api/search after a short pause; results
@@ -14,6 +14,19 @@ import { formatMoney } from "@/lib/format";
 const RECENT_KEY = "hs_search_recent";
 // Per tab, so Back from a result comes back to the same search.
 const SESSION_KEY = "hs_search_last";
+
+// How to name a group that could not be searched, mid-sentence.
+const GROUP_WORD: Record<SearchGroup, string> = {
+  money: "money",
+  chat: "chat",
+  notices: "the noticeboard",
+  shopping: "the shopping list",
+};
+function failedWords(groups: SearchGroup[]): string {
+  const words = groups.map((g) => GROUP_WORD[g]);
+  if (words.length <= 1) return words[0] ?? "";
+  return `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+}
 const RECENT_MAX = 6;
 const DEBOUNCE_MS = 250;
 
@@ -263,6 +276,12 @@ export function SearchClient({
             </div>
           )}
 
+          {results && (results.failed?.length ?? 0) > 0 && (
+            <p className="mb-3 rounded-xl bg-amber-50 px-3.5 py-2.5 text-[13px] font-medium text-amber-700">
+              Couldn&rsquo;t search {failedWords(results.failed)} just now, so those results are
+              missing. Try again in a moment.
+            </p>
+          )}
           {loading && !results && (
             <p className="px-1 py-6 text-center text-sm text-slate-400">Searching…</p>
           )}
