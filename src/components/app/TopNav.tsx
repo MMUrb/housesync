@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentType } from "react";
-import { CHAT_READ_EVENT, type ChatReadDetail } from "@/lib/chatRead";
+import { CHAT_READ_EVENT, CHAT_UNREAD_EVENT, type ChatReadDetail } from "@/lib/chatRead";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -58,38 +58,9 @@ export function TopNav({
 
   const onChat = pathname === "/chat" || pathname.startsWith("/chat/");
   const onChatRef = useRef(onChat);
-  const wasOnChat = useRef(onChat);
   useEffect(() => {
     onChatRef.current = onChat;
-    const justLeft = wasOnChat.current && !onChat;
-    wasOnChat.current = onChat;
-    if (!justLeft) return;
-    // Live increments are suppressed while the chat is open, and a thread
-    // opened at an old message from search never marks anything read, so
-    // the badge can be stale on the way out. Ask the server for the truth
-    // (same rule as getChatUnreadCount).
-    let cancelled = false;
-    void (async () => {
-      const supabase = createClient();
-      const { data: read } = await supabase
-        .from("message_reads")
-        .select("last_read_at")
-        .eq("user_id", userId)
-        .eq("house_id", houseId)
-        .maybeSingle();
-      const since = read?.last_read_at ?? "1970-01-01T00:00:00Z";
-      const { count, error } = await supabase
-        .from("messages")
-        .select("id", { count: "exact", head: true })
-        .eq("house_id", houseId)
-        .neq("user_id", userId)
-        .gt("created_at", since);
-      if (!cancelled && !error) setUnreadCount(count ?? 0);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [onChat, houseId, userId]);
+  }, [onChat]);
 
   // Clear the badge when the chat actually marks itself read (it emits this
   // exactly when the watermark is written), not merely on landing on /chat:
@@ -101,6 +72,19 @@ export function TopNav({
     }
     window.addEventListener(CHAT_READ_EVENT, onRead);
     return () => window.removeEventListener(CHAT_READ_EVENT, onRead);
+  }, [houseId]);
+
+  // The open chat held a message back (a thread opened at an old message
+  // from search): count it, since the realtime handler below stands down
+  // while the chat is on screen.
+  useEffect(() => {
+    function onUnread(e: Event) {
+      if ((e as CustomEvent<ChatReadDetail>).detail?.houseId === houseId) {
+        setUnreadCount((c) => c + 1);
+      }
+    }
+    window.addEventListener(CHAT_UNREAD_EVENT, onUnread);
+    return () => window.removeEventListener(CHAT_UNREAD_EVENT, onUnread);
   }, [houseId]);
 
   // Close the quick-add menu when navigating.

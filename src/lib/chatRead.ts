@@ -9,3 +9,16 @@ export function emitChatRead(houseId: string): void {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent<ChatReadDetail>(CHAT_READ_EVENT, { detail: { houseId } }));
 }
+
+/**
+ * A message arrived that the open chat deliberately did NOT take (a thread
+ * opened at an old message from search holds back live inserts). The nav
+ * suppresses its own increment while the chat is on screen, so it needs
+ * telling that this one is genuinely unread.
+ */
+export const CHAT_UNREAD_EVENT = "housesync:chat-unread";
+
+export function emitChatUnread(houseId: string): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent<ChatReadDetail>(CHAT_UNREAD_EVENT, { detail: { houseId } }));
+}

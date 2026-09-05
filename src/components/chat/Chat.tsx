@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { emitChatRead } from "@/lib/chatRead";
+import { emitChatRead, emitChatUnread } from "@/lib/chatRead";
 import { reportClientError, isNetworkError } from "@/components/ErrorReporter";
 import { Avatar } from "@/components/Avatar";
 import { EmojiPicker } from "@/components/chat/EmojiPicker";
@@ -49,6 +49,10 @@ export function Chat({
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [text, setText] = useState("");
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  // Mirror of the draft: a failed-send restore has to know whether the user
+  // typed while the request was in flight, and a functional updater runs too
+  // late to decide with.
+  const textRef = useRef("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
@@ -65,6 +69,9 @@ export function Chat({
   const pickerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    textRef.current = text;
+  }, [text]);
 
   const profileOf = (userId: string) =>
     members.find((m) => m.user_id === userId)?.profile ?? null;
@@ -206,8 +213,15 @@ export function Chat({
           filter: `house_id=eq.${houseId}`,
         },
         (payload) => {
-          if (hasNewerRef.current) return; // window is not at the live end yet
-          addMessage(payload.new as Message);
+          const m = payload.new as Message;
+          if (hasNewerRef.current) {
+            // Held back so the thread cannot grow a hole. The nav suppresses
+            // its own increment while the chat is open, so tell it this one
+            // really is unread.
+            if (m.user_id !== currentUserId) emitChatUnread(houseId);
+            return;
+          }
+          addMessage(m);
         },
       )
       .subscribe();
@@ -526,7 +540,10 @@ export function Chat({
     // Putting the draft back after a failure must not overwrite anything
     // typed while the request was in flight: newer input always wins.
     const restoreDraft = () => {
-      setText((t) => (t.trim() ? t : body));
+      // Anything newer in the box wins, reply target included: putting the
+      // old target back on a fresh draft would quote the wrong message.
+      if (textRef.current.trim()) return;
+      setText(body);
       setReplyingTo((r) => r ?? replyTarget);
     };
 

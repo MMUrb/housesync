@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import type { SearchHit, SearchResponse } from "@/app/api/search/route";
 import { formatMoney } from "@/lib/format";
 
@@ -12,6 +12,8 @@ import { formatMoney } from "@/lib/format";
 // written to the database.
 
 const RECENT_KEY = "hs_search_recent";
+// Per tab, so Back from a result comes back to the same search.
+const SESSION_KEY = "hs_search_last";
 const RECENT_MAX = 6;
 const DEBOUNCE_MS = 250;
 
@@ -36,12 +38,10 @@ export function SearchClient({
   initialQuery?: string;
 }) {
   const router = useRouter();
-  // Seed from the live URL, not only the server prop: after Back from a
-  // result the router restores the URL we wrote below, but re-serves the
-  // cached page RSC (rendered with an empty initialQuery).
-  const sp = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [q, setQ] = useState(sp.get("q") ?? initialQuery);
+  // Seeded from the deep link only: the tab's last search is restored in a
+  // mount effect below, so the server and the first client paint agree.
+  const [q, setQ] = useState(initialQuery);
   const [results, setResults] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,37 +56,26 @@ export function SearchClient({
     } catch {
       /* ignore */
     }
-  }, []);
-
-  // Debounced fetch; an in-flight request for a stale query is abandoned.
-  // Keep the query in the URL so Back from a result restores this screen.
-  // Written only once the query has settled (inside the debounce) and only
-  // when it differs: Safari throws after 100 history writes in 30 seconds,
-  // so a per-keystroke write would crash the app mid-search on iOS.
-  const wroteUrl = useRef("");
-  function syncUrl(term: string) {
-    const next = term.length >= 2 ? `/search?q=${encodeURIComponent(term)}` : "/search";
-    wroteUrl.current = term.length >= 2 ? term : "";
+    // No deep link: come back to whatever this tab was searching.
+    if (initialQuery) return;
     try {
-      if (window.location.pathname + window.location.search !== next) {
-        window.history.replaceState(null, "", next);
-      }
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      if (saved) setQ(saved);
     } catch {
       /* ignore */
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // An external URL change (the header search icon while already here, or
-  // Back) must re-sync the box; our own writes are recognised via wroteUrl.
-  const urlQ = sp.get("q") ?? "";
-  useEffect(() => {
-    if (urlQ !== wroteUrl.current) setQ(urlQ);
-  }, [urlQ]);
-
+  // Debounced fetch; an in-flight request for a stale query is abandoned.
   useEffect(() => {
     const term = q.trim();
+    try {
+      sessionStorage.setItem(SESSION_KEY, term);
+    } catch {
+      /* ignore */
+    }
     if (term.length < 2) {
-      syncUrl("");
       setResults(null);
       setLoading(false);
       setError(null);
@@ -94,7 +83,6 @@ export function SearchClient({
     }
     const ctrl = new AbortController();
     const t = setTimeout(async () => {
-      syncUrl(term);
       setLoading(true);
       setError(null);
       try {
