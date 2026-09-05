@@ -523,6 +523,12 @@ export function Chat({
     const replyTo = replyingTo && !replyingTo.id.startsWith("temp-") ? replyingTo.id : null;
     setText("");
     setReplyingTo(null);
+    // Putting the draft back after a failure must not overwrite anything
+    // typed while the request was in flight: newer input always wins.
+    const restoreDraft = () => {
+      setText((t) => (t.trim() ? t : body));
+      setReplyingTo((r) => r ?? replyTarget);
+    };
 
     // Replying from a search-opened window: get to the live end first, or the
     // new bubble would sit after a gap of unloaded messages. The sending flag
@@ -537,8 +543,7 @@ export function Chat({
       }
       if (!jumped) {
         setError("Couldn't load the latest messages. Check your connection and try again.");
-        setText(body);
-        setReplyingTo(replyTarget);
+        restoreDraft();
         setSending(false);
         return;
       }
@@ -617,8 +622,7 @@ export function Chat({
       }
       // Genuinely failed: drop the optimistic bubble, restore draft + reply.
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      setText(body);
-      setReplyingTo(replyTarget);
+      restoreDraft();
       setError(err instanceof Error ? err.message : "Couldn't send. Please try again.");
     } finally {
       setSending(false);

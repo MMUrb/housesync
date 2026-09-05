@@ -58,9 +58,38 @@ export function TopNav({
 
   const onChat = pathname === "/chat" || pathname.startsWith("/chat/");
   const onChatRef = useRef(onChat);
+  const wasOnChat = useRef(onChat);
   useEffect(() => {
     onChatRef.current = onChat;
-  }, [onChat]);
+    const justLeft = wasOnChat.current && !onChat;
+    wasOnChat.current = onChat;
+    if (!justLeft) return;
+    // Live increments are suppressed while the chat is open, and a thread
+    // opened at an old message from search never marks anything read, so
+    // the badge can be stale on the way out. Ask the server for the truth
+    // (same rule as getChatUnreadCount).
+    let cancelled = false;
+    void (async () => {
+      const supabase = createClient();
+      const { data: read } = await supabase
+        .from("message_reads")
+        .select("last_read_at")
+        .eq("user_id", userId)
+        .eq("house_id", houseId)
+        .maybeSingle();
+      const since = read?.last_read_at ?? "1970-01-01T00:00:00Z";
+      const { count, error } = await supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("house_id", houseId)
+        .neq("user_id", userId)
+        .gt("created_at", since);
+      if (!cancelled && !error) setUnreadCount(count ?? 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [onChat, houseId, userId]);
 
   // Clear the badge when the chat actually marks itself read (it emits this
   // exactly when the watermark is written), not merely on landing on /chat:
