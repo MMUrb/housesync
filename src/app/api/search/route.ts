@@ -46,6 +46,16 @@ const PER_GROUP = 12;
 function cleanQuery(q: string): string {
   return q.replace(/\*/g, " ").replace(/\s+/g, " ").trim();
 }
+/** The tail half of a surrogate pair: half an emoji, and a stray glyph on screen. */
+function isLowSurrogate(code: number): boolean {
+  return code >= 0xdc00 && code <= 0xdfff;
+}
+/** slice() that will not leave half a pair behind at the cut. */
+function cut(s: string, n: number): string {
+  if (s.length <= n) return s;
+  const last = s.charCodeAt(n - 1);
+  return s.slice(0, last >= 0xd800 && last <= 0xdbff ? n - 1 : n);
+}
 function pattern(q: string): string {
   return `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
@@ -59,8 +69,11 @@ function excerpt(text: string, q: string, n = 160): string {
   if (t.length <= n) return t;
   const idx = t.toLowerCase().indexOf(q.toLowerCase());
   if (idx < 0) return `${t.slice(0, n - 1)}…`;
-  const start = Math.max(0, Math.min(idx - Math.floor(n / 3), t.length - n));
-  const end = Math.min(t.length, start + n);
+  let start = Math.max(0, Math.min(idx - Math.floor(n / 3), t.length - n));
+  let end = Math.min(t.length, start + n);
+  // Both edges are plain UTF-16 offsets, so either can land inside an emoji.
+  if (isLowSurrogate(t.charCodeAt(start))) start += 1;
+  if (end < t.length && isLowSurrogate(t.charCodeAt(end))) end += 1;
   return `${start > 0 ? "…" : ""}${t.slice(start, end)}${end < t.length ? "…" : ""}`;
 }
 
@@ -74,7 +87,7 @@ export async function GET(request: Request) {
   const house = await getActiveHouse();
   if (!house) return NextResponse.json({ error: "No house." }, { status: 404 });
 
-  const q = cleanQuery(new URL(request.url).searchParams.get("q") ?? "").slice(0, 80);
+  const q = cut(cleanQuery(new URL(request.url).searchParams.get("q") ?? ""), 80);
   const empty: SearchResponse = { q, money: [], chat: [], notices: [], shopping: [], failed: [] };
   if (q.length < 2) return NextResponse.json(empty);
 

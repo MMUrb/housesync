@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { TimeAgo } from "@/components/LocalTime";
+import { ScrollToHash } from "@/components/app/ScrollToHash";
 import type { MemberWithProfile, Notice } from "@/lib/types";
 
 const TITLE_MAX = 120;
@@ -114,6 +115,7 @@ export function NoticeBoard({
 
   return (
     <section className="space-y-2">
+      <ScrollToHash prefix="notice" />
       <div className="flex items-center justify-between px-1">
         <h2 className="text-sm font-semibold text-slate-900">📌 Noticeboard</h2>
         <button

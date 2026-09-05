@@ -49,9 +49,15 @@ export default async function SearchPage({
   const weekOutDate = new Date(`${todayIso}T00:00:00Z`);
   weekOutDate.setUTCDate(weekOutDate.getUTCDate() + 7);
   const weekOut = weekOutDate.toISOString().slice(0, 10);
-  const dueSoon = bills.filter(
-    (b) => b.active && b.next_due_date && b.next_due_date >= todayIso && b.next_due_date <= weekOut,
-  ).length;
+  const dueDates = bills
+    .filter((b) => b.active)
+    .map((b) => b.next_due_date)
+    .filter((d): d is string => Boolean(d));
+  // Nothing rolls a missed bill forward on its own, so an unlogged one keeps
+  // a past due date indefinitely. Counting only the week ahead hid exactly
+  // the bills that need attention most, under the word "Nothing".
+  const overdue = dueDates.filter((d) => d < todayIso).length;
+  const dueSoon = dueDates.filter((d) => d >= todayIso && d <= weekOut).length;
 
   const shortcuts: SearchShortcut[] = [
     {
@@ -71,8 +77,13 @@ export default async function SearchPage({
     },
     {
       href: "/bills",
-      title: "Bills due soon",
-      detail: dueSoon === 0 ? "Nothing due in the next 7 days" : `${dueSoon} due in the next 7 days`,
+      title: overdue > 0 ? "Bills overdue" : "Bills due soon",
+      detail:
+        overdue > 0
+          ? `${overdue} overdue${dueSoon > 0 ? `, ${dueSoon} due this week` : ""}`
+          : dueSoon > 0
+            ? `${dueSoon} due in the next 7 days`
+            : "Nothing due in the next 7 days",
       tone: "amber",
     },
   ];

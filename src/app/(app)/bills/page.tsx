@@ -9,6 +9,7 @@ import {
 import { buildCatLookup } from "@/lib/categories";
 import { createClient } from "@/lib/supabase/server";
 import { PageTitle } from "@/components/app/PageTitle";
+import { ScrollToHash } from "@/components/app/ScrollToHash";
 import { LogBillButton } from "@/components/bills/LogBillButton";
 import { BillPay } from "@/components/bills/BillPay";
 import { BillDetailsButton } from "@/components/bills/BillDetailsButton";
@@ -78,6 +79,7 @@ export default async function BillsPage() {
 
   return (
     <div>
+      <ScrollToHash prefix="bill" />
       <PageTitle
         title="Bills"
         subtitle="Request everyone's share and see who's paid at a glance."
