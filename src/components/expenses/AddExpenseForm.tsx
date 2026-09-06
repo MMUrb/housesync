@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { splitEqually } from "@/lib/balances";
@@ -8,6 +8,17 @@ import { formatMoney, currencySymbol } from "@/lib/format";
 import { type SplitType } from "@/lib/types";
 
 type Cat = { code: string; name: string; emoji: string; color: string };
+
+// The category you used last time is a far better first guess than a fixed
+// default (most ad-hoc spending is not a bill). Device-local, like the tour.
+const LAST_CATEGORY_KEY = "hs_last_category";
+function rememberCategory(code: string) {
+  try {
+    localStorage.setItem(LAST_CATEGORY_KEY, code);
+  } catch {
+    /* private mode or storage blocked: just no memory */
+  }
+}
 import type { MemberWithProfile } from "@/lib/types";
 import { Avatar } from "@/components/Avatar";
 import { CategoryPicker } from "@/components/categories/CategoryPicker";
@@ -68,6 +79,20 @@ export function AddExpenseForm({
   const [notes, setNotes] = useState(edit?.notes ?? "");
   const [receipt, setReceipt] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // New expenses start on the last category used on this device. Done after
+  // mount so the server and first client paint agree, and only when it is
+  // still a category this house has.
+  useEffect(() => {
+    if (edit) return;
+    try {
+      const last = localStorage.getItem(LAST_CATEGORY_KEY);
+      if (last && categories.some((c) => c.code === last)) setCategory(last);
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [error, setError] = useState<string | null>(null);
 
   const amountNum = Number(amount) || 0;
@@ -221,6 +246,7 @@ export function AddExpenseForm({
           message: `edited “${title.trim()}”`,
         });
 
+        rememberCategory(category);
         router.push("/expenses");
         router.refresh();
         return;
@@ -279,6 +305,7 @@ export function AddExpenseForm({
         }),
       });
 
+      rememberCategory(category);
       router.push("/expenses");
       router.refresh();
     } catch (err) {

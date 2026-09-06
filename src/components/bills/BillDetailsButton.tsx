@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { formatMoney, formatDate } from "@/lib/format";
 
 export function BillDetailsButton({
@@ -40,7 +41,14 @@ export function BillDetailsButton({
   const [err, setErr] = useState<string | null>(null);
 
   async function handleDelete() {
-    if (!confirm(`Delete the bill “${title}”? This stops it recurring. Past logged expenses are kept.`))
+    if (
+      !(await confirmSheet({
+        title: `Delete “${title}”?`,
+        body: "This stops it recurring. Past logged expenses are kept.",
+        confirmLabel: "Delete bill",
+        tone: "danger",
+      }))
+    )
       return;
     setDeleting(true);
     setErr(null);

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { clearActiveHouse } from "@/lib/activeHouse";
 
 // House-scoped destructive actions (leave / delete this house), shown inside
@@ -33,7 +34,15 @@ export function DangerZone({
   const adminMustHandOver = isOwner && othersCount > 0;
 
   async function leave() {
-    if (!confirm(`Leave ${houseName}? You can re-join later with the invite link.`)) return;
+    if (
+      !(await confirmSheet({
+        title: `Leave ${houseName}?`,
+        body: "You can re-join later with the invite link.",
+        confirmLabel: "Leave house",
+        tone: "danger",
+      }))
+    )
+      return;
     setBusy(true);
     setError(null);
     const { error } = await supabase
@@ -53,9 +62,12 @@ export function DangerZone({
 
   async function destroy() {
     if (
-      !confirm(
-        `Delete ${houseName} for everyone? This removes all expenses, bills and chores. This cannot be undone.`,
-      )
+      !(await confirmSheet({
+        title: `Delete ${houseName} for everyone?`,
+        body: "This removes all expenses, bills and chores. This cannot be undone.",
+        confirmLabel: "Delete house",
+        tone: "danger",
+      }))
     )
       return;
     setBusy(true);

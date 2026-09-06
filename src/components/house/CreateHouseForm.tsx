@@ -122,6 +122,7 @@ export function CreateHouseForm() {
           <input
             id="rent-day"
             type="number"
+            inputMode="numeric"
             min={1}
             max={31}
             className="input"

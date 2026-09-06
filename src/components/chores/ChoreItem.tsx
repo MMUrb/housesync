@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { advanceDate, todayISO } from "@/lib/recurrence";
 import { firstName } from "@/lib/format";
 import { RelativeDay, TimeAgo } from "@/components/LocalTime";
@@ -175,7 +176,15 @@ export function ChoreItem({
 
   async function handleDelete() {
     setMenuOpen(false);
-    if (!confirm(`Delete “${chore.title}”? This can't be undone.`)) return;
+    if (
+      !(await confirmSheet({
+        title: `Delete “${chore.title}”?`,
+        body: "This can't be undone.",
+        confirmLabel: "Delete chore",
+        tone: "danger",
+      }))
+    )
+      return;
     setLoading(true);
     try {
       await supabase.from("chores").delete().eq("id", chore.id);

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { formatMoney, formatDate } from "@/lib/format";
 import { buildCatLookup } from "@/lib/categories";
 import type { SplitStatus } from "@/lib/types";
@@ -212,7 +213,15 @@ function ExpenseDetailSheet({
   const [err, setErr] = useState<string | null>(null);
 
   async function handleDelete() {
-    if (!confirm(`Delete “${e.title}”? This removes it for everyone and can't be undone.`)) return;
+    if (
+      !(await confirmSheet({
+        title: `Delete “${e.title}”?`,
+        body: "This removes it for everyone and can't be undone.",
+        confirmLabel: "Delete expense",
+        tone: "danger",
+      }))
+    )
+      return;
     setDeleting(true);
     setErr(null);
     try {

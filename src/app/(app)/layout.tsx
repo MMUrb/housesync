@@ -13,6 +13,7 @@ import { PushInit } from "@/components/push/PushInit";
 import { PushPrimer } from "@/components/push/PushPrimer";
 import { NativeShell } from "@/components/app/NativeShell";
 import { UpdatePrompt } from "@/components/app/UpdatePrompt";
+import { ConfirmHost } from "@/components/app/ConfirmSheet";
 import { PullToRefresh } from "@/components/app/PullToRefresh";
 import { HouseRealtime } from "@/components/app/HouseRealtime";
 import { Walkthrough } from "@/components/app/Walkthrough";
@@ -49,6 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </div>
       <main className="flex-1 px-4 pb-8 pt-4">
         <UpdatePrompt />
+        <ConfirmHost />
         <PullToRefresh />
         {children}
       </main>

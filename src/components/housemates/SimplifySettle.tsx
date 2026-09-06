@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { formatMoney } from "@/lib/format";
 import { buildReminderMessage } from "@/lib/reminders";
 import { Avatar } from "@/components/Avatar";
@@ -236,9 +237,12 @@ export function SimplifySettle(vm: SimplifyVM) {
 
   async function notReceived(id: string, name: string, amount: number): Promise<void> {
     if (
-      !confirm(
-        `Mark ${name}'s ${formatMoney(amount, currency)} as not received? They'll see it as owed again.`,
-      )
+      !(await confirmSheet({
+        title: `Mark ${name}'s ${formatMoney(amount, currency)} as not received?`,
+        body: "They'll see it as owed again.",
+        confirmLabel: "Not received",
+        tone: "danger",
+      }))
     )
       return;
     setError(null);

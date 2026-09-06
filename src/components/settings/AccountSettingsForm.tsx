@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { getSiteUrl } from "@/lib/env";
 import { clearActiveHouse } from "@/lib/activeHouse";
 import { DELETION_REASONS } from "@/lib/deletion";
@@ -86,7 +87,15 @@ export function AccountSettingsForm({
 
   async function deleteAccount() {
     if (!reason) return;
-    if (!confirm("Permanently delete your account? This cannot be undone.")) return;
+    if (
+      !(await confirmSheet({
+        title: "Permanently delete your account?",
+        body: "This cannot be undone.",
+        confirmLabel: "Delete account",
+        tone: "danger",
+      }))
+    )
+      return;
     setBusy(true);
     setError(null);
     try {

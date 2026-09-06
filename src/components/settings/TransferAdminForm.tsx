@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { Avatar } from "@/components/Avatar";
 import { haptic } from "@/lib/haptics";
 
@@ -48,9 +49,11 @@ export function TransferAdminForm({
   async function transfer() {
     if (!chosen || saving) return;
     if (
-      !confirm(
-        `Make ${chosen.name} the admin of ${houseName}?\n\nYou'll become a regular housemate. Only ${chosen.name} will be able to hand it back.`,
-      )
+      !(await confirmSheet({
+        title: `Make ${chosen.name} the house admin?`,
+        body: `You'll become a regular housemate of ${houseName}. Only ${chosen.name} will be able to hand it back.`,
+        confirmLabel: "Make admin",
+      }))
     )
       return;
     setError(null);

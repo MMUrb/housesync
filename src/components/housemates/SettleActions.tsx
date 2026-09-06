@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { formatMoney } from "@/lib/format";
 import { buildReminderMessage } from "@/lib/reminders";
 import { Avatar } from "@/components/Avatar";
@@ -176,9 +177,12 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
   // The money never arrived — put their claim back to unpaid.
   async function rejectClaim() {
     if (
-      !confirm(
-        `Mark ${item.name}'s ${formatMoney(item.owedPending, currency)} as not received? They'll see it as owed again.`,
-      )
+      !(await confirmSheet({
+        title: `Mark ${item.name}'s ${formatMoney(item.owedPending, currency)} as not received?`,
+        body: "They'll see it as owed again.",
+        confirmLabel: "Not received",
+        tone: "danger",
+      }))
     )
       return;
     setError(null);
