@@ -76,6 +76,28 @@ describe("computeBalances", () => {
     expect(r.pairwise).toEqual([]);
   });
 
+  it("keeps a counterparty whose debts cancel out exactly", () => {
+    // A paid e1 (B owes A 10); B paid e2 (A owes B 10). The net is zero, but
+    // Housemates still shows a row for B, so the count of people to settle
+    // with must not quietly drop them.
+    const exp = [expense("e1", "A"), expense("e2", "B")];
+    const sp = [split("e1", "B", 10), split("e2", "A", 10)];
+    const a = computeBalances(exp, sp, "A");
+    expect(a.pairwise).toEqual([]);
+    expect(a.counterparties).toEqual(["B"]);
+  });
+
+  it("counts each counterparty once, ignoring debts between other people", () => {
+    expect(computeBalances(expenses, splits, "A").counterparties).toEqual(["B", "C"]);
+    // B owes A, not C, so from C's side A is the only counterparty.
+    expect(computeBalances(expenses, splits, "C").counterparties).toEqual(["A"]);
+  });
+
+  it("drops a counterparty once the split is confirmed", () => {
+    const settled = [split("e1", "B", 10, "confirmed"), split("e1", "C", 10, "confirmed")];
+    expect(computeBalances(expenses, settled, "A").counterparties).toEqual([]);
+  });
+
   it("nets offsetting debts between two people", () => {
     // A paid e1 (B owes A 10); B paid e2 (A owes B 6). Net: A is owed 4.
     const exp = [expense("e1", "A"), expense("e2", "B")];

@@ -24,11 +24,29 @@ export default async function SearchPage({
     simplified ? getSettlements(house.id) : Promise.resolve([]),
   ]);
 
-  // People you still have something to settle with.
+  // People you still have something to settle with, counted the way the
+  // Housemates page counts its rows so the two screens cannot disagree.
   const balances = computeBalances(expenses, splits, user.id, settlements);
+  const myPlan = simplified
+    ? buildPlan(netCents(expenses, splits, settlements)).filter(
+        (t) => t.from === user.id || t.to === user.id,
+      )
+    : [];
+  // A settlement waiting on someone's confirm nets to zero and so drops out
+  // of the plan, but houseIsSquare still counts the house as unsettled and
+  // Housemates still shows a Confirm button for it.
+  const myPending = settlements.filter(
+    (s) =>
+      !s.absorbed &&
+      s.status === "pending" &&
+      (s.from_user === user.id || s.to_user === user.id),
+  );
   const settleCount = simplified
-    ? buildPlan(netCents(expenses, splits, settlements)).filter((t) => t.from === user.id || t.to === user.id).length
-    : balances.pairwise.length;
+    ? new Set([
+        ...myPlan.map((t) => (t.from === user.id ? t.to : t.from)),
+        ...myPending.map((s) => (s.from_user === user.id ? s.to_user : s.from_user)),
+      ]).size
+    : balances.counterparties.length;
 
   // Your share this calendar month (same rule as the dashboard budget card).
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();

@@ -13,6 +13,15 @@ export interface BalanceResult {
   totalYouAreOwed: number;
   /** Net balance with each other person (non-zero only), from the user's view. */
   pairwise: PairBalance[];
+  /**
+   * Everyone the user has an unconfirmed debt with, in either direction,
+   * sorted for a stable order. Deliberately NOT netted, unlike `pairwise`:
+   * two people who owe each other the same amount net to zero, but the
+   * Housemates page still shows a row for them, so anything counting people
+   * to settle with has to use this or it will claim they are square while
+   * that page asks them to pay.
+   */
+  counterparties: string[];
   /** Overall net per user across the whole house (+ = they are owed). */
   netByUser: Record<string, number>;
 }
@@ -80,6 +89,7 @@ export function computeBalances(
   others.delete(currentUserId);
 
   const pairwise: PairBalance[] = [];
+  const counterparties: string[] = [];
   let totalYouOwe = 0;
   let totalYouAreOwed = 0;
 
@@ -87,6 +97,8 @@ export function computeBalances(
     const youOweThem = debt[other]?.[currentUserId] ?? 0;
     const theyOweYou = debt[currentUserId]?.[other] ?? 0;
     const net = round2(youOweThem - theyOweYou);
+    // Before netting: an exactly cancelling pair is still a pair.
+    if (youOweThem + theyOweYou > 0.004) counterparties.push(other);
 
     if (net > 0.004) {
       pairwise.push({ userId: other, amount: net, direction: "you_owe" });
@@ -98,11 +110,13 @@ export function computeBalances(
   }
 
   pairwise.sort((a, b) => b.amount - a.amount);
+  counterparties.sort();
 
   return {
     totalYouOwe: round2(totalYouOwe),
     totalYouAreOwed: round2(totalYouAreOwed),
     pairwise,
+    counterparties,
     netByUser,
   };
 }
