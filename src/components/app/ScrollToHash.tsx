@@ -2,18 +2,6 @@
 
 import { useEffect } from "react";
 
-// Same treatment the chat gives a message opened from search.
-const HIGHLIGHT = [
-  "rounded-2xl",
-  "bg-amber-100/70",
-  "ring-2",
-  "ring-amber-300",
-  "transition-colors",
-  "duration-1000",
-  "dark:bg-amber-400/15",
-  "dark:ring-amber-400/50",
-];
-
 /**
  * Bring the row named in the URL hash into view on arrival, and mark it.
  *
@@ -23,6 +11,11 @@ const HIGHLIGHT = [
  * disarms itself. The real rows arrive afterwards with nothing left to move
  * them, which left every bill and notice hit landing at the top of the page.
  * Rendering this alongside the rows puts the scroll after they exist.
+ *
+ * The highlight is a plain unlayered class (globals.css) rather than Tailwind
+ * utilities: .dark .card is unlayered and beats any utility in dark mode, so
+ * the fill vanished on bill cards. hs-target stays behind so the fade-out
+ * still animates once hs-hit is removed.
  */
 export function ScrollToHash({ prefix }: { prefix: string }) {
   useEffect(() => {
@@ -32,8 +25,8 @@ export function ScrollToHash({ prefix }: { prefix: string }) {
     if (!el) return; // deleted since, or past the page's own row limit
 
     el.scrollIntoView({ block: "center", behavior: "auto" });
-    el.classList.add(...HIGHLIGHT);
-    const fade = setTimeout(() => el.classList.remove(...HIGHLIGHT), 2500);
+    el.classList.add("hs-target", "hs-hit");
+    const fade = setTimeout(() => el.classList.remove("hs-hit"), 2500);
 
     // Keeping the existing history state is what makes Next's patched
     // replaceState hand straight over to the native one: passing null would

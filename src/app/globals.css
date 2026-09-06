@@ -311,3 +311,24 @@
 .dark .text-amber-800 {
   color: #fbbf24;
 }
+
+/* Row a search result deep-links to (see components/app/ScrollToHash).
+   Unlayered on purpose, and placed after the component overrides above:
+   .dark .card is unlayered too, and an unlayered rule beats any @layer
+   utility regardless of specificity, which is why a Tailwind highlight on a
+   bill card lost its fill in dark mode. Same look the chat gives a message
+   opened from search. .hs-target stays on the row so the fade-out animates
+   after .hs-hit is removed. */
+.hs-target {
+  border-radius: 1rem;
+  transition: background-color 1s, box-shadow 1s;
+}
+.hs-hit {
+  background-color: rgb(254 243 199 / 0.7);
+  box-shadow: 0 0 0 2px #fcd34d, var(--tw-shadow, 0 0 #0000);
+}
+.dark .hs-hit {
+  /* Softer than the light values: a 15% tint turned the whole card yellow. */
+  background-color: rgb(251 191 36 / 0.07);
+  box-shadow: 0 0 0 1.5px rgb(251 191 36 / 0.55), var(--tw-shadow, 0 0 #0000);
+}
