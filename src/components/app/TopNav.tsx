@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { uniqueTopic } from "@/lib/realtimeTopic";
 import {
   IconBroom,
   IconCart,
@@ -87,7 +88,7 @@ export function TopNav({
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel(`nav-unread:${houseId}`)
+      .channel(uniqueTopic(`nav-unread:${houseId}`))
       .on(
         "postgres_changes",
         {

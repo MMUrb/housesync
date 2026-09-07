@@ -1,4 +1,4 @@
-import { requireHouse, getMessages, getMessageWindow } from "@/lib/data";
+import { requireHouse, loadMessages, getMessageWindow } from "@/lib/data";
 import { Chat } from "@/components/chat/Chat";
 
 export const metadata = { title: "Chat" };
@@ -35,13 +35,14 @@ export default async function ChatPage({
     // Unknown or deleted message: fall through to the normal thread.
   }
 
-  const messages = await getMessages(house.id);
+  const { messages, failed } = await loadMessages(house.id);
   return (
     <Chat
       key="live"
       houseId={house.id}
       currentUserId={user.id}
       initialMessages={messages}
+      initialLoadFailed={failed}
       members={members}
     />
   );

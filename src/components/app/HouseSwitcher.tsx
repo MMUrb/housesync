@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { setActiveHouse } from "@/lib/activeHouse";
 import { createClient } from "@/lib/supabase/client";
+import { uniqueTopic } from "@/lib/realtimeTopic";
 import { CHAT_READ_EVENT, type ChatReadDetail } from "@/lib/chatRead";
 import { IconChevronDown, IconCheck, IconPlus } from "@/components/icons";
 import type { House } from "@/lib/types";
@@ -92,7 +93,7 @@ export function HouseSwitcher({
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel(`switcher-unread:${userId}`)
+      .channel(uniqueTopic(`switcher-unread:${userId}`))
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },

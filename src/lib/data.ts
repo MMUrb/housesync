@@ -368,12 +368,29 @@ export async function getMessageWindow(
 
 /** Recent house chat messages, oldest first (capped at `limit`). */
 export async function getMessages(houseId: string, limit = 100): Promise<Message[]> {
+  return (await loadMessages(houseId, limit)).messages;
+}
+
+/**
+ * Newest messages, and whether the read actually succeeded.
+ *
+ * The distinction matters only to the chat screen: an empty list from a
+ * failed query is indistinguishable from a house that has never said
+ * anything, and rendering "No messages yet" over a broken read is a lie the
+ * reader acts on. Throwing instead is worse: the page is force-dynamic, so
+ * every router.refresh() re-runs it, and the only boundary above it
+ * replaces the whole app shell and unmounts a working thread.
+ */
+export async function loadMessages(
+  houseId: string,
+  limit = 100,
+): Promise<{ messages: Message[]; failed: boolean }> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("messages")
     .select("*")
     .eq("house_id", houseId)
     .order("created_at", { ascending: false })
     .limit(limit);
-  return ((data ?? []) as Message[]).reverse();
+  return { messages: ((data ?? []) as Message[]).reverse(), failed: Boolean(error) };
 }

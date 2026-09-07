@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { uniqueTopic } from "@/lib/realtimeTopic";
 import { emitChatRead } from "@/lib/chatRead";
 import { reportClientError, isNetworkError } from "@/components/ErrorReporter";
 import { Avatar } from "@/components/Avatar";
@@ -30,6 +31,7 @@ export function Chat({
   houseId,
   currentUserId,
   initialMessages,
+  initialLoadFailed = false,
   openAtId = null,
   initialHasMore,
   initialHasNewer = false,
@@ -38,6 +40,8 @@ export function Chat({
   houseId: string;
   currentUserId: string;
   initialMessages: Message[];
+  /** The server read failed, so an empty list means unknown, not empty. */
+  initialLoadFailed?: boolean;
   /** Open the thread at this message (from search) instead of at the newest. */
   openAtId?: string | null;
   /** Whether history exists beyond each edge of a search-opened window. */
@@ -101,6 +105,19 @@ export function Chat({
     hasNewerRef.current = hasNewer;
   }, [hasNewer]);
   const [highlightId, setHighlightId] = useState<string | null>(openAtId);
+  // Cleared by the first catch-up that actually returns, which the mount
+  // effect below starts immediately.
+  const [loadFailed, setLoadFailed] = useState(initialLoadFailed);
+  // Sends that failed, keyed by the optimistic row's temp id. The bubble
+  // stays in the thread rather than vanishing, so nothing you wrote is lost,
+  // and the retry reuses the SAME row id: a message that actually landed can
+  // never be posted twice.
+  const [failedSends, setFailedSends] = useState<
+    Map<string, { rowId: string | null; body: string; replyTo: string | null }>
+  >(new Map());
+  useEffect(() => {
+    if (initialLoadFailed) setLoadFailed(true);
+  }, [initialLoadFailed]);
 
   /** Replace the loaded window with the newest 100. False when nothing could be fetched. */
   async function jumpToLatest(): Promise<boolean> {
@@ -200,10 +217,13 @@ export function Chat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMessages]);
 
-  // Stream new messages for this house live.
+  // Stream new messages for this house live. The topic is unique to this
+  // mount (see uniqueTopic); the client reuses a still-leaving channel for a
+  // repeated topic and subscribe() then never joins, which left the thread
+  // silently dead after the live/search key swap or a quick tab round trip.
   useEffect(() => {
     const channel = supabase
-      .channel(`house-chat:${houseId}`)
+      .channel(uniqueTopic(`house-chat:${houseId}`))
       .on(
         "postgres_changes",
         {
@@ -220,7 +240,17 @@ export function Chat({
           addMessage(payload.new as Message);
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status !== "SUBSCRIBED") return;
+        // Catch up on EVERY join, the first included. The router serves a
+        // cached copy of this screen for 30 seconds on a quick revisit, and a
+        // send never updates that copy, so the first join heals a stale
+        // snapshot and covers the gap between the server render and the
+        // socket joining. Later joins are reconnects (network change, app
+        // resume), where the visibility catch-up can run BEFORE the socket
+        // has rejoined; this is the only hook that closes that window.
+        if (!hasNewerRef.current) void catchUp();
+      });
     return () => {
       void supabase.removeChannel(channel);
     };
@@ -359,42 +389,79 @@ export function Chat({
   // gets thrown away just because a lot arrived while we were away.
   // Fetch the newest window from scratch, used when there's no cursor to
   // page from, and as the tail of a very long catch-up.
-  async function loadNewestWindow() {
-    const { data } = await supabase
+  async function loadNewestWindow(): Promise<boolean> {
+    const { data, error } = await supabase
       .from("messages")
       .select("*")
       .eq("house_id", houseId)
       .order("created_at", { ascending: false })
       .limit(100);
+    // A request that never ran must not be mistaken for an empty house or
+    // for having reached the live end.
+    if (error) return false;
     applyServerBatch(((data as Message[] | null) ?? []).reverse());
+    return true;
   }
 
+  const catchingUp = useRef(false);
+  const catchUpAgain = useRef(false);
   async function catchUp() {
+    // Triggers coincide constantly on resume: the visibility tick starts a
+    // fetch and the socket rejoins a second later. Dropping the later one
+    // would lose exactly the messages that arrived while the channel was
+    // down, so a trigger during a run is remembered and re-run once the
+    // current one finishes. Bounded, so a burst cannot spin.
+    if (catchingUp.current) {
+      catchUpAgain.current = true;
+      return;
+    }
+    catchingUp.current = true;
+    try {
+      let rounds = 0;
+      do {
+        catchUpAgain.current = false;
+        await catchUpInner();
+      } while (catchUpAgain.current && ++rounds < 3);
+    } finally {
+      catchingUp.current = false;
+    }
+  }
+
+  async function catchUpInner() {
     const held = messagesRef.current.filter((m) => !m.id.startsWith("temp-"));
     // Nothing to page from (e.g. the chat was empty when we backgrounded),
     // grab the newest window instead of giving up, or messages posted while
     // away would never appear at all.
     if (held.length === 0) {
-      await loadNewestWindow();
+      if (await loadNewestWindow()) setLoadFailed(false);
       return;
     }
     let after = held.reduce((a, b) => (a.created_at > b.created_at ? a : b)).created_at;
     const collected: Message[] = [];
 
     for (let page = 0; page < 6; page++) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("messages")
         .select("*")
         .eq("house_id", houseId)
         .gt("created_at", after)
         .order("created_at", { ascending: true })
         .limit(50);
+      if (error) {
+        // A request that never ran is not proof we are up to date. Taking
+        // the live-end branch below would merge nothing, clear hasNewer and
+        // report success. Keep whatever earlier pages returned and leave the
+        // rest to the next trigger.
+        if (collected.length > 0) applyServerBatch(collected, { contiguous: true });
+        return;
+      }
       const rows = (data as Message[] | null) ?? [];
       collected.push(...rows);
       if (rows.length < 50) {
         // Joins directly onto what we hold, so merge, never replace.
         applyServerBatch(collected, { contiguous: true });
         setHasNewer(false); // the window now reaches the live end
+        setLoadFailed(false);
         return;
       }
       after = rows[rows.length - 1].created_at;
@@ -404,18 +471,38 @@ export function Chat({
     // newest window (which may legitimately not join up, hence no
     // contiguous flag).
     applyServerBatch(collected, { contiguous: true });
-    await loadNewestWindow();
-    setHasNewer(false);
+    if (await loadNewestWindow()) setHasNewer(false);
   }
+
+  // Heal a stale screen on arrival, over plain HTTPS. The router serves a
+  // cached copy of this page for 30 seconds, so a quick return after sending
+  // renders a snapshot without that message. The socket cannot be relied on
+  // to fix it: a blocked or half-open WebSocket means SUBSCRIBED never
+  // arrives, and the message would sit missing until the poll. This runs
+  // whenever sending works, because it uses the same transport.
+  useEffect(() => {
+    if (!hasNewerRef.current) void catchUp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [houseId]);
 
   // Catch up after the app was backgrounded: realtime events are missed while
   // the webview is suspended, so refetch the tail when we become visible again.
+  // The same tail fetch runs when the network comes back and, while the
+  // thread is on screen, once every 45 seconds: a subscription that has died
+  // quietly (expired token, a socket that never rejoined) then costs under a
+  // minute rather than a reopen. Normally it returns nothing.
   useEffect(() => {
-    function onVisible() {
+    function tick() {
       if (document.visibilityState === "visible" && !hasNewerRef.current) void catchUp();
     }
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    document.addEventListener("visibilitychange", tick);
+    window.addEventListener("online", tick);
+    const poll = setInterval(tick, 45_000);
+    return () => {
+      document.removeEventListener("visibilitychange", tick);
+      window.removeEventListener("online", tick);
+      clearInterval(poll);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [houseId]);
 
@@ -437,6 +524,25 @@ export function Chat({
       m.id.startsWith("temp-") ? acc : !acc || m.created_at > acc ? m.created_at : acc,
     null,
   );
+
+  // Messages that arrived while the reader was scrolled up. The thread
+  // deliberately does not drag them down to new arrivals, so a pill says
+  // they came. Derived from the newest message they had in view the last
+  // time they were at the bottom, rather than counted, so it cannot drift.
+  const seenUpTo = useRef<string | null>(lastRealCreatedAt);
+  useEffect(() => {
+    if (atBottom) seenUpTo.current = lastRealCreatedAt;
+  }, [atBottom, lastRealCreatedAt]);
+  const unseen = atBottom
+    ? 0
+    : messages.filter(
+        (m) =>
+          !m.id.startsWith("temp-") &&
+          m.user_id !== currentUserId &&
+          m.kind !== "system" &&
+          seenUpTo.current !== null &&
+          m.created_at > seenUpTo.current,
+      ).length;
 
   useEffect(() => {
     // Only mark read what the reader could actually SEE. When they're scrolled
@@ -517,6 +623,98 @@ export function Chat({
     requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
+  /** Put a confirmed server row in place of its optimistic bubble. */
+  function swapInReal(tempId: string, real: Message) {
+    setFailedSends((prev) => {
+      if (!prev.has(tempId)) return prev;
+      const next = new Map(prev);
+      next.delete(tempId);
+      return next;
+    });
+    setMessages((prev) => {
+      const withoutTemp = prev.filter((m) => m.id !== tempId);
+      // The realtime echo may already have delivered the real row. Sort on
+      // insert: a housemate's message can land while ours is in flight, so
+      // appending blindly would leave the thread out of order.
+      return withoutTemp.some((m) => m.id === real.id)
+        ? withoutTemp
+        : [...withoutTemp, real].sort((a, b) => a.created_at.localeCompare(b.created_at));
+    });
+  }
+
+  /**
+   * Write one already-optimistic message. The first attempt and every retry
+   * go through here with the same row id, so a retry after a lost response
+   * cannot produce a duplicate.
+   */
+  async function deliver(
+    tempId: string,
+    rowId: string | null,
+    body: string,
+    replyTo: string | null,
+  ): Promise<void> {
+    try {
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({
+          ...(rowId ? { id: rowId } : {}),
+          house_id: houseId,
+          user_id: currentUserId,
+          body,
+          reply_to: replyTo,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      swapInReal(tempId, data as Message);
+      // Notify the other housemates (best-effort; server decides who's opted in).
+      void fetch("/api/push/notify", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({ houseId, preview: body }),
+      });
+    } catch {
+      // A dropped response doesn't mean the write failed. A retry reusing the
+      // row id would hit the primary key rather than duplicate, but the bubble
+      // would sit marked Not sent over a message everyone else can already
+      // see, so check before saying so.
+      if (rowId) {
+        const { data: landed } = await supabase
+          .from("messages")
+          .select("*")
+          .eq("id", rowId)
+          .maybeSingle();
+        if (landed) {
+          swapInReal(tempId, landed as Message);
+          return;
+        }
+      }
+      setFailedSends((prev) => new Map(prev).set(tempId, { rowId, body, replyTo }));
+    }
+  }
+
+  async function retrySend(tempId: string): Promise<void> {
+    const info = failedSends.get(tempId);
+    if (!info) return;
+    // Back to the sending look while this attempt runs.
+    setFailedSends((prev) => {
+      const next = new Map(prev);
+      next.delete(tempId);
+      return next;
+    });
+    await deliver(tempId, info.rowId, info.body, info.replyTo);
+  }
+
+  function discardFailed(tempId: string): void {
+    setFailedSends((prev) => {
+      const next = new Map(prev);
+      next.delete(tempId);
+      return next;
+    });
+    setMessages((prev) => prev.filter((m) => m.id !== tempId));
+  }
+
   async function send() {
     const body = text.trim();
     if (!body || sending) return;
@@ -533,8 +731,8 @@ export function Chat({
     const replyTo = replyingTo && !replyingTo.id.startsWith("temp-") ? replyingTo.id : null;
     setText("");
     setReplyingTo(null);
-    // Putting the draft back after a failure must not overwrite anything
-    // typed while the request was in flight: newer input always wins.
+    // Only the failed-jump path below puts the draft back: a failed send keeps
+    // its bubble in the thread instead, so there is nothing to restore.
     const restoreDraft = () => {
       // Anything newer in the box wins, reply target included: putting the
       // old target back on a fresh draft would quote the wrong message.
@@ -564,7 +762,8 @@ export function Chat({
 
     // Optimistic: the message appears in the thread THE MOMENT you hit send
     // (slightly faded), like any messaging app. The insert result replaces it;
-    // a failure removes it and puts your text back.
+    // a failure leaves it in place marked Not sent, with Retry, rather than
+    // deleting what you wrote.
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     // Client-generated row id so a lost response can be checked against the
     // server instead of assumed failed (which showed "Couldn't send" for a
@@ -582,61 +781,7 @@ export function Chat({
     setMessages((prev) => [...prev, optimistic]);
 
     try {
-      const { data, error } = await supabase
-        .from("messages")
-        .insert({
-          ...(rowId ? { id: rowId } : {}),
-          house_id: houseId,
-          user_id: currentUserId,
-          body,
-          reply_to: replyTo,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      const real = data as Message;
-      setMessages((prev) => {
-        const withoutTemp = prev.filter((m) => m.id !== tempId);
-        // The realtime echo may already have delivered the real row. Sort on
-        // insert: a housemate's message can land while ours is in flight, so
-        // appending blindly would leave the thread out of order.
-        return withoutTemp.some((m) => m.id === real.id)
-          ? withoutTemp
-          : [...withoutTemp, real].sort((a, b) => a.created_at.localeCompare(b.created_at));
-      });
-      // Notify the other housemates (best-effort; server decides who's opted in).
-      void fetch("/api/push/notify", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        keepalive: true,
-        body: JSON.stringify({ houseId, preview: body }),
-      });
-    } catch (err) {
-      // A dropped response doesn't mean the write failed — check before
-      // rolling back, or we'd invite the user to send a duplicate.
-      if (rowId) {
-        const { data: landed } = await supabase
-          .from("messages")
-          .select("*")
-          .eq("id", rowId)
-          .maybeSingle();
-        if (landed) {
-          const real = landed as Message;
-          setMessages((prev) => {
-            const withoutTemp = prev.filter((m) => m.id !== tempId);
-            // Sorted, same as the success path: a housemate's message can have
-            // landed while ours was in flight.
-            return withoutTemp.some((m) => m.id === real.id)
-              ? withoutTemp
-              : [...withoutTemp, real].sort((a, b) => a.created_at.localeCompare(b.created_at));
-          });
-          return;
-        }
-      }
-      // Genuinely failed: drop the optimistic bubble, restore draft + reply.
-      setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      restoreDraft();
-      setError(err instanceof Error ? err.message : "Couldn't send. Please try again.");
+      await deliver(tempId, rowId, body, replyTo);
     } finally {
       setSending(false);
     }
@@ -651,6 +796,15 @@ export function Chat({
           className="absolute bottom-[4.5rem] left-1/2 z-10 -translate-x-1/2 rounded-full bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-soft"
         >
           Jump to latest ↓
+        </button>
+      )}
+      {!hasNewer && unseen > 0 && (
+        <button
+          type="button"
+          onClick={() => endRef.current?.scrollIntoView({ behavior: "smooth" })}
+          className="absolute bottom-[4.5rem] left-1/2 z-10 -translate-x-1/2 rounded-full bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-soft"
+        >
+          {unseen} new {unseen === 1 ? "message" : "messages"} ↓
         </button>
       )}
       <div ref={scrollerRef} onScroll={trackScroll} className="flex-1 overflow-y-auto pb-2">
@@ -672,11 +826,25 @@ export function Chat({
         )}
         {messages.length === 0 ? (
           <div className="grid h-full place-items-center text-center text-sm text-slate-400">
-            <div>
-              <p className="text-3xl">👋</p>
-              <p className="mt-2">No messages yet.</p>
-              <p>Say hello to the house!</p>
-            </div>
+            {loadFailed ? (
+              <div>
+                <p className="text-3xl">📡</p>
+                <p className="mt-2 text-slate-500">Couldn&rsquo;t load the messages.</p>
+                <button
+                  type="button"
+                  onClick={() => void catchUp()}
+                  className="btn-secondary mt-3 px-4 py-2 text-sm"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : (
+              <div>
+                <p className="text-3xl">👋</p>
+                <p className="mt-2">No messages yet.</p>
+                <p>Say hello to the house!</p>
+              </div>
+            )}
           </div>
         ) : (
           messages.map((m, i) => {
@@ -735,7 +903,7 @@ export function Chat({
                 <div
                   id={`msg-${m.id}`}
                   className={[
-                    m.id.startsWith("temp-") ? "opacity-60" : "",
+                    m.id.startsWith("temp-") && !failedSends.has(m.id) ? "opacity-60" : "",
                     m.id === highlightId
                       ? "rounded-2xl bg-amber-100/70 ring-2 ring-amber-300 transition-colors duration-1000 dark:bg-amber-400/15 dark:ring-amber-400/50"
                       : "transition-colors duration-1000",
@@ -756,6 +924,25 @@ export function Chat({
                     quote={quote}
                     onReply={() => startReply(m)}
                   />
+                  {failedSends.has(m.id) && (
+                    <div className="mt-0.5 flex items-center justify-end gap-2 px-1 text-[11px] font-medium text-red-600">
+                      Not sent
+                      <button
+                        type="button"
+                        onClick={() => void retrySend(m.id)}
+                        className="rounded-md bg-red-50 px-2 py-0.5 font-semibold text-red-700 dark:bg-red-500/15"
+                      >
+                        Retry
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => discardFailed(m.id)}
+                        className="font-medium text-slate-400"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               </Fragment>
             );

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { uniqueTopic } from "@/lib/realtimeTopic";
 
 // House tables that carry a house_id, so we can subscribe scoped to this house.
 // (messages is handled live by the chat component; expense_splits is below.)
@@ -32,7 +33,7 @@ export function HouseRealtime({ houseId }: { houseId: string }) {
       timer.current = setTimeout(() => router.refresh(), 400);
     };
 
-    const channel = supabase.channel(`house-sync:${houseId}`);
+    const channel = supabase.channel(uniqueTopic(`house-sync:${houseId}`));
     for (const table of SCOPED_TABLES) {
       channel.on(
         "postgres_changes",

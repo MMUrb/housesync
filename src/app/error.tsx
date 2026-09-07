@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { startTransition, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { reportClientError, isNetworkError } from "@/components/ErrorReporter";
 
@@ -32,6 +33,8 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const router = useRouter();
+
   useEffect(() => {
     if (isChunkError(error)) {
       // Offline, a reload can't succeed — in the app's webview it would land
@@ -68,7 +71,20 @@ export default function Error({
         <div className="mt-8 flex items-center justify-center gap-3">
           <button
             type="button"
-            onClick={() => (isChunkError(error) ? window.location.reload() : reset())}
+            onClick={() => {
+              if (isChunkError(error)) {
+                window.location.reload();
+                return;
+              }
+              // reset() on its own re-renders the same failure: for an error
+              // thrown while rendering on the server, the cached payload is
+              // what comes back. Refetch the route first, then clear the
+              // boundary, so Try again can actually succeed.
+              startTransition(() => {
+                router.refresh();
+                reset();
+              });
+            }}
             className="btn-primary px-5 py-3"
           >
             Try again
