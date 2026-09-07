@@ -14,6 +14,8 @@ import { PushPrimer } from "@/components/push/PushPrimer";
 import { NativeShell } from "@/components/app/NativeShell";
 import { UpdatePrompt } from "@/components/app/UpdatePrompt";
 import { ConfirmHost } from "@/components/app/ConfirmSheet";
+import { ToastHost } from "@/components/app/Toast";
+import { OfflineBanner } from "@/components/app/OfflineBanner";
 import { PullToRefresh } from "@/components/app/PullToRefresh";
 import { HouseRealtime } from "@/components/app/HouseRealtime";
 import { Walkthrough } from "@/components/app/Walkthrough";
@@ -47,10 +49,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           unreadByHouse={unreadByHouse}
         />
         <TopNav houseId={house.id} userId={user.id} initialUnreadCount={chatUnread} />
+        <OfflineBanner />
       </div>
       <main className="flex-1 px-4 pb-8 pt-4">
         <UpdatePrompt />
         <ConfirmHost />
+        <ToastHost />
         <PullToRefresh />
         {children}
       </main>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { showToast } from "@/components/app/Toast";
 import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { advanceDate, todayISO } from "@/lib/recurrence";
 import { firstName } from "@/lib/format";
@@ -131,6 +132,7 @@ export function ChoreItem({
       });
 
       router.refresh();
+      showToast({ message: `Done: ${chore.title}`, actionLabel: "Undo", onAction: markUndone });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't mark that as done. Please try again.");
     } finally {

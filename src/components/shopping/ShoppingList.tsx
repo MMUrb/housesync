@@ -1,13 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { showToast } from "@/components/app/Toast";
 import { IconCheck } from "@/components/icons";
 import type { MemberWithProfile, ShoppingItem } from "@/lib/types";
 
 const NAME_MAX = 80;
 const QTY_MAX = 24;
+
+/**
+ * Hand what was bought to Add expense so only the amount is left to type.
+ * Title names the first few items, the full list goes in the notes, and the
+ * payer is whoever ticked them off when that was one person.
+ */
+function expenseHref(got: ShoppingItem[], me: string): string {
+  const names = got.map((i) => (i.quantity ? `${i.name} ${i.quantity}` : i.name));
+  const more = names.length - 4;
+  const title = `Shopping: ${names.slice(0, 4).join(", ")}${more > 0 ? ` +${more} more` : ""}`.slice(0, 80);
+  const buyers = new Set(got.map((i) => i.checked_by).filter((id): id is string => Boolean(id)));
+  const paidBy = buyers.size === 1 ? [...buyers][0] : me;
+  const q = new URLSearchParams({
+    title,
+    paid_by: paidBy,
+    category: "groceries",
+    notes: `From the shopping list: ${names.join(", ")}`.slice(0, 500),
+  });
+  return `/expenses/new?${q.toString()}`;
+}
 
 // Unchecked first in the order they were added (stable list you build up), then
 // bought items with the most recently ticked at the top. Mirrors the server
@@ -114,6 +136,15 @@ export function ShoppingList({
       setItems((prev) => sortItems(prev.map((x) => (x.id === item.id ? item : x))));
     } else {
       router.refresh();
+      // The tick is the most frequent tap in the app, so keep this short.
+      if (next) {
+        showToast({
+          message: `Got ${item.name}`,
+          actionLabel: "Undo",
+          onAction: () => toggle({ ...item, ...patch }),
+          durationMs: 3000,
+        });
+      }
     }
   }
 
@@ -225,6 +256,12 @@ export function ShoppingList({
                   />
                 ))}
               </ul>
+              <Link
+                href={expenseHref(got, currentUserId)}
+                className="btn-secondary btn-block mt-1 text-brand-700"
+              >
+                <span aria-hidden="true">🧾</span> Add {got.length === 1 ? "this" : `these ${got.length}`} as an expense
+              </Link>
             </section>
           )}
         </>

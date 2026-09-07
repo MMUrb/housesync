@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { showToast } from "@/components/app/Toast";
 import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { formatMoney } from "@/lib/format";
 import { buildReminderMessage } from "@/lib/reminders";
@@ -108,6 +109,15 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
         }),
       });
       router.refresh();
+      // Undo exactly the splits just marked: the row's own undo list only
+      // catches up once the refresh lands.
+      const marked = [...item.markPaidIds];
+      const amount = item.owe;
+      showToast({
+        message: `Marked ${formatMoney(amount, currency)} as paid to ${item.name}`,
+        actionLabel: "Undo",
+        onAction: () => undoPaid(marked, amount),
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -141,7 +151,7 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
   }
 
   // Take back your own mis-tapped "I've paid them".
-  async function undoPaid() {
+  async function undoPaid(ids: string[] = item.undoIds, amount: number = item.owePending) {
     setError(null);
     setLoading("undo");
     void haptic("light");
@@ -151,7 +161,7 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
       const { data: reverted, error } = await supabase
         .from("expense_splits")
         .update({ status: "unpaid", paid_at: null })
-        .in("id", item.undoIds)
+        .in("id", ids)
         .eq("status", "paid")
         .select("id");
       if (error) throw error;
@@ -164,7 +174,7 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
         house_id: houseId,
         user_id: currentUserId,
         type: "unmarked_paid",
-        message: `took back a payment mark of ${formatMoney(item.owePending, currency)} to ${item.name}`,
+        message: `took back a payment mark of ${formatMoney(amount, currency)} to ${item.name}`,
       });
       router.refresh();
     } catch (err) {
@@ -266,7 +276,7 @@ function SettleRow({ item, houseId, currentUserId, currency }: RowProps) {
           </span>
           {item.undoIds.length > 0 && (
             <button
-              onClick={undoPaid}
+              onClick={() => undoPaid()}
               disabled={loading !== ""}
               className="shrink-0 font-semibold underline decoration-amber-400 underline-offset-2 disabled:opacity-50"
             >
@@ -371,7 +381,7 @@ function SettleRowClassic({ item, houseId, currentUserId, currency }: RowProps) 
         )}
         {item.owePending > 0 && item.undoIds.length > 0 && (
           <button
-            onClick={undoPaid}
+            onClick={() => undoPaid()}
             disabled={loading !== ""}
             className="btn-secondary px-3 py-1.5 text-xs"
           >

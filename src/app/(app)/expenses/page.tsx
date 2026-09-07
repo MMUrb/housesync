@@ -82,6 +82,7 @@ export default async function ExpensesPage() {
       paidByYou,
       impactKind,
       impactAmount,
+      yourShare: mySplit ? Number(mySplit.amount_owed) : 0,
       splitType: e.split_type,
       notes: e.notes,
       createdAt: e.created_at,

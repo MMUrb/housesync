@@ -53,22 +53,25 @@ export function AddExpenseForm({
   members,
   categories,
   edit,
+  prefill,
 }: {
   houseId: string;
   currentUserId: string;
   currency: string;
   members: MemberWithProfile[];
   categories: Cat[];
+  /** Handed over from elsewhere (the shopping list) so only the amount is left to type. */
+  prefill?: { title?: string; paidBy?: string; category?: string; notes?: string };
   edit?: ExpenseEditInit;
 }) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [title, setTitle] = useState(edit?.title ?? "");
+  const [title, setTitle] = useState(edit?.title ?? prefill?.title ?? "");
   const [amount, setAmount] = useState(edit ? String(edit.amount) : "");
-  const [paidBy, setPaidBy] = useState(edit?.paidBy ?? currentUserId);
+  const [paidBy, setPaidBy] = useState(edit?.paidBy ?? prefill?.paidBy ?? currentUserId);
   const [category, setCategory] = useState<string>(
-    edit?.category ?? (categories.find((c) => c.code === "bills") ?? categories[0])?.code ?? "bills",
+    edit?.category ?? prefill?.category ?? (categories.find((c) => c.code === "bills") ?? categories[0])?.code ?? "bills",
   );
   const [date, setDate] = useState(edit?.date ?? today());
   const [selected, setSelected] = useState<Set<string>>(
@@ -76,7 +79,7 @@ export function AddExpenseForm({
   );
   const [splitType, setSplitType] = useState<SplitType>(edit?.splitType ?? "equal");
   const [custom, setCustom] = useState<Record<string, string>>(edit?.custom ?? {});
-  const [notes, setNotes] = useState(edit?.notes ?? "");
+  const [notes, setNotes] = useState(edit?.notes ?? prefill?.notes ?? "");
   const [receipt, setReceipt] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -84,7 +87,7 @@ export function AddExpenseForm({
   // mount so the server and first client paint agree, and only when it is
   // still a category this house has.
   useEffect(() => {
-    if (edit) return;
+    if (edit || prefill?.category) return;
     try {
       const last = localStorage.getItem(LAST_CATEGORY_KEY);
       if (last && categories.some((c) => c.code === last)) setCategory(last);
@@ -328,7 +331,7 @@ export function AddExpenseForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
-            autoFocus
+            autoFocus={!prefill?.title}
           />
         </div>
 
@@ -342,6 +345,7 @@ export function AddExpenseForm({
             </span>
             <input
               id="amount"
+              autoFocus={Boolean(prefill?.title)}
               type="number"
               inputMode="decimal"
               step="0.01"

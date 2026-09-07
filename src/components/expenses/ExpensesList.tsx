@@ -11,6 +11,17 @@ import type { SplitStatus } from "@/lib/types";
 
 type Cat = { code: string; name: string; emoji: string; color: string };
 
+// Month headers only earn their space once the list spans more than one
+// month; a single month renders as the plain list it always was. Dates are
+// YYYY-MM-DD strings already ordered newest first, so grouping keeps order.
+function monthLabel(key: string): string {
+  // Mid-month noon so no timezone can nudge it into the neighbouring month.
+  return new Date(`${key}-15T12:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+}
+function sumBy(rows: ExpenseVM[], pick: (r: ExpenseVM) => number): number {
+  return Math.round(rows.reduce((t, r) => t + pick(r), 0) * 100) / 100;
+}
+
 export interface ExpenseVM {
   id: string;
   title: string;
@@ -21,6 +32,8 @@ export interface ExpenseVM {
   paidByYou: boolean;
   impactKind: "owe" | "owed" | "settled" | "none";
   impactAmount: number;
+  /** The current user's own share of the expense, whoever paid it. */
+  yourShare: number;
   settled: boolean;
   // Detail (shown when a row is tapped):
   splitType: string;
@@ -78,6 +91,57 @@ export function ExpensesList({
     ...categories.map((c) => c.code).filter((code) => byStatus.some((r) => r.category === code)),
   ];
 
+  const groups = (() => {
+    const byKey = new Map<string, ExpenseVM[]>();
+    for (const r of filtered) {
+      const key = r.date.slice(0, 7);
+      const list = byKey.get(key);
+      if (list) list.push(r);
+      else byKey.set(key, [r]);
+    }
+    return [...byKey.entries()];
+  })();
+  const byMonth = groups.length > 1;
+
+  const renderRow = (r: ExpenseVM) => (
+    <li key={r.id}>
+      <button
+        type="button"
+        onClick={() => setSelected(r)}
+        className="flex w-full items-center gap-3 p-3.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]"
+      >
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-lg">
+          {lookup(r.category).emoji}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-slate-900">{r.title}</p>
+          <p className="text-xs text-slate-500">
+            {r.paidByYou ? "You paid" : `${r.paidByName} paid`} · {formatDate(r.date)}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-sm font-semibold text-slate-800">
+            {formatMoney(r.amount, currency)}
+          </p>
+          <p
+            className={`text-xs font-medium ${
+              r.impactKind === "owe"
+                ? "text-red-600"
+                : r.impactKind === "owed"
+                  ? "text-mint-600"
+                  : "text-slate-400"
+            }`}
+          >
+            {r.impactKind === "owe" && `you owe ${formatMoney(r.impactAmount, currency)}`}
+            {r.impactKind === "owed" && `you're owed ${formatMoney(r.impactAmount, currency)}`}
+            {r.impactKind === "settled" && "settled"}
+            {r.impactKind === "none" && "not involved"}
+          </p>
+        </div>
+      </button>
+    </li>
+  );
+
   return (
     <div>
       <div className="mb-3 flex rounded-lg bg-slate-100 p-0.5 text-sm font-semibold dark:bg-white/[0.06]">
@@ -121,47 +185,30 @@ export function ExpensesList({
             ? "Nothing ongoing here, all settled up 🎉"
             : "No settled expenses here yet."}
         </div>
-      ) : (
-        <ul className="card divide-y divide-slate-100">
-          {filtered.map((r) => (
-            <li key={r.id}>
-              <button
-                type="button"
-                onClick={() => setSelected(r)}
-                className="flex w-full items-center gap-3 p-3.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]"
-              >
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-lg">
-                  {lookup(r.category).emoji}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-slate-900">{r.title}</p>
-                  <p className="text-xs text-slate-500">
-                    {r.paidByYou ? "You paid" : `${r.paidByName} paid`} · {formatDate(r.date)}
+      ) : byMonth ? (
+        <div className="space-y-4">
+          {groups.map(([key, monthRows]) => (
+            <section key={key}>
+              <div className="mb-2 flex items-end justify-between px-1">
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  {monthLabel(key)}{" "}
+                  <span className="font-semibold text-slate-400">({monthRows.length})</span>
+                </h3>
+                <div className="text-right">
+                  <p className="text-[13px] font-bold text-slate-700">
+                    {formatMoney(sumBy(monthRows, (r) => r.amount), currency)}
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    your share {formatMoney(sumBy(monthRows, (r) => r.yourShare), currency)}
                   </p>
                 </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-sm font-semibold text-slate-800">
-                    {formatMoney(r.amount, currency)}
-                  </p>
-                  <p
-                    className={`text-xs font-medium ${
-                      r.impactKind === "owe"
-                        ? "text-red-600"
-                        : r.impactKind === "owed"
-                          ? "text-mint-600"
-                          : "text-slate-400"
-                    }`}
-                  >
-                    {r.impactKind === "owe" && `you owe ${formatMoney(r.impactAmount, currency)}`}
-                    {r.impactKind === "owed" && `you're owed ${formatMoney(r.impactAmount, currency)}`}
-                    {r.impactKind === "settled" && "settled"}
-                    {r.impactKind === "none" && "not involved"}
-                  </p>
-                </div>
-              </button>
-            </li>
+              </div>
+              <ul className="card divide-y divide-slate-100">{monthRows.map(renderRow)}</ul>
+            </section>
           ))}
-        </ul>
+        </div>
+      ) : (
+        <ul className="card divide-y divide-slate-100">{filtered.map(renderRow)}</ul>
       )}
 
       {selected && (

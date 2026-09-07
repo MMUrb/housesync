@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { showToast } from "@/components/app/Toast";
 import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { formatMoney } from "@/lib/format";
 import { buildReminderMessage } from "@/lib/reminders";
@@ -123,8 +124,9 @@ export function SimplifySettle(vm: SimplifyVM) {
       if (!payKey.current || payKey.current.key !== key) {
         payKey.current = { key, id: crypto.randomUUID() };
       }
+      const settlementId = payKey.current.id;
       const { error } = await supabase.from("settlements").insert({
-        id: payKey.current.id,
+        id: settlementId,
         house_id: vm.houseId,
         from_user: vm.currentUserId,
         to_user: toId,
@@ -155,6 +157,11 @@ export function SimplifySettle(vm: SimplifyVM) {
       setPartFor(null);
       setPartAmount("");
       router.refresh();
+      showToast({
+        message: `Marked ${formatMoney(amount, currency)} as paid to ${name}`,
+        actionLabel: "Undo",
+        onAction: () => undo(settlementId, name, amount),
+      });
     } catch (err) {
       const msg = friendlyError(err);
       setError(msg);
