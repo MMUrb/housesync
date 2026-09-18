@@ -115,6 +115,69 @@ export function dailyActiveSeries(
 }
 
 /**
+ * The newest moment we have evidence each user actually used the app.
+ *
+ * auth.last_sign_in_at is NOT that: Supabase only moves it on a fresh
+ * authentication, and sessions here persist and refresh silently, so someone
+ * who opens the app daily keeps the timestamp from the day they signed up.
+ * That made the admin directory look like nobody ever came back.
+ *
+ * profiles.last_active_at (written by the LastSeenBeacon on every app open)
+ * is exact, but only from the day it shipped. For everything before that we
+ * fall back to the newest row this person left in any table: a message, a
+ * chat-read watermark, an expense, a completed chore, an activity entry.
+ * Rows are pulled newest-first, so the first one seen per user is their
+ * latest.
+ */
+export async function lastSeenByUser(
+  admin: SupabaseClient,
+  cap = 20_000,
+): Promise<Map<string, string>> {
+  const newest = new Map<string, string>();
+  const bump = (userId: string | null | undefined, iso: string | null | undefined) => {
+    if (!userId || !iso) return;
+    const cur = newest.get(userId);
+    if (!cur || iso > cur) newest.set(userId, iso);
+  };
+
+  const [beacon, activity, messages, reads, expenses, chores] = await Promise.all([
+    admin.from("profiles").select("id, last_active_at").not("last_active_at", "is", null),
+    admin.from("activity").select("user_id, created_at").order("created_at", { ascending: false }).limit(cap),
+    admin.from("messages").select("user_id, created_at").order("created_at", { ascending: false }).limit(cap),
+    admin.from("message_reads").select("user_id, last_read_at").order("last_read_at", { ascending: false }).limit(cap),
+    admin.from("expenses").select("created_by, created_at").order("created_at", { ascending: false }).limit(cap),
+    admin
+      .from("chores")
+      .select("completed_by, completed_at")
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(cap),
+  ]);
+
+  // Best-effort per source: the beacon column doesn't exist until migration
+  // 0041 runs, and one missing source must not blank the whole column.
+  for (const r of (beacon.data ?? []) as { id: string; last_active_at: string | null }[]) {
+    bump(r.id, r.last_active_at);
+  }
+  for (const r of (activity.data ?? []) as { user_id: string | null; created_at: string }[]) {
+    bump(r.user_id, r.created_at);
+  }
+  for (const r of (messages.data ?? []) as { user_id: string | null; created_at: string }[]) {
+    bump(r.user_id, r.created_at);
+  }
+  for (const r of (reads.data ?? []) as { user_id: string | null; last_read_at: string }[]) {
+    bump(r.user_id, r.last_read_at);
+  }
+  for (const r of (expenses.data ?? []) as { created_by: string | null; created_at: string }[]) {
+    bump(r.created_by, r.created_at);
+  }
+  for (const r of (chores.data ?? []) as { completed_by: string | null; completed_at: string }[]) {
+    bump(r.completed_by, r.completed_at);
+  }
+  return newest;
+}
+
+/**
  * How many distinct houses have ever used a given feature. Counted by pulling
  * house_id and de-duplicating, so it is exact up to the cap and flagged beyond.
  */

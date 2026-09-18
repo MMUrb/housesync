@@ -1,5 +1,10 @@
 // Small formatting helpers shared across the app.
 
+// The app is UK-first, so a real instant is displayed in house time. Pinning it
+// means the server and the viewer's device always render the same string, which
+// is what keeps hydration intact.
+const UK_TZ = "Europe/London";
+
 const CURRENCY_LOCALE: Record<string, string> = {
   GBP: "en-GB",
   EUR: "en-IE",
@@ -39,10 +44,33 @@ export function formatConverted(
   return `≈ ${formatMoney(amount * display.rate, display.currency)}`;
 }
 
+/** A bare calendar date, e.g. an expense's "2026-09-16". */
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Formats a date identically on the server and on the viewer's device.
+ *
+ * Leaving the timezone unset formats in the RUNTIME's zone, which is UTC on
+ * Vercel and the user's own zone in the browser. That silently produced two
+ * different strings and so a hydration failure (React #418, seen live from
+ * iPhones on /expenses): a timestamp at 23:52 UTC renders as 16 Sept on the
+ * server and 17 Sept on a British phone, and a plain "2026-09-16" renders as
+ * 15 Sept anywhere west of UTC.
+ *
+ * So: a bare YYYY-MM-DD is a calendar date, not a moment, and is read and
+ * written in UTC so it says the same thing everywhere. Anything else is a real
+ * instant, pinned to the app's home timezone. Pass an explicit `timeZone` to
+ * override either.
+ */
 export function formatDate(value: string | Date, opts?: Intl.DateTimeFormatOptions): string {
-  const d = typeof value === "string" ? new Date(value) : value;
+  const dateOnly = typeof value === "string" && DATE_ONLY.test(value);
+  const d =
+    typeof value === "string" ? new Date(dateOnly ? `${value}T00:00:00Z` : value) : value;
   if (Number.isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("en-GB", opts ?? { day: "numeric", month: "short" }).format(d);
+  return new Intl.DateTimeFormat("en-GB", {
+    ...(opts ?? { day: "numeric", month: "short" }),
+    timeZone: opts?.timeZone ?? (dateOnly ? "UTC" : UK_TZ),
+  }).format(d);
 }
 
 /** "in 3 days", "tomorrow", "2 days ago", "today". */
@@ -94,5 +122,16 @@ export function firstName(name?: string | null): string {
  * mount. en-CA is the locale whose date format IS YYYY-MM-DD.
  */
 export function ukToday(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+  return new Date().toLocaleDateString("en-CA", { timeZone: UK_TZ });
+}
+
+/**
+ * The later of two ISO timestamps, ignoring nulls. Used to combine several
+ * weaker "last seen" signals into the best one available, so the result can
+ * only ever be more recent than any single source, never less.
+ */
+export function laterOf(a?: string | null, b?: string | null): string | null {
+  if (!a) return b ?? null;
+  if (!b) return a;
+  return a > b ? a : b;
 }

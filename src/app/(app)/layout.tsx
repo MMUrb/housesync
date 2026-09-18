@@ -10,6 +10,7 @@ import { AppHeader } from "@/components/app/AppHeader";
 import { TopNav } from "@/components/app/TopNav";
 import { FollowUs } from "@/components/SocialLinks";
 import { PushInit } from "@/components/push/PushInit";
+import { LastSeenBeacon } from "@/components/LastSeenBeacon";
 import { PushPrimer } from "@/components/push/PushPrimer";
 import { NativeShell } from "@/components/app/NativeShell";
 import { UpdatePrompt } from "@/components/app/UpdatePrompt";
@@ -59,6 +60,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </main>
       <PushInit />
+      <LastSeenBeacon />
       <PushPrimer userCreatedAt={user.created_at} />
       <NativeShell />
       <HouseRealtime houseId={house.id} />
