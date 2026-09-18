@@ -7,6 +7,7 @@ import { lastSeenByUser } from "@/lib/adminMetrics";
 import { laterOf } from "@/lib/format";
 import { AdminShell, Section, Grid, StatCard } from "@/components/admin/AdminUI";
 import { ADMIN_BASE } from "@/lib/constants";
+import { nextSortDir, type SortState } from "@/lib/tableSort";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Directory", robots: { index: false, follow: false } };
@@ -29,10 +30,7 @@ type HouseRow = {
 const fmt = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/London" }) : "-";
 
-/** Sort state shared by both views. Direction toggles on re-click. */
-export type SortState = { key: string; dir: "asc" | "desc" };
-
-/** A clickable column header: sorts ascending, then descending on re-click. */
+/** A clickable column header. Direction comes from nextSortDir. */
 function SortTh({
   label,
   sortKey,
@@ -48,17 +46,26 @@ function SortTh({
 }) {
   const active = sort.key === sortKey;
   return (
-    <th className={`px-4 py-2.5 font-medium ${align === "right" ? "text-right" : ""}`}>
+    <th
+      scope="col"
+      aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+      className={`px-4 py-2.5 font-medium ${align === "right" ? "text-right" : ""}`}
+    >
       <Link
         href={href(sortKey)}
-        aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
-        className={`inline-flex items-center gap-1 rounded transition hover:text-slate-600 ${
-          active ? "text-slate-700" : ""
+        // Re-sorting is not navigation: keep the reader where they were
+        // instead of throwing them back to the top of the page.
+        scroll={false}
+        title={`Sort by ${label.toLowerCase()}`}
+        // Every column is sortable, so every header must look tappable: a
+        // permanent ⇅ hint when idle, a solid arrow on the column in charge.
+        className={`inline-flex items-center gap-1.5 rounded px-1.5 py-1 -mx-1.5 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/[0.06] ${
+          active ? "font-semibold text-slate-700" : "text-slate-400"
         }`}
       >
         {label}
-        <span aria-hidden className={active ? "" : "opacity-0 group-hover:opacity-40"}>
-          {active ? (sort.dir === "asc" ? "▲" : "▼") : "▲"}
+        <span aria-hidden className={`text-[9px] ${active ? "" : "opacity-45"}`}>
+          {active ? (sort.dir === "asc" ? "▲" : "▼") : "⇅"}
         </span>
       </Link>
     </th>
@@ -164,14 +171,16 @@ export default async function DirectoryPage({
   });
   const pageHref = (p: number) =>
     `${ADMIN_BASE}/directory?${new URLSearchParams({ ...base(), page: String(p) })}`;
-  // First click on a column sorts ascending; clicking the same one flips it.
-  // Changing the sort returns to page 1, since the old offset is meaningless.
+  // Clicking the column already in charge flips it; clicking a new one starts
+  // from whichever direction is most useful for that kind of data (newest
+  // first for dates, A to Z for text). Changing the sort returns to page 1,
+  // since the old offset means nothing under a new order.
   const sortHref = (key: string) =>
     `${ADMIN_BASE}/directory?${new URLSearchParams({
       ...(view === "houses" ? { view: "houses" } : {}),
       ...(q ? { q } : {}),
       sort: key,
-      dir: sort.key === key && sort.dir === "asc" ? "desc" : "asc",
+      dir: nextSortDir(sort, key),
     })}`;
 
   return (
