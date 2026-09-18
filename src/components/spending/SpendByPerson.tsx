@@ -25,7 +25,9 @@ export function SpendByPerson({
   currency: string;
 }) {
   const now = new Date();
-  const monthLabel = now.toLocaleString("en-GB", { month: "long" });
+  // Pinned to house time: unpinned, the server (UTC) and a device an hour ahead
+  // can name different months around a month boundary, which breaks hydration.
+  const monthLabel = now.toLocaleString("en-GB", { month: "long", timeZone: "Europe/London" });
 
   const rows = useMemo(() => {
     const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
