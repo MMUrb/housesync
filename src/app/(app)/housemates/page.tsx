@@ -1,13 +1,15 @@
 import Link from "next/link";
 import {
   getExpensesAndSplits,
+  getHouseCategories,
   getSettlements,
   getVisiblePaymentDetails,
   requireHouse,
 } from "@/lib/data";
 import { computeBalances } from "@/lib/balances";
+import { buildCatLookup } from "@/lib/categories";
 import { netCents, buildPlan, countPairwiseDebts, houseIsSquare, sweepTargets } from "@/lib/settle";
-import { formatMoney, formatDate } from "@/lib/format";
+import { formatMoney, formatDate, ukToday } from "@/lib/format";
 import { PageTitle } from "@/components/app/PageTitle";
 import { Avatar } from "@/components/Avatar";
 import { InviteBox } from "@/components/house/InviteBox";
@@ -23,10 +25,11 @@ const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 export default async function HousematesPage() {
   const { user, house, members } = await requireHouse();
   const simplified = house.settle_mode === "simplified";
-  const [{ expenses, splits }, payMap, settlements] = await Promise.all([
+  const [{ expenses, splits }, payMap, settlements, houseCats] = await Promise.all([
     getExpensesAndSplits(house.id),
     getVisiblePaymentDetails(),
     simplified ? getSettlements(house.id) : Promise.resolve([]),
+    getHouseCategories(house.id),
   ]);
   const balances = computeBalances(expenses, splits, user.id, settlements);
 
@@ -94,6 +97,67 @@ export default async function HousematesPage() {
     }))
     .filter((vm) => vm.owe + vm.owePending + vm.owed + vm.owedPending > 0.004)
     .sort((a, b) => b.owe + b.owePending - (a.owe + a.owePending));
+
+  // What each direction is made of, per expense, for the person sheet.
+  // oweItems mirrors vm.owe (your unpaid rows on their expenses); owedItems
+  // mirrors vm.owed + vm.owedPending (their open rows on yours).
+  const catOf = buildCatLookup(houseCats);
+  const expenseById = new Map(expenses.map((e) => [e.id, e]));
+  const oweLists = new Map<string, Map<string, number>>();
+  const owedLists = new Map<string, Map<string, number>>();
+  for (const s of splits) {
+    if (s.status === "confirmed") continue;
+    const payer = payerOf.get(s.expense_id) ?? null;
+    if (!payer) continue;
+    const amt = Number(s.amount_owed);
+    if (s.user_id === me && payer !== me && s.status === "unpaid") {
+      const m = oweLists.get(payer) ?? new Map<string, number>();
+      m.set(s.expense_id, (m.get(s.expense_id) ?? 0) + amt);
+      oweLists.set(payer, m);
+    } else if (payer === me && s.user_id !== me) {
+      const m = owedLists.get(s.user_id) ?? new Map<string, number>();
+      m.set(s.expense_id, (m.get(s.expense_id) ?? 0) + amt);
+      owedLists.set(s.user_id, m);
+    }
+  }
+  const toBreakdown = (m: Map<string, number> | undefined) =>
+    m
+      ? [...m.entries()]
+          .map(([expenseId, amt]) => {
+            const e = expenseById.get(expenseId);
+            return {
+              title: e?.title ?? "Expense",
+              emoji: catOf(e?.category ?? "").emoji,
+              amount: round2(amt),
+            };
+          })
+          .sort((a, b) => b.amount - a.amount)
+      : [];
+  const settleItemsDetailed = settleItems.map((vm) => ({
+    ...vm,
+    oweItems: toBreakdown(oweLists.get(vm.userId)),
+    owedItems: toBreakdown(owedLists.get(vm.userId)),
+  }));
+
+  // Housemates you finished with today keep a brief "Settled today ✓" line,
+  // so a fresh settle doesn't just vanish from the list.
+  const today = ukToday();
+  const activeIds = new Set(settleItems.map((i) => i.userId));
+  const settledTodayIds = new Set<string>();
+  for (const s of splits) {
+    if (s.status !== "confirmed" || !s.confirmed_at?.startsWith(today)) continue;
+    const payer = payerOf.get(s.expense_id) ?? null;
+    if (!payer) continue;
+    if (s.user_id === me && payer !== me) settledTodayIds.add(payer);
+    else if (payer === me && s.user_id !== me) settledTodayIds.add(s.user_id);
+  }
+  const settledToday = [...settledTodayIds]
+    .filter((uid) => !activeIds.has(uid))
+    .map((uid) => ({
+      userId: uid,
+      name: profileOf(uid)?.name ?? "Housemate",
+      color: profileOf(uid)?.avatar_color ?? "#6f53f5",
+    }));
 
   // Simplified mode: fewest-payments plan instead of per-person rows.
   const nets = simplified ? netCents(expenses, splits, settlements) : {};
@@ -189,15 +253,24 @@ export default async function HousematesPage() {
 
       {/* Settle up */}
       <section className="space-y-2">
-        <h2 className="px-1 text-sm font-semibold text-slate-900">Settle up</h2>
+        <div className="flex items-baseline justify-between px-1">
+          <h2 className="text-sm font-semibold text-slate-900">Settle up</h2>
+          {!simplifyVM && settleItems.length > 0 && (
+            <p className="text-xs text-slate-400">
+              {settleItems.length} to sort out
+            </p>
+          )}
+        </div>
         {simplifyVM ? (
           <SimplifySettle {...simplifyVM} />
         ) : (
           <SettleActions
-            items={settleItems}
+            items={settleItemsDetailed}
             houseId={house.id}
             currentUserId={user.id}
             currency={house.currency}
+            houseName={house.name}
+            settledToday={settledToday}
           />
         )}
       </section>

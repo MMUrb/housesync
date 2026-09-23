@@ -27,6 +27,18 @@ export default async function EditExpensePage({
     .eq("expense_id", id);
   const splits = splitRows ?? [];
 
+  // A part payment splits one person's share across several rows (claimed part
+  // + remainder). The form thinks in one share per person, so collapse the
+  // rows back to per-person sums before prefilling anything.
+  const perUser = new Map<string, number>();
+  for (const s of splits) {
+    perUser.set(s.user_id, (perUser.get(s.user_id) ?? 0) + Number(s.amount_owed));
+  }
+  const shares = [...perUser.entries()].map(([user_id, amount]) => ({
+    user_id,
+    amount: Math.round(amount * 100) / 100,
+  }));
+
   const total = Number(expense.amount) || 0;
   const splitType = expense.split_type as SplitType;
 
@@ -34,13 +46,11 @@ export default async function EditExpensePage({
   // pound amounts; percentage back-computes each share's % of the total.
   const custom: Record<string, string> = {};
   if (splitType === "custom") {
-    splits.forEach((s) => (custom[s.user_id] = String(Number(s.amount_owed))));
+    shares.forEach((s) => (custom[s.user_id] = String(s.amount)));
   } else if (splitType === "percentage") {
-    splits.forEach(
+    shares.forEach(
       (s) =>
-        (custom[s.user_id] = String(
-          total > 0 ? Math.round((Number(s.amount_owed) / total) * 100) : 0,
-        )),
+        (custom[s.user_id] = String(total > 0 ? Math.round((s.amount / total) * 100) : 0)),
     );
   }
 
@@ -52,11 +62,11 @@ export default async function EditExpensePage({
     category: expense.category,
     date: expense.date,
     splitType,
-    selectedIds: splits.map((s) => s.user_id),
+    selectedIds: shares.map((s) => s.user_id),
     custom,
     notes: expense.notes ?? "",
     receiptPath: expense.receipt_url ?? null,
-    originalShares: Object.fromEntries(splits.map((s) => [s.user_id, Number(s.amount_owed)])),
+    originalShares: Object.fromEntries(shares.map((s) => [s.user_id, s.amount])),
   };
 
   const categories = (await getHouseCategories(house.id)).map((c) => ({

@@ -67,7 +67,9 @@ create table if not exists public.expenses (
   created_at  timestamptz not null default now()
 );
 
--- Who owes what for a given expense (one row per participant).
+-- Who owes what for a given expense. A participant can hold SEVERAL rows:
+-- a part payment (0042) splits their share into a claimed 'paid' row and an
+-- unpaid remainder, so readers sum rows per person rather than assuming one.
 create table if not exists public.expense_splits (
   id           uuid primary key default gen_random_uuid(),
   expense_id   uuid not null references public.expenses (id) on delete cascade,
@@ -75,9 +77,10 @@ create table if not exists public.expense_splits (
   amount_owed  numeric(12, 2) not null default 0,
   status       text not null default 'unpaid' check (status in ('unpaid', 'paid', 'confirmed')),
   paid_at      timestamptz,
-  confirmed_at timestamptz,
-  unique (expense_id, user_id)
+  confirmed_at timestamptz
 );
+create index if not exists expense_splits_expense_user_idx
+  on public.expense_splits (expense_id, user_id);
 
 -- Recurring bills (rent, wi-fi, energy, water, council tax...).
 create table if not exists public.recurring_bills (

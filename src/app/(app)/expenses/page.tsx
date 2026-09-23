@@ -3,6 +3,7 @@ import { getExpensesAndSplits, getHouseCategories, requireHouse } from "@/lib/da
 import { createClient } from "@/lib/supabase/server";
 import { PageTitle } from "@/components/app/PageTitle";
 import { ExpensesList, type ExpenseVM } from "@/components/expenses/ExpensesList";
+import type { SplitStatus } from "@/lib/types";
 import { MoneyTabs } from "@/components/app/MoneyTabs";
 import { IconPlus } from "@/components/icons";
 
@@ -43,7 +44,9 @@ export default async function ExpensesPage() {
   );
 
   const rows: ExpenseVM[] = expenses.map((e) => {
-    const mySplit = splits.find((s) => s.expense_id === e.id && s.user_id === user.id);
+    // Part payments split a person's share across several rows, so everything
+    // here works on per-person sums rather than assuming one row each.
+    const myRows = splits.filter((s) => s.expense_id === e.id && s.user_id === user.id);
     const paidByYou = e.paid_by === user.id;
 
     let impactKind: ExpenseVM["impactKind"] = "none";
@@ -55,20 +58,36 @@ export default async function ExpensesPage() {
         .reduce((sum, s) => sum + Number(s.amount_owed), 0);
       impactAmount = Math.round(owedToYou * 100) / 100;
       impactKind = impactAmount > 0.004 ? "owed" : "settled";
-    } else if (mySplit) {
-      impactAmount = Number(mySplit.amount_owed);
-      impactKind = mySplit.status === "confirmed" ? "settled" : "owe";
+    } else if (myRows.length > 0) {
+      const outstanding = myRows
+        .filter((s) => s.status !== "confirmed")
+        .reduce((sum, s) => sum + Number(s.amount_owed), 0);
+      impactAmount = Math.round(outstanding * 100) / 100;
+      impactKind = impactAmount > 0.004 ? "owe" : "settled";
     }
 
     const expSplits = splits.filter((s) => s.expense_id === e.id);
     // Settled = nobody still owes (every split confirmed). Otherwise ongoing.
     const settled = expSplits.length === 0 || expSplits.every((s) => s.status === "confirmed");
-    const breakdown = expSplits
-      .map((s) => ({
-        name: s.user_id === user.id ? "You" : nameOf(s.user_id),
-        you: s.user_id === user.id,
-        amount: Number(s.amount_owed),
-        status: s.status,
+    // One breakdown line per person: summed amount, and the least-done status
+    // across their rows (any unpaid part keeps them "unpaid").
+    const byUser = new Map<string, { amount: number; statuses: Set<SplitStatus> }>();
+    for (const s of expSplits) {
+      const cur = byUser.get(s.user_id) ?? { amount: 0, statuses: new Set<SplitStatus>() };
+      cur.amount += Number(s.amount_owed);
+      cur.statuses.add(s.status);
+      byUser.set(s.user_id, cur);
+    }
+    const breakdown = [...byUser.entries()]
+      .map(([uid, agg]) => ({
+        name: uid === user.id ? "You" : nameOf(uid),
+        you: uid === user.id,
+        amount: Math.round(agg.amount * 100) / 100,
+        status: (agg.statuses.has("unpaid")
+          ? "unpaid"
+          : agg.statuses.has("paid")
+            ? "paid"
+            : "confirmed") as SplitStatus,
       }))
       .sort((a, b) => (a.you === b.you ? b.amount - a.amount : a.you ? -1 : 1));
 
@@ -82,7 +101,8 @@ export default async function ExpensesPage() {
       paidByYou,
       impactKind,
       impactAmount,
-      yourShare: mySplit ? Number(mySplit.amount_owed) : 0,
+      yourShare:
+        Math.round(myRows.reduce((sum, s) => sum + Number(s.amount_owed), 0) * 100) / 100,
       splitType: e.split_type,
       notes: e.notes,
       createdAt: e.created_at,

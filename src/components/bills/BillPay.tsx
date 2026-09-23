@@ -8,7 +8,7 @@ import { PayLinks, type PayHandles } from "@/components/payments/PayLinks";
 
 /** The current user's "pay my share of this bill" actions: pay links + mark paid. */
 export function BillPay({
-  splitId,
+  splitIds,
   amount,
   payerName,
   payerId,
@@ -17,7 +17,8 @@ export function BillPay({
   currentUserId,
   currency,
 }: {
-  splitId: string;
+  /** My still-unpaid rows for this cycle (several after a part payment). */
+  splitIds: string[];
   amount: number;
   payerName: string;
   payerId: string | null;
@@ -36,10 +37,12 @@ export function BillPay({
     setError(null);
     try {
       const now = new Date().toISOString();
+      // .eq status so a stale screen can only claim rows that are still owed.
       const { error: upErr } = await supabase
         .from("expense_splits")
         .update({ status: "paid", paid_at: now })
-        .eq("id", splitId);
+        .in("id", splitIds)
+        .eq("status", "unpaid");
       if (upErr) throw upErr;
       await supabase.from("activity").insert({
         house_id: houseId,

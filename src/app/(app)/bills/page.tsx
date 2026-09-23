@@ -114,7 +114,25 @@ export default async function BillsPage() {
             // "Settled" means CONFIRMED — a debtor's unverified "I've paid"
             // claim isn't settled money. Matches expenses/balances/housemates,
             // and keeps the next cycle locked until the last one is truly done.
-            const paidCount = splits.filter((s) => s.status === "confirmed").length;
+            // Part payments split a person's share across rows, so the roster
+            // aggregates per person: summed amount, least-done status wins.
+            const byUser = new Map<string, { amount: number; statuses: Set<string> }>();
+            for (const s of splits) {
+              const cur = byUser.get(s.user_id) ?? { amount: 0, statuses: new Set<string>() };
+              cur.amount += Number(s.amount_owed);
+              cur.statuses.add(s.status);
+              byUser.set(s.user_id, cur);
+            }
+            const people = [...byUser.entries()].map(([uid, agg]) => ({
+              userId: uid,
+              amount: Math.round(agg.amount * 100) / 100,
+              status: (agg.statuses.has("unpaid")
+                ? "unpaid"
+                : agg.statuses.has("paid")
+                  ? "paid"
+                  : "confirmed") as "unpaid" | "paid" | "confirmed",
+            }));
+            const paidCount = people.filter((p) => p.status === "confirmed").length;
             const settled = requested && splits.every((s) => s.user_id === payer || s.status === "confirmed");
             const due = dueLabel(b.next_due_date);
             // Whether the NEXT cycle can be requested is a separate question
@@ -124,7 +142,10 @@ export default async function BillsPage() {
             // bill forever, with no way back.
             const dueAgain = due.tone === "over" || due.tone === "soon";
             const canRequestNext = !requested || settled || dueAgain;
-            const mine = splits.find((s) => s.user_id === user.id);
+            // My still-unpaid rows for this cycle (several after a part payment).
+            const myUnpaid = splits.filter((s) => s.user_id === user.id && s.status === "unpaid");
+            const myUnpaidTotal =
+              Math.round(myUnpaid.reduce((sum, s) => sum + Number(s.amount_owed), 0) * 100) / 100;
 
             return (
               <li key={b.id} id={`bill-${b.id}`} className="card scroll-mt-32 p-4">
@@ -182,17 +203,17 @@ export default async function BillsPage() {
                   <div className="mt-3 border-t border-slate-100 pt-3">
                     <div className="mb-2 flex items-center justify-between text-xs">
                       <span className="font-medium text-slate-600">
-                        {paidCount} of {splits.length} confirmed
+                        {paidCount} of {people.length} confirmed
                       </span>
                       <span className="text-slate-400">
                         paid by {payer === user.id ? "you" : nameOf(payer)}
                       </span>
                     </div>
                     <ul className="space-y-1.5">
-                      {splits.map((s) => {
-                        const prof = profileOf(s.user_id);
+                      {people.map((p) => {
+                        const prof = profileOf(p.userId);
                         return (
-                          <li key={s.id} className="flex items-center gap-2 text-sm">
+                          <li key={p.userId} className="flex items-center gap-2 text-sm">
                             <Avatar
                               name={prof?.name}
                               color={prof?.avatar_color}
@@ -200,12 +221,12 @@ export default async function BillsPage() {
                               size="sm"
                             />
                             <span className="min-w-0 flex-1 truncate text-slate-700">
-                              {nameOf(s.user_id)}
+                              {nameOf(p.userId)}
                             </span>
                             <span className="text-slate-500">
-                              {formatMoney(Number(s.amount_owed), house.currency)}
+                              {formatMoney(p.amount, house.currency)}
                             </span>
-                            <StatusBadge status={s.status} isPayer={s.user_id === payer} />
+                            <StatusBadge status={p.status} isPayer={p.userId === payer} />
                           </li>
                         );
                       })}
@@ -215,7 +236,7 @@ export default async function BillsPage() {
                         an itemised claim nobody can confirm, while the netted
                         plan still asks for the money. All paying happens on
                         Housemates in that mode. */}
-                    {mine && mine.status === "unpaid" && mine.user_id !== payer && house.settle_mode === "simplified" && (
+                    {myUnpaid.length > 0 && user.id !== payer && house.settle_mode === "simplified" && (
                       <Link
                         href="/housemates"
                         className="btn-secondary btn-block mt-3 text-sm"
@@ -223,11 +244,11 @@ export default async function BillsPage() {
                         Settle up on Housemates
                       </Link>
                     )}
-                    {mine && mine.status === "unpaid" && mine.user_id !== payer && house.settle_mode !== "simplified" && (
+                    {myUnpaid.length > 0 && user.id !== payer && house.settle_mode !== "simplified" && (
                       <div className="mt-3">
                         <BillPay
-                          splitId={mine.id}
-                          amount={Number(mine.amount_owed)}
+                          splitIds={myUnpaid.map((s) => s.id)}
+                          amount={myUnpaidTotal}
                           payerName={nameOf(payer)}
                           payerId={payer}
                           payerPay={{

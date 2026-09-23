@@ -58,12 +58,13 @@ export async function GET(request: Request) {
         .in("expense_id", expenseIds)
     : { data: [] as { expense_id: string; user_id: string; amount_owed: number }[] };
 
-  // expense_id -> (user_id -> share)
+  // expense_id -> (user_id -> share). Summed, not set: a part payment splits
+  // one person's share across several rows, and the statement wants the total.
   const shareByExpense = new Map<string, Map<string, number>>();
   for (const s of splits ?? []) {
     let m = shareByExpense.get(s.expense_id);
     if (!m) shareByExpense.set(s.expense_id, (m = new Map()));
-    m.set(s.user_id, Number(s.amount_owed));
+    m.set(s.user_id, (m.get(s.user_id) ?? 0) + Number(s.amount_owed));
   }
 
   const memberNames = memberIds.map((id) => nameById.get(id) ?? "Housemate");

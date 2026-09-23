@@ -226,20 +226,23 @@ export function AddExpenseForm({
             paid_at: id === paidBy ? now : null,
             confirmed_at: id === paidBy ? now : null,
           }));
-          // Upsert the new rows FIRST, then remove members no longer in the
-          // split. The old delete-then-insert could leave the expense with
-          // ZERO splits if the insert failed — it then vanished from every
-          // balance and rendered as settled. This order can't strand it empty.
-          const { error: splitErr } = await supabase
-            .from("expense_splits")
-            .upsert(rows, { onConflict: "expense_id,user_id" });
-          if (splitErr) throw splitErr;
-          const { error: staleErr } = await supabase
-            .from("expense_splits")
-            .delete()
-            .eq("expense_id", edit.expenseId)
-            .not("user_id", "in", `(${selectedIds.join(",")})`);
-          if (staleErr) throw staleErr;
+          // One atomic swap in the database. Part payments mean a person can
+          // hold several rows per expense, so the old upsert-on-(expense,user)
+          // no longer fits; the RPC deletes and reinserts in one transaction,
+          // so a failure can't strand the expense with zero splits either.
+          const { error: splitErr } = await supabase.rpc("rewrite_expense_splits", {
+            p_expense_id: edit.expenseId,
+            p_rows: rows,
+          });
+          if (splitErr) {
+            // Deploy raced the database update: the function isn't there yet.
+            if (/schema cache|does not exist/i.test(splitErr.message ?? "")) {
+              throw new Error(
+                "Saving the split needs the app's latest update, which is still rolling out. Try again in a minute.",
+              );
+            }
+            throw splitErr;
+          }
         }
 
         await supabase.from("activity").insert({
