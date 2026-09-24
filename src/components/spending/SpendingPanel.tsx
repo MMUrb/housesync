@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatConverted, formatMoney } from "@/lib/format";
+import { CountUp } from "@/components/app/CountUp";
 import { buildCatLookup } from "@/lib/categories";
 import { IconChevronDown, IconCheck } from "@/components/icons";
 
@@ -286,7 +287,9 @@ export function SpendingPanel({
 
       {/* Total */}
       <div className="mt-4">
-        <p className="text-2xl font-bold text-slate-900">{formatMoney(total, currency)}</p>
+        <p className="text-2xl font-bold text-slate-900">
+          <CountUp value={total} currency={currency} />
+        </p>
         {formatConverted(total, currency, display) && (
           <p className="text-xs text-slate-400">{formatConverted(total, currency, display)}</p>
         )}
@@ -300,8 +303,12 @@ export function SpendingPanel({
         {series.map((s, i) => (
           <div key={i} className="flex h-full flex-1 items-end" title={`${s.label}: ${formatMoney(s.total, currency)}`}>
             <div
-              className="w-full rounded-t bg-brand-500"
-              style={{ height: `${Math.max(2, (s.total / max) * 100)}%` }}
+              className="hs-bar w-full rounded-t bg-brand-500"
+              style={{
+                height: `${Math.max(2, (s.total / max) * 100)}%`,
+                // Bars rise left to right on first paint (see globals.css).
+                animationDelay: `${i * 40}ms`,
+              }}
             />
           </div>
         ))}

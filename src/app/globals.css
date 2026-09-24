@@ -49,7 +49,16 @@
 
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
-           transition-colors disabled:opacity-50 disabled:pointer-events-none select-none;
+           disabled:opacity-50 disabled:pointer-events-none select-none;
+    transition:
+      background-color 0.15s,
+      border-color 0.15s,
+      color 0.15s,
+      transform 0.12s;
+  }
+  /* Money-moment polish: a light press-squash on every button. */
+  .btn:active {
+    transform: scale(0.97);
   }
   .btn-primary {
     @apply btn bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800;
@@ -331,4 +340,34 @@
   /* Softer than the light values: a 15% tint turned the whole card yellow. */
   background-color: rgb(251 191 36 / 0.07);
   box-shadow: 0 0 0 1.5px rgb(251 191 36 / 0.55), var(--tw-shadow, 0 0 #0000);
+}
+
+/* ============================================================================
+   Money-moment micro-animations (24/09/2026). Each plays once at its natural
+   moment: the confirm tick when a claim is accepted, the toast slide on every
+   toast, growing trend bars on the spending chart's first paint. Count-up on
+   balances lives in components/app/CountUp.tsx. All of it stands down for
+   prefers-reduced-motion.
+   ============================================================================ */
+@keyframes hs-pop {
+  from { opacity: 0; transform: scale(0.6); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes hs-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes hs-toast-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes hs-grow {
+  from { transform: scaleY(0); }
+}
+.hs-tick { animation: hs-pop 0.38s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.hs-tick path { stroke-dasharray: 26; stroke-dashoffset: 26; animation: hs-draw 0.4s 0.12s ease-out forwards; }
+.hs-toast-in { animation: hs-toast-in 0.32s cubic-bezier(0.2, 1, 0.3, 1) both; }
+.hs-bar { transform-origin: bottom; animation: hs-grow 0.45s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .hs-tick, .hs-tick path, .hs-toast-in, .hs-bar { animation: none; }
+  .btn:active { transform: none; }
 }

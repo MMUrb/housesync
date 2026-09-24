@@ -65,7 +65,10 @@ export function ToastHost() {
       role="status"
       aria-live="polite"
     >
-      <div className="pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-full bg-[#0f172a] px-4 py-3 text-sm font-medium text-white shadow-lg ring-1 ring-white/10">
+      <div
+        key={item.id}
+        className="hs-toast-in pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-full bg-[#0f172a] px-4 py-3 text-sm font-medium text-white shadow-lg ring-1 ring-white/10"
+      >
         <span className="min-w-0 truncate">{item.message}</span>
         {item.actionLabel && item.onAction && (
           <button type="button" onClick={act} className="shrink-0 font-bold text-mint-300">

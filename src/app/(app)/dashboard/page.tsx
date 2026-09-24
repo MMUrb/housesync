@@ -13,6 +13,7 @@ import {
 } from "@/lib/data";
 import { NoticeBoard } from "@/components/notices/NoticeBoard";
 import { SoloInvite } from "@/components/house/SoloInvite";
+import { CountUp } from "@/components/app/CountUp";
 import { computeBalances } from "@/lib/balances";
 import { netCents, buildPlan } from "@/lib/settle";
 import { getRate } from "@/lib/rates";
@@ -147,7 +148,7 @@ export default async function DashboardPage() {
         <div className="card p-4">
           <p className="text-xs font-medium text-slate-500">You owe</p>
           <p className="mt-1 text-2xl font-bold text-red-600">
-            {formatMoney(youOwe, house.currency)}
+            <CountUp value={youOwe} currency={house.currency} />
           </p>
           {display && (
             <p className="mt-0.5 text-xs text-slate-400">
@@ -158,7 +159,7 @@ export default async function DashboardPage() {
         <div className="card p-4">
           <p className="text-xs font-medium text-slate-500">You&apos;re owed</p>
           <p className="mt-1 text-2xl font-bold text-mint-600">
-            {formatMoney(youAreOwed, house.currency)}
+            <CountUp value={youAreOwed} currency={house.currency} />
           </p>
           {display && (
             <p className="mt-0.5 text-xs text-slate-400">

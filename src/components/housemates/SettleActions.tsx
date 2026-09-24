@@ -214,7 +214,8 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
     }
   }
 
-  async function confirmReceived() {
+  /** True when the confirm actually landed, so the row can play its tick. */
+  async function confirmReceived(): Promise<boolean> {
     setError(null);
     setLoading("confirm");
     void haptic("success");
@@ -232,7 +233,7 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
       if (!confirmed || confirmed.length === 0) {
         setError(`${item.name} took that payment mark back. Refreshing…`);
         router.refresh();
-        return;
+        return false;
       }
       await supabase.from("activity").insert({
         house_id: houseId,
@@ -241,8 +242,10 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
         message: `confirmed ${item.name} paid ${formatMoney(item.owedPending, currency)}`,
       });
       router.refresh();
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
+      return false;
     } finally {
       setLoading("");
     }
@@ -358,6 +361,9 @@ function SettleRow({ item, houseId, currentUserId, currency, onOpen }: RowProps 
     currentUserId,
     currency,
   );
+  // After a successful confirm the button becomes a drawn tick until the
+  // refreshed data replaces the row (usually as a "Settled today" line).
+  const [ticked, setTicked] = useState(false);
 
   const canConfirm = item.owedPending > 0 && item.confirmIds.length > 0;
   const primary: "confirm" | "pay" | "remind" | null = canConfirm
@@ -435,12 +441,32 @@ function SettleRow({ item, houseId, currentUserId, currency, onOpen }: RowProps 
           {error && <p className="mt-0.5 text-xs text-red-600">{error}</p>}
         </div>
 
-        {primary === "confirm" && (
+        {primary === "confirm" && ticked && (
+          <span className="hs-tick grid h-9 w-9 shrink-0 place-items-center rounded-full bg-mint-50">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-mint-600"
+              aria-hidden="true"
+            >
+              <path d="m5 12.5 4.5 4.5L19 7" />
+            </svg>
+          </span>
+        )}
+        {primary === "confirm" && !ticked && (
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              void confirmReceived();
+              void confirmReceived().then((ok) => {
+                if (ok) setTicked(true);
+              });
             }}
             disabled={loading !== ""}
             className="btn-primary shrink-0 px-4 py-2"
