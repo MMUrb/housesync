@@ -179,11 +179,33 @@ export function ExpensesList({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="card p-6 text-center text-sm text-slate-500">
-          {status === "ongoing"
-            ? "Nothing ongoing here, all settled up 🎉"
-            : "No settled expenses here yet."}
-        </div>
+        status === "ongoing" ? (
+          <div className="card p-6 text-center">
+            <p className="text-3xl" aria-hidden="true">
+              🎉
+            </p>
+            <p className="mt-1.5 text-sm font-semibold text-slate-900">All settled here</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Nothing ongoing in this view. New costs show up the second anyone adds one.
+            </p>
+            <Link
+              href="/expenses/new"
+              className="btn-secondary mt-3 inline-flex px-4 py-2 text-xs"
+            >
+              Add an expense
+            </Link>
+          </div>
+        ) : (
+          <div className="card p-6 text-center">
+            <p className="text-3xl" aria-hidden="true">
+              🧾
+            </p>
+            <p className="mt-1.5 text-sm font-semibold text-slate-900">No history yet</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Confirmed payments end up here, your house&apos;s paper trail.
+            </p>
+          </div>
+        )
       ) : byMonth ? (
         <div className="space-y-4">
           {groups.map(([key, monthRows]) => (

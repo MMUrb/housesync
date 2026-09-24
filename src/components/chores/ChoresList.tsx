@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ChoreItem } from "@/components/chores/ChoreItem";
 import type { Chore, MemberWithProfile } from "@/lib/types";
 
@@ -124,8 +125,19 @@ export function ChoresList({
           </div>
 
           {scoped.length === 0 ? (
-            <div className="card p-6 text-center text-sm text-slate-500">
-              Nothing due {emptyWhen}. 🎉
+            <div className="card p-6 text-center">
+              <p className="text-3xl" aria-hidden="true">
+                🧹
+              </p>
+              <p className="mt-1.5 text-sm font-semibold text-slate-900">
+                Nothing due {emptyWhen}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                The rota&apos;s caught up. Enjoy it, it won&apos;t last.
+              </p>
+              <Link href="/chores/new" className="btn-secondary mt-3 inline-flex px-4 py-2 text-xs">
+                Add a chore
+              </Link>
             </div>
           ) : (
             <div className="space-y-5">
@@ -155,8 +167,14 @@ export function ChoresList({
           )}
         </>
       ) : completed.length === 0 ? (
-        <div className="card p-6 text-center text-sm text-slate-500">
-          No completed chores yet.
+        <div className="card p-6 text-center">
+          <p className="text-3xl" aria-hidden="true">
+            🏆
+          </p>
+          <p className="mt-1.5 text-sm font-semibold text-slate-900">Nothing ticked off yet</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Finished chores land here, so credit goes where it&apos;s due.
+          </p>
         </div>
       ) : (
         <ul className="card divide-y divide-slate-100">

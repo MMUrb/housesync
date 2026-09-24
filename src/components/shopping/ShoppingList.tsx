@@ -215,7 +215,15 @@ export function ShoppingList({
               To buy {toBuy.length > 0 && <span className="text-slate-400">({toBuy.length})</span>}
             </h2>
             {toBuy.length === 0 ? (
-              <div className="card p-4 text-sm text-slate-500">All done. Nice one. 🎉</div>
+              <div className="card p-6 text-center">
+                <p className="text-3xl" aria-hidden="true">
+                  ✅
+                </p>
+                <p className="mt-1.5 text-sm font-semibold text-slate-900">All bought</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  The list&apos;s clear. Add things the moment you run out.
+                </p>
+              </div>
             ) : (
               <ul className="card divide-y divide-slate-100">
                 {toBuy.map((item) => (
