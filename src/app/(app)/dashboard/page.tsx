@@ -12,6 +12,7 @@ import {
   requireHouse,
 } from "@/lib/data";
 import { NoticeBoard } from "@/components/notices/NoticeBoard";
+import { SoloInvite } from "@/components/house/SoloInvite";
 import { computeBalances } from "@/lib/balances";
 import { netCents, buildPlan } from "@/lib/settle";
 import { getRate } from "@/lib/rates";
@@ -167,6 +168,13 @@ export default async function DashboardPage() {
         </div>
       </section>
 
+      {/* On your own, the invite is the one thing that makes the app work, so
+          it leads the page. Its corner x hides it here; the House tab keeps
+          the invite for as long as the house has one member. */}
+      {members.length === 1 && (
+        <SoloInvite code={house.invite_code} houseName={house.name} />
+      )}
+
       {/* Spending explorer */}
       <section className="space-y-2">
         <div className="flex items-center justify-between px-1">
@@ -234,7 +242,7 @@ export default async function DashboardPage() {
             Settle up <IconArrowRight className="h-4 w-4" />
           </Link>
         </section>
-      ) : (
+      ) : members.length === 1 ? null : ( // solo: the invite card above covers this slot's job
         <section className="card p-4 text-center text-sm text-slate-500">
           You&apos;re all square. Nothing owed either way 🎉
         </section>

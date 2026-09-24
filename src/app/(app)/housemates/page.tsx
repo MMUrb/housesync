@@ -227,7 +227,25 @@ export default async function HousematesPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title={house.name} subtitle={`${members.length} housemates`} />
+      <PageTitle
+        title={house.name}
+        subtitle={`${members.length} housemate${members.length === 1 ? "" : "s"}`}
+      />
+
+      {/* A one-person house doesn't work yet, so the House tab always carries
+          the invite until someone joins (the dashboard card's x points here). */}
+      {members.length === 1 && (
+        <section className="card space-y-3 p-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Invite your housemates</h2>
+            <p className="mt-1 text-sm leading-relaxed text-slate-500">
+              {house.name} is just you so far. Add the others and HouseSync starts splitting
+              everything between you.
+            </p>
+          </div>
+          <InviteBox code={house.invite_code} houseName={house.name} />
+        </section>
+      )}
 
       {/* House hub: quick links to the other shared-house sections */}
       <section className="grid grid-cols-2 gap-3">
