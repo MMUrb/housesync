@@ -37,7 +37,10 @@ export function SyncStoresButton() {
       const res = await fetch("/api/admin/store-sync", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ days: 30 }),
+        // Full history (clamped to launch day server-side): the manual
+        // button is rare enough that healing every column each click is
+        // cheaper than ever wondering whether old days are stale.
+        body: JSON.stringify({ days: 400 }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "Sync failed.");
@@ -63,7 +66,7 @@ export function SyncStoresButton() {
         type="button"
         onClick={go}
         disabled={busy}
-        title="Pulls the last 30 days from both stores now instead of waiting for tonight's run."
+        title="Pulls the whole history since launch from both stores now instead of waiting for tonight's run."
         className="font-medium text-brand-600 hover:underline disabled:opacity-50"
       >
         {busy ? "Syncing…" : "Sync now"}

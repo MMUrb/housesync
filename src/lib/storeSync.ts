@@ -116,6 +116,7 @@ export async function fetchPlayDaily(sinceDay: string): Promise<DailyRow[]> {
     const iDate = headers.indexOf("date");
     const iInst = headers.findIndex((h) => h === "daily device installs");
     const iUnin = headers.findIndex((h) => h === "daily device uninstalls");
+    const iUpgr = headers.findIndex((h) => h === "daily device upgrades");
     if (iDate < 0) continue;
 
     for (const line of lines.slice(1)) {
@@ -125,7 +126,9 @@ export async function fetchPlayDaily(sinceDay: string): Promise<DailyRow[]> {
       rows.push({
         day,
         downloads: iInst >= 0 ? Number(cols[iInst]) || 0 : null,
-        updates: null,
+        // Devices that installed an app update that day, Play's counterpart
+        // to Apple's type-7 rows, so both store cards can show the same rows.
+        updates: iUpgr >= 0 ? Number(cols[iUpgr]) || 0 : null,
         uninstalls: iUnin >= 0 ? Number(cols[iUnin]) || 0 : null,
       });
     }

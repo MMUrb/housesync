@@ -119,7 +119,9 @@ export default async function AcquisitionPage() {
   const and30 = sum(store30.filter((r) => r.platform === "android"), "downloads");
   const total30 = ios30 + and30;
   const iosAll = sum(store.filter((r) => r.platform === "ios"), "downloads");
+  const iosAllUpdates = sum(store.filter((r) => r.platform === "ios"), "updates");
   const andAll = sum(store.filter((r) => r.platform === "android"), "downloads");
+  const andAllUpdates = sum(store.filter((r) => r.platform === "android"), "updates");
   const totalAll = iosAll + andAll;
   const share = (n: number, of: number) => (of > 0 ? Math.round((n / of) * 100) : 0);
 
@@ -251,9 +253,16 @@ export default async function AcquisitionPage() {
               <p className="text-sm font-semibold text-slate-900">App Store</p>
               <p className="text-xs text-slate-400">uk.co.housesync · iOS</p>
               <dl className="mt-3 space-y-2 text-sm">
+                {/* Both cards carry the SAME five rows so they read side by
+                    side. "All-time updates" is update EVENTS since launch; new
+                    users never land in it (a fresh install of the newest
+                    version counts as a download). Apple reports no uninstalls,
+                    so that cell is a dash rather than a fake zero. */}
                 <Row k="Downloads (30d)" v={ios30.toLocaleString()} />
                 <Row k="Updates installed (30d)" v={sum(store30.filter((r) => r.platform === "ios"), "updates").toLocaleString()} />
+                <Row k="Uninstalls (30d)" v="—" />
                 <Row k="All-time downloads" v={iosAll.toLocaleString()} />
+                <Row k="All-time updates" v={iosAllUpdates.toLocaleString()} />
               </dl>
             </div>
             <div className="card p-5">
@@ -262,16 +271,22 @@ export default async function AcquisitionPage() {
               <dl className="mt-3 space-y-2 text-sm">
                 <Row k="Downloads (30d)" v={and30.toLocaleString()} />
                 <Row
+                  k="Updates installed (30d)"
+                  v={sum(store30.filter((r) => r.platform === "android"), "updates").toLocaleString()}
+                />
+                <Row
                   k="Uninstalls (30d)"
                   v={sum(store30.filter((r) => r.platform === "android"), "uninstalls").toLocaleString()}
                 />
                 <Row k="All-time downloads" v={andAll.toLocaleString()} />
+                <Row k="All-time updates" v={andAllUpdates.toLocaleString()} />
               </dl>
             </div>
           </div>
           <p className="text-xs text-slate-400">
-            Ratings, impressions and store-listing conversion aren&rsquo;t synced yet; they need a
-            second pass on each store&rsquo;s reporting API once these numbers are proven right.
+            Apple doesn&rsquo;t report uninstalls, hence the dash. Ratings, impressions and
+            store-listing conversion aren&rsquo;t synced yet; they need a second pass on each
+            store&rsquo;s reporting API once these numbers are proven right.
           </p>
         </Section>
       )}
