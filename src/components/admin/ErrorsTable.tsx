@@ -19,6 +19,8 @@ export type ErrorRowView = {
   user_agent: string | null;
   stack: string | null;
   digest: string | null;
+  /** Which deploy the reporting device ran, already compared to the live one. */
+  buildLabel: string | null;
   resolved: boolean;
   resolvedLabel: string | null;
 };
@@ -130,7 +132,11 @@ export function ErrorsTable({ rows }: { rows: ErrorRowView[] }) {
                             <Field label="Source" value={r.source} />
                             <Field label="Path" value={r.url} />
                             <Field label="User" value={r.user_id} />
-                            <Field label="Digest" value={r.digest} />
+                            {r.buildLabel ? (
+                              <Field label="App build" value={r.buildLabel} />
+                            ) : (
+                              <Field label="Digest" value={r.digest} />
+                            )}
                             <Field
                               label="Status"
                               value={r.resolved ? `Resolved ${r.resolvedLabel ?? ""}`.trim() : "Unresolved"}

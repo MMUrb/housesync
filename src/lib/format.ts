@@ -47,30 +47,132 @@ export function formatConverted(
 /** A bare calendar date, e.g. an expense's "2026-09-16". */
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
+// The exact strings V8 has been server-rendering for en-GB, frozen as data.
+// "Sept" is the one to notice: September is the only month whose en-GB
+// abbreviation is not the universal three-letter form, and Apple's engines
+// have shipped "Sep" instead. Any name Intl produces can differ between the
+// server's ICU and the phone's, and one differing letter is a React #418.
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
+const MONTHS_LONG = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+const WEEKDAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 /**
- * Formats a date identically on the server and on the viewer's device.
+ * The calendar date an instant falls on in a timezone, as numbers. Numeric
+ * formatToParts values come from IANA timezone data, which every engine
+ * shares; only NAMES and patterns come from the locale data engines disagree
+ * on, and none are used here.
+ */
+function calendarOf(d: Date, timeZone: string): { y: number; m: number; day: number } | null {
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(d);
+    let y = 0,
+      m = 0,
+      day = 0;
+    for (const p of parts) {
+      if (p.type === "year") y = Number(p.value);
+      else if (p.type === "month") m = Number(p.value);
+      else if (p.type === "day") day = Number(p.value);
+    }
+    return y && m && day ? { y, m, day } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Formats a date IDENTICALLY on every engine, byte for byte.
  *
- * Leaving the timezone unset formats in the RUNTIME's zone, which is UTC on
- * Vercel and the user's own zone in the browser. That silently produced two
- * different strings and so a hydration failure (React #418, seen live from
- * iPhones on /expenses): a timestamp at 23:52 UTC renders as 16 Sept on the
- * server and 17 Sept on a British phone, and a plain "2026-09-16" renders as
- * 15 Sept anywhere west of UTC.
+ * Two lessons are baked in, both learnt from live React #418s on /expenses:
  *
- * So: a bare YYYY-MM-DD is a calendar date, not a moment, and is read and
- * written in UTC so it says the same thing everywhere. Anything else is a real
- * instant, pinned to the app's home timezone. Pass an explicit `timeZone` to
- * override either.
+ * 1. Timezone: leaving it unset formats in the runtime's own zone (UTC on
+ *    Vercel, the user's zone in the browser), so the server and the phone can
+ *    disagree on the DAY. A bare YYYY-MM-DD is therefore treated as a calendar
+ *    date (read and shown in UTC, the same everywhere); a real instant is
+ *    pinned to house time. An explicit `timeZone` overrides either.
+ *
+ * 2. Locale data: even with the zone pinned, Intl month and weekday NAMES come
+ *    from each engine's own locale tables, and they differ (en-GB September is
+ *    "Sept" on the server's V8 but "Sep" on Apple's engines). So the numbers
+ *    come from timezone maths and every name comes from the literal tables
+ *    above. Intl never chooses a visible string here.
+ *
+ * Supports the day/month/year/weekday shapes the app uses. Anything fancier
+ * (hours, dateStyle) falls back to pinned Intl and must not be rendered by a
+ * client component: names in that output are engine-dependent again.
  */
 export function formatDate(value: string | Date, opts?: Intl.DateTimeFormatOptions): string {
   const dateOnly = typeof value === "string" && DATE_ONLY.test(value);
   const d =
     typeof value === "string" ? new Date(dateOnly ? `${value}T00:00:00Z` : value) : value;
   if (Number.isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("en-GB", {
-    ...(opts ?? { day: "numeric", month: "short" }),
-    timeZone: opts?.timeZone ?? (dateOnly ? "UTC" : UK_TZ),
-  }).format(d);
+
+  const o = opts ?? { day: "numeric", month: "short" };
+  const tz = o.timeZone ?? (dateOnly ? "UTC" : UK_TZ);
+
+  const unsupported =
+    o.hour !== undefined ||
+    o.minute !== undefined ||
+    o.second !== undefined ||
+    o.dateStyle !== undefined ||
+    o.timeStyle !== undefined ||
+    (o.weekday !== undefined && o.weekday !== "short") ||
+    o.era !== undefined ||
+    o.timeZoneName !== undefined;
+  const cal = unsupported ? null : calendarOf(d, tz);
+  if (!cal) {
+    // Server-side conveniences only; never render this branch in the client.
+    return new Intl.DateTimeFormat("en-GB", { ...o, timeZone: tz }).format(d);
+  }
+
+  const { y, m, day } = cal;
+  // Day-of-week is pure arithmetic on the calendar date: no lookup tables
+  // beyond our own literals, no engine involvement.
+  const dow = new Date(Date.UTC(y, m - 1, day)).getUTCDay();
+  const lead = o.weekday === "short" ? `${WEEKDAYS_SHORT[dow]}, ` : "";
+
+  // All-numeric shapes render the en-GB way: DD/MM/YYYY.
+  if (o.month === "2-digit" || o.month === "numeric") {
+    const dd = o.day === "numeric" ? String(day) : String(day).padStart(2, "0");
+    const mm = o.month === "numeric" ? String(m) : String(m).padStart(2, "0");
+    const yy =
+      o.year === undefined
+        ? ""
+        : `/${o.year === "2-digit" ? String(y % 100).padStart(2, "0") : String(y)}`;
+    return `${lead}${dd}/${mm}${yy}`;
+  }
+
+  const monthName = o.month === "long" ? MONTHS_LONG[m - 1] : MONTHS_SHORT[m - 1];
+  const dd = o.day === "2-digit" ? String(day).padStart(2, "0") : String(day);
+  const yy =
+    o.year === undefined
+      ? ""
+      : ` ${o.year === "2-digit" ? String(y % 100).padStart(2, "0") : String(y)}`;
+  return `${lead}${dd} ${monthName}${yy}`;
+}
+
+/**
+ * "September 2026" from a month key like "2026-09". Pure string maths on our
+ * own tables, so it cannot differ between server and device.
+ */
+export function formatMonthYear(key: string): string {
+  const m = /^(\d{4})-(\d{2})/.exec(key);
+  if (!m) return key;
+  const name = MONTHS_LONG[Number(m[2]) - 1];
+  return name ? `${name} ${m[1]}` : key;
+}
+
+/** The current month's full name in house time, from our own tables. */
+export function ukMonthLong(d: Date = new Date()): string {
+  const cal = calendarOf(d, UK_TZ);
+  return cal ? MONTHS_LONG[cal.m - 1] : MONTHS_LONG[d.getUTCMonth()];
 }
 
 /** "in 3 days", "tomorrow", "2 days ago", "today". */

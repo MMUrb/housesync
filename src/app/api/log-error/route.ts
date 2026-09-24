@@ -22,7 +22,15 @@ export async function POST(request: Request) {
       stack: typeof b?.stack === "string" ? b.stack : null,
       url: typeof b?.url === "string" ? b.url : null,
       userAgent: request.headers.get("user-agent"),
-      digest: typeof b?.digest === "string" ? b.digest : null,
+      // The digest column doubles as the app-build stamp for client errors
+      // (they never set a digest of their own): "build:<sha>" says which
+      // deploy the reporting device was actually running.
+      digest:
+        typeof b?.digest === "string"
+          ? b.digest
+          : typeof b?.build === "string" && b.build
+            ? `build:${b.build.slice(0, 12)}`
+            : null,
     });
   } catch {
     /* ignore malformed reports */

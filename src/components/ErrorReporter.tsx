@@ -40,6 +40,10 @@ export function reportClientError(
         message: message.slice(0, 2000),
         stack: extra?.stack ?? null,
         url: extra?.url ?? window.location.pathname,
+        // Which deploy this device is actually running. A stale cached shell
+        // reports an old sha here, which the Errors tab flags, so a replay of
+        // an already-fixed bug identifies itself instead of reopening the hunt.
+        build: process.env.NEXT_PUBLIC_BUILD ?? null,
       }),
     });
   } catch {

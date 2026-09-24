@@ -11,7 +11,7 @@ const RULES: Rule[] = [
     test: /minified react error #4(18|23|25)|hydrat/i,
     what: "The page the server sent didn't match what the device drew first, so React threw it away and redrew.",
     cause:
-      "Almost always date, time or locale text that renders differently on the server than on the phone. Same family as the chat separator and spending chart fixes.",
+      "Date, time or locale text rendered differently on the server than on the phone (Apple's engines even spell month names differently, e.g. Sep vs Sept), or the device is still running an old cached build. Check the App build line below: if it's older than live, the bug is already fixed and this is a replay.",
   },
   {
     test: /chunkloaderror|loading chunk .+ failed|dynamically imported module/i,

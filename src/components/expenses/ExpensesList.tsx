@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { confirmSheet } from "@/components/app/ConfirmSheet";
-import { formatMoney, formatDate } from "@/lib/format";
+import { formatMoney, formatDate, formatMonthYear } from "@/lib/format";
 import { buildCatLookup } from "@/lib/categories";
 import type { SplitStatus } from "@/lib/types";
 
@@ -14,10 +14,9 @@ type Cat = { code: string; name: string; emoji: string; color: string };
 // Month headers only earn their space once the list spans more than one
 // month; a single month renders as the plain list it always was. Dates are
 // YYYY-MM-DD strings already ordered newest first, so grouping keeps order.
-function monthLabel(key: string): string {
-  // Mid-month noon so no timezone can nudge it into the neighbouring month.
-  return new Date(`${key}-15T12:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
-}
+// formatMonthYear works from literal tables: the server and the phone carry
+// different Intl locale data, and any difference here is a hydration failure.
+const monthLabel = formatMonthYear;
 function sumBy(rows: ExpenseVM[], pick: (r: ExpenseVM) => number): number {
   return Math.round(rows.reduce((t, r) => t + pick(r), 0) * 100) / 100;
 }

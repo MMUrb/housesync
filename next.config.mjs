@@ -21,6 +21,12 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  // Which deploy a client is running, baked into the bundle at build time.
+  // Error reports carry it, so the admin Errors tab can tell "bug in the live
+  // code" apart from "phone still running last week's cached build".
+  env: {
+    NEXT_PUBLIC_BUILD: (process.env.VERCEL_GIT_COMMIT_SHA || "dev").slice(0, 7),
+  },
   // Keep tab switching snappy. By default every app screen is `force-dynamic`,
   // so navigating back to a tab refetches it from the server even if you were
   // just there. Caching a visited segment in the client router cache for a short

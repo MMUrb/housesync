@@ -62,8 +62,14 @@ export default async function ErrorsAdminPage() {
 
   // Format dates here on the server so the table (a client component) never
   // formats locale-dependent times during hydration.
+  const liveBuild = process.env.NEXT_PUBLIC_BUILD || "dev";
   const rowViews: ErrorRowView[] = rows.map((r) => {
     const explanation = explainError(r.message, r.source);
+    // Client reports stamp the deploy they were running into the digest slot
+    // ("build:<sha>"). Shown against the live build, that one line separates
+    // "bug in the current code" from "phone still on last week's build".
+    const build = r.digest?.startsWith("build:") ? r.digest.slice(6) : null;
+    const sameBuild = build ? build.startsWith(liveBuild) || liveBuild === "dev" : false;
     return {
       id: r.id,
       whenLabel: fmt(r.created_at),
@@ -75,7 +81,12 @@ export default async function ErrorsAdminPage() {
       user_id: r.user_id,
       user_agent: r.user_agent,
       stack: r.stack,
-      digest: r.digest,
+      digest: build ? null : r.digest,
+      buildLabel: build
+        ? sameBuild
+          ? `${build} · the live build`
+          : `${build} · OLDER than live (${liveBuild})`
+        : null,
       resolved: r.resolved_at != null,
       resolvedLabel: r.resolved_at ? fmt(r.resolved_at) : null,
     };
