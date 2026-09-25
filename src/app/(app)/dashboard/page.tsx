@@ -13,6 +13,9 @@ import {
 } from "@/lib/data";
 import { NoticeBoard } from "@/components/notices/NoticeBoard";
 import { SoloInvite } from "@/components/house/SoloInvite";
+import { StarterTemplates } from "@/components/expenses/StarterTemplates";
+import { EXPENSE_TEMPLATES, unusedTemplates } from "@/lib/expenseTemplates";
+import { buildCatLookup } from "@/lib/categories";
 import { CountUp } from "@/components/app/CountUp";
 import { computeBalances } from "@/lib/balances";
 import { netCents, buildPlan } from "@/lib/settle";
@@ -176,6 +179,20 @@ export default async function DashboardPage() {
         <SoloInvite code={house.invite_code} houseName={house.name} />
       )}
 
+      {/* Housemates in but no costs yet: one-tap starters lead the page, so
+          the first split lands inside the first minute. After the first few
+          expenses, a slimmer nudge offers what's left, then it retires. */}
+      {members.length > 1 && expenses.length < 3 && (
+        <StarterTemplates
+          templates={(expenses.length === 0
+            ? EXPENSE_TEMPLATES
+            : unusedTemplates(expenses.map((e) => e.title))
+          ).map((t) => ({ ...t, emoji: buildCatLookup(categories)(t.category).emoji }))}
+          memberCount={members.length}
+          variant={expenses.length === 0 ? "fresh" : "follow"}
+        />
+      )}
+
       {/* Spending explorer */}
       <section className="space-y-2">
         <div className="flex items-center justify-between px-1">
@@ -243,7 +260,7 @@ export default async function DashboardPage() {
             Settle up <IconArrowRight className="h-4 w-4" />
           </Link>
         </section>
-      ) : members.length === 1 ? null : ( // solo: the invite card above covers this slot's job
+      ) : members.length === 1 || expenses.length === 0 ? null : ( // the invite/starter cards above own this slot until there's real history
         <section className="card p-4 text-center text-sm text-slate-500">
           You&apos;re all square. Nothing owed either way 🎉
         </section>
