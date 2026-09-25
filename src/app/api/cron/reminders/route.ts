@@ -4,6 +4,7 @@ import { isEmailConfigured, sendEmail, emailLayout } from "@/lib/email";
 import { computeBalances, splitEqually } from "@/lib/balances";
 import { formatMoney, relativeDay } from "@/lib/format";
 import { getSiteUrl } from "@/lib/env";
+import { runNudges } from "@/lib/nudges";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -47,6 +48,17 @@ export async function GET(request: Request) {
 
   const supabase = createAdminClient();
   const siteUrl = getSiteUrl();
+
+  // Money-in-limbo nudges ride the same daily run (see lib/nudges.ts): one
+  // cron slot, and their day-equality triggers make the shared jitter safe.
+  // Failure-isolated so a nudge bug can never take the bill emails down.
+  let nudges: { nudged: number; errors: string[] } = { nudged: 0, errors: [] };
+  try {
+    nudges = await runNudges(supabase);
+  } catch (e) {
+    nudges.errors.push(`nudges: ${e instanceof Error ? e.message : "failed"}`);
+  }
+
   const isMonday = new Date().getUTCDay() === 1;
   let sent = 0;
   const errors: string[] = [];
@@ -190,5 +202,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, sent, errors });
+  return NextResponse.json({ ok: true, sent, nudged: nudges.nudged, errors: [...errors, ...nudges.errors] });
 }

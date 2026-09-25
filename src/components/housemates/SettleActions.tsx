@@ -32,6 +32,14 @@ export interface SettleVM {
   /** Your own "paid" claims awaiting their confirmation — undoable. */
   undoIds: string[];
   pay?: { monzo: string | null; paypal: string | null; revolut: string | null };
+  /** Oldest of their claims on you, so the row can say how long it's waited. */
+  confirmWaitingSince?: string | null;
+  /** Oldest of your own claims on them (the amber Undo line's age). */
+  pendingWaitingSince?: string | null;
+  /** Whole days those have waited, computed on the SERVER: the client must
+   *  never call Date.now() during render (the September #418 lesson). */
+  confirmWaitingDays?: number;
+  pendingWaitingDays?: number;
   /** What the owe amount is made of, per expense (largest first). */
   oweItems?: SettleBreakdownItem[];
   /** What the owed amount is made of, per expense (largest first). */
@@ -406,6 +414,12 @@ function SettleRow({ item, houseId, currentUserId, currency, onOpen }: RowProps 
               Says they paid you {formatMoney(item.owedPending, currency)}
             </p>
           )}
+          {canConfirm && (item.confirmWaitingDays ?? 0) >= 1 && (
+            <p className="text-xs font-semibold text-amber-700">
+              ⏳ Waiting {item.confirmWaitingDays} day
+              {item.confirmWaitingDays === 1 ? "" : "s"} for your confirm
+            </p>
+          )}
           {item.owe > 0 && (
             <p className="text-xs font-medium text-red-600">
               You owe {formatMoney(item.owe, currency)}
@@ -424,7 +438,11 @@ function SettleRow({ item, houseId, currentUserId, currency, onOpen }: RowProps 
 
           {item.owePending > 0 && (
             <p className="text-xs text-amber-700">
-              ⏳ {formatMoney(item.owePending, currency)} waiting for their confirm ·{" "}
+              ⏳ {formatMoney(item.owePending, currency)} waiting
+              {(item.pendingWaitingDays ?? 0) >= 1
+                ? ` ${item.pendingWaitingDays} day${item.pendingWaitingDays === 1 ? "" : "s"}`
+                : ""}{" "}
+              for their confirm ·{" "}
               <button
                 type="button"
                 onClick={(e) => {

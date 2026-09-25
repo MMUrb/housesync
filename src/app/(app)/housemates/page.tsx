@@ -75,6 +75,10 @@ export default async function HousematesPage() {
         vm.owePending += amt;
         // Your own claim awaiting their confirmation — undoable.
         vm.undoIds.push(s.id);
+        // Oldest claim's timestamp, so the row can say how long it's waited.
+        if (s.paid_at && (!vm.pendingWaitingSince || s.paid_at < vm.pendingWaitingSince)) {
+          vm.pendingWaitingSince = s.paid_at;
+        }
       }
     } else if (payer === me && s.user_id !== me) {
       const vm = ensure(s.user_id);
@@ -83,6 +87,9 @@ export default async function HousematesPage() {
       } else if (s.status === "paid") {
         vm.owedPending += amt;
         vm.confirmIds.push(s.id);
+        if (s.paid_at && (!vm.confirmWaitingSince || s.paid_at < vm.confirmWaitingSince)) {
+          vm.confirmWaitingSince = s.paid_at;
+        }
       }
     }
   }
@@ -133,10 +140,20 @@ export default async function HousematesPage() {
           })
           .sort((a, b) => b.amount - a.amount)
       : [];
+  // Whole days a claim has waited, computed HERE so the client never touches
+  // Date.now() during render (the September #418 hydration lesson).
+  const nowMs = Date.now();
+  const waitingDays = (iso?: string | null): number => {
+    if (!iso) return 0;
+    const d = Math.floor((nowMs - new Date(iso).getTime()) / 86_400_000);
+    return d > 0 ? d : 0;
+  };
   const settleItemsDetailed = settleItems.map((vm) => ({
     ...vm,
     oweItems: toBreakdown(oweLists.get(vm.userId)),
     owedItems: toBreakdown(owedLists.get(vm.userId)),
+    confirmWaitingDays: waitingDays(vm.confirmWaitingSince),
+    pendingWaitingDays: waitingDays(vm.pendingWaitingSince),
   }));
 
   // Housemates you finished with today keep a brief "Settled today ✓" line,
