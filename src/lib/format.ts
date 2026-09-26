@@ -206,6 +206,16 @@ export function timeAgo(value: string | Date): string {
   return formatDate(d, { day: "numeric", month: "short" });
 }
 
+/** "1st", "2nd", "23rd"... for rent-day copy. */
+export function ordinalDay(n: number): string {
+  const r10 = n % 10;
+  const r100 = n % 100;
+  if (r10 === 1 && r100 !== 11) return `${n}st`;
+  if (r10 === 2 && r100 !== 12) return `${n}nd`;
+  if (r10 === 3 && r100 !== 13) return `${n}rd`;
+  return `${n}th`;
+}
+
 export function initials(name?: string | null): string {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/).slice(0, 2);

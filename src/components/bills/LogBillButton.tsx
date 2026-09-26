@@ -67,11 +67,12 @@ export function LogBillButton({
       if (splitErr) throw splitErr;
 
       // Roll the due date forward — past today, not just one period, so
-      // logging a long-overdue bill doesn't leave it flagged overdue.
+      // logging a long-overdue bill doesn't leave it flagged overdue. due_day
+      // anchors month-based rolls, so "the 31st" survives short months.
       const base = bill.next_due_date ?? todayISO();
       await supabase
         .from("recurring_bills")
-        .update({ next_due_date: advancePastToday(base, bill.frequency) })
+        .update({ next_due_date: advancePastToday(base, bill.frequency, bill.due_day ?? undefined) })
         .eq("id", bill.id);
 
       await supabase.from("activity").insert({

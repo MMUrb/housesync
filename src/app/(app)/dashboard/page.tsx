@@ -13,6 +13,8 @@ import {
 } from "@/lib/data";
 import { NoticeBoard } from "@/components/notices/NoticeBoard";
 import { SoloInvite } from "@/components/house/SoloInvite";
+import { RentSetupPopup } from "@/components/house/RentSetupPopup";
+import { RentSplitNudge } from "@/components/house/RentSplitNudge";
 import { StarterTemplates } from "@/components/expenses/StarterTemplates";
 import { EXPENSE_TEMPLATES, unusedTemplates } from "@/lib/expenseTemplates";
 import { buildCatLookup } from "@/lib/categories";
@@ -128,6 +130,13 @@ export default async function DashboardPage() {
     .filter((b) => b.active && b.next_due_date)
     .slice(0, 3);
 
+  // The house's rent bill (set-up creates one with category "rent"; a manually
+  // added one that reads as rent counts too). Only its payer gets the
+  // join-reminder sheet, because only they can bring the newcomer into it.
+  const rentBill =
+    bills.find((b) => b.active && (b.category === "rent" || /\brent\b/i.test(b.title))) ?? null;
+  const rentPayerId = rentBill ? rentBill.paid_by ?? rentBill.created_by : null;
+
   const choresDue = chores
     .filter((c) => c.status === "todo")
     .sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999"))
@@ -138,6 +147,30 @@ export default async function DashboardPage() {
   const shoppingPreview = shoppingToBuy.slice(0, 4);
 
   return (
+    <>
+      {/* Fixed overlays live outside the space-y wrapper so mounting them
+          never hands the first card a sibling margin (the page would jump). */}
+      {/* One-time "Rent's set up" pop-up straight after set-up. */}
+      <RentSetupPopup />
+
+      {/* Someone joined and the rent split doesn't include them yet: remind
+          the payer once per join. Mounted even while solo so the device
+          records the starting roster and the FIRST joiner triggers it too. */}
+      {rentBill && rentPayerId === user.id && (
+        <RentSplitNudge
+          houseId={house.id}
+          houseName={house.name}
+          currency={house.currency}
+          members={members.map((m) => ({
+            id: m.user_id,
+            name: m.profile?.name ?? "A housemate",
+            color: m.profile?.avatar_color ?? null,
+            avatarUrl: m.profile?.avatar_url ?? null,
+          }))}
+          bill={{ id: rentBill.id, amount: Number(rentBill.amount) }}
+        />
+      )}
+
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">
@@ -422,6 +455,7 @@ export default async function DashboardPage() {
         )}
       </Section>
     </div>
+    </>
   );
 }
 

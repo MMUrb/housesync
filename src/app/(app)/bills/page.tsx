@@ -198,6 +198,17 @@ export default async function BillsPage() {
                   </div>
                 </div>
 
+                {/* Solo house: say out loud that nothing splits until they act,
+                    so the promise made at set-up is visible where it matters. */}
+                {memberIds.length === 1 && (
+                  <div className="mt-3 border-t border-slate-100 pt-3">
+                    <p className="text-xs leading-relaxed text-slate-500">
+                      👥 Just you for now. When your housemates join, request it from the house to
+                      split it between you, nothing changes unless you change it.
+                    </p>
+                  </div>
+                )}
+
                 {/* Current cycle: who's paid */}
                 {requested && (
                   <div className="mt-3 border-t border-slate-100 pt-3">

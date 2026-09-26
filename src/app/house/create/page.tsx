@@ -1,6 +1,5 @@
 import { requireUser } from "@/lib/data";
 import { CreateHouseForm } from "@/components/house/CreateHouseForm";
-import { JoinByCode } from "@/components/house/JoinByCode";
 import { HomeLogoLink } from "@/components/HomeLogoLink";
 import { BackHomeButton } from "@/components/BackHomeButton";
 
@@ -16,32 +15,19 @@ export default async function CreateHousePage() {
         <BackHomeButton />
       </div>
 
-      <div className="mt-8">
-        <h1 className="text-2xl font-bold text-slate-900">Create your house</h1>
-        <p className="mt-1.5 text-sm text-slate-600">
-          Set it up once, then invite your housemates. You can change these later.
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
-          <span className="truncate">Signed in as {user.email}.</span>
-          <form action="/auth/signout" method="post">
-            <button type="submit" className="font-medium text-brand-600 hover:underline">
-              Sign out / use another account
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <div className="mt-6">
+      {/* One question at a time; joining by code lives behind the link inside. */}
+      <div className="mt-6 flex-1">
         <CreateHouseForm />
       </div>
 
-      <div className="my-6 flex items-center gap-3 text-xs text-slate-400">
-        <span className="h-px flex-1 bg-slate-200" />
-        or join an existing house
-        <span className="h-px flex-1 bg-slate-200" />
+      <div className="mt-10 flex flex-wrap items-center justify-center gap-1.5 text-center text-xs text-slate-400">
+        <span className="truncate">Signed in as {user.email}.</span>
+        <form action="/auth/signout" method="post">
+          <button type="submit" className="font-medium text-brand-600 hover:underline">
+            Sign out / use another account
+          </button>
+        </form>
       </div>
-
-      <JoinByCode />
     </main>
   );
 }
