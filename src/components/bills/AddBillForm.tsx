@@ -32,6 +32,16 @@ export type BillEditInit = {
   pendingDue: string | null;
 };
 
+// A new bill that opens already filled in (the dashboard's rent-day card).
+// dueDay is the anchor itself, which a clamped nextDue (the 30th for a
+// "31st" in a 30-day month) can't carry.
+export type BillPreset = {
+  title: string;
+  category: string;
+  nextDue: string;
+  dueDay: number;
+};
+
 // Everything an edit can change, as the form last knew it from the database.
 type EditSnapshot = Omit<BillEditInit, "billId" | "pendingDue">;
 const snapshotOf = (e: BillEditInit): EditSnapshot => ({
@@ -58,6 +68,7 @@ export function AddBillForm({
   members,
   categories,
   edit,
+  preset,
 }: {
   houseId: string;
   currentUserId: string;
@@ -65,17 +76,21 @@ export function AddBillForm({
   members: MemberWithProfile[];
   categories: Cat[];
   edit?: BillEditInit;
+  preset?: BillPreset;
 }) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [title, setTitle] = useState(edit?.title ?? "");
+  const [title, setTitle] = useState(edit?.title ?? preset?.title ?? "");
   const [amount, setAmount] = useState(edit ? String(edit.amount) : "");
   const [category, setCategory] = useState<string>(
-    edit?.category ?? (categories.find((c) => c.code === "bills") ?? categories[0])?.code ?? "bills",
+    edit?.category ??
+      (preset && categories.some((c) => c.code === preset.category) ? preset.category : undefined) ??
+      (categories.find((c) => c.code === "bills") ?? categories[0])?.code ??
+      "bills",
   );
   const [frequency, setFrequency] = useState<BillFrequency>(edit?.frequency ?? "monthly");
-  const [nextDue, setNextDue] = useState(() => edit?.nextDue ?? defaultNextDue("monthly"));
+  const [nextDue, setNextDue] = useState(() => edit?.nextDue ?? preset?.nextDue ?? defaultNextDue("monthly"));
   const [paidBy, setPaidBy] = useState(edit?.paidBy ?? currentUserId);
   const [reminder, setReminder] = useState(edit?.reminder ?? true);
   const [reminderDays, setReminderDays] = useState<number[]>(edit?.reminderDays ?? [3, 0]);
@@ -143,7 +158,12 @@ export function AddBillForm({
 
     setLoading(true);
     try {
-      const dueDay = nextDue ? new Date(`${nextDue}T00:00:00`).getDate() : null;
+      const dueDay =
+        preset && nextDue === preset.nextDue
+          ? preset.dueDay
+          : nextDue
+            ? new Date(`${nextDue}T00:00:00`).getDate()
+            : null;
 
       // Edit mode: update the bill template in place. Already-logged expense
       // instances keep their own amounts/splits; only future cycles use the new
@@ -267,7 +287,7 @@ export function AddBillForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
-            autoFocus
+            autoFocus={!preset}
           />
         </div>
 
@@ -291,6 +311,7 @@ export function AddBillForm({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
+                autoFocus={Boolean(preset)}
               />
             </div>
           </div>

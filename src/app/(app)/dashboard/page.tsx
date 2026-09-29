@@ -15,6 +15,7 @@ import { NoticeBoard } from "@/components/notices/NoticeBoard";
 import { SoloInvite } from "@/components/house/SoloInvite";
 import { RentSetupPopup } from "@/components/house/RentSetupPopup";
 import { RentSplitNudge } from "@/components/house/RentSplitNudge";
+import { RentDayHint } from "@/components/house/RentDayHint";
 import { displayDue } from "@/lib/billEngine";
 import { todayISO } from "@/lib/recurrence";
 import { StarterTemplates } from "@/components/expenses/StarterTemplates";
@@ -224,6 +225,12 @@ export default async function DashboardPage() {
           the invite for as long as the house has one member. */}
       {members.length === 1 && (
         <SoloInvite code={house.invite_code} houseName={house.name} />
+      )}
+
+      {/* A rent day but no rent bill: rent is neither tracked nor reminded,
+          and the day is only a label in Settings. One tap sets it up. */}
+      {!rentBill && house.rent_due_day != null && (
+        <RentDayHint houseId={house.id} rentDay={house.rent_due_day} />
       )}
 
       {/* Housemates in but no costs yet: one-tap starters lead the page, so
