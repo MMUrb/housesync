@@ -1,11 +1,5 @@
 import Link from "next/link";
-import {
-  getBills,
-  getHouseCategories,
-  getSplitsForExpenses,
-  getVisiblePaymentDetails,
-  requireHouse,
-} from "@/lib/data";
+import { getBills, getHouseCategories, getVisiblePaymentDetails, requireHouse } from "@/lib/data";
 import { buildCatLookup } from "@/lib/categories";
 import { createClient } from "@/lib/supabase/server";
 import { PageTitle } from "@/components/app/PageTitle";
@@ -13,12 +7,17 @@ import { ScrollToHash } from "@/components/app/ScrollToHash";
 import { LogBillButton } from "@/components/bills/LogBillButton";
 import { BillPay } from "@/components/bills/BillPay";
 import { BillDetailsButton } from "@/components/bills/BillDetailsButton";
+import { PortionsEditor } from "@/components/bills/PortionsEditor";
+import { portionAmounts, portionsValid } from "@/lib/billPortions";
+import { todayISO } from "@/lib/recurrence";
+import { autoPortionsFor } from "@/lib/features";
+import { displayDue } from "@/lib/billEngine";
 import { Avatar } from "@/components/Avatar";
 import { MoneyTabs } from "@/components/app/MoneyTabs";
 import { IconPlus } from "@/components/icons";
-import { formatMoney } from "@/lib/format";
+import { firstName, formatMoney } from "@/lib/format";
 import { splitEqually } from "@/lib/balances";
-import { type Expense, type ExpenseSplit, type SplitStatus } from "@/lib/types";
+import { type BillSplit, type Expense, type ExpenseSplit, type SplitStatus } from "@/lib/types";
 
 export const metadata = { title: "Bills" };
 export const dynamic = "force-dynamic";
@@ -39,8 +38,13 @@ function dueLabel(next: string | null): { text: string; tone: "muted" | "soon" |
   };
 }
 
-export default async function BillsPage() {
+export default async function BillsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ portions?: string }>;
+}) {
   const { user, house, members } = await requireHouse();
+  const sp = await searchParams;
   const [bills, payMap, houseCats] = await Promise.all([
     getBills(house.id),
     getVisiblePaymentDetails(),
@@ -48,6 +52,10 @@ export default async function BillsPage() {
   ]);
   const catLookup = buildCatLookup(houseCats);
   const memberIds = members.map((m) => m.user_id);
+  // The engine's calendar (UTC days), computed here on the server so the
+  // editor's overdue note renders identically on the phone (hydration).
+  const today = todayISO();
+  const autoOn = autoPortionsFor(house.id);
   const profileOf = (id: string | null) => members.find((m) => m.user_id === id)?.profile ?? null;
   const nameOf = (id: string | null) =>
     id === user.id ? "You" : profileOf(id)?.name ?? "Housemate";
@@ -55,9 +63,29 @@ export default async function BillsPage() {
   // Latest requested expense per bill + its splits = the current cycle's status.
   const latestByBill = new Map<string, Expense>();
   const splitsByExpense = new Map<string, ExpenseSplit[]>();
+  // Stored portions per bill: present = the bill sends itself each cycle.
+  const portionsByBill = new Map<string, BillSplit[]>();
+  // The engine's cycles per bill, by their pinned due dates.
+  const autoDuesByBill = new Map<string, string[]>();
   if (bills.length > 0) {
     const supabase = await createClient();
-    const { data: exps } = await supabase
+    // Both reads decide what the Request button does: a failure must stop
+    // the page (error boundary, Try again), never render it as if the bill
+    // had no portions or had never been requested.
+    const { data: portionRows, error: portionsErr } = await supabase
+      .from("bill_splits")
+      .select("*")
+      .in(
+        "bill_id",
+        bills.map((b) => b.id),
+      );
+    if (portionsErr) throw new Error(`bills: portions read failed: ${portionsErr.message}`);
+    for (const p of (portionRows ?? []) as BillSplit[]) {
+      const arr = portionsByBill.get(p.bill_id) ?? [];
+      arr.push(p);
+      portionsByBill.set(p.bill_id, arr);
+    }
+    const { data: exps, error: expsErr } = await supabase
       .from("expenses")
       .select("*")
       .in(
@@ -66,10 +94,28 @@ export default async function BillsPage() {
       )
       .order("date", { ascending: false })
       .order("created_at", { ascending: false });
+    if (expsErr) throw new Error(`bills: cycles read failed: ${expsErr.message}`);
     for (const e of (exps ?? []) as Expense[]) {
       if (e.bill_id && !latestByBill.has(e.bill_id)) latestByBill.set(e.bill_id, e);
+      if (e.bill_id && e.auto_cycle && e.cycle_due) {
+        const arr = autoDuesByBill.get(e.bill_id) ?? [];
+        arr.push(e.cycle_due);
+        autoDuesByBill.set(e.bill_id, arr);
+      }
     }
-    const splits = await getSplitsForExpenses([...latestByBill.values()].map((e) => e.id));
+    // The current cycles' splits decide whether a cycle counts as requested:
+    // read here with the error checked, since a silent empty result would
+    // show Request on a cycle that's already out (and bill the next early).
+    const latestIds = [...latestByBill.values()].map((e) => e.id);
+    const splits: ExpenseSplit[] = [];
+    for (let i = 0; i < latestIds.length; i += 100) {
+      const { data: part, error: splitsErr } = await supabase
+        .from("expense_splits")
+        .select("*")
+        .in("expense_id", latestIds.slice(i, i + 100));
+      if (splitsErr) throw new Error(`bills: splits read failed: ${splitsErr.message}`);
+      splits.push(...((part ?? []) as ExpenseSplit[]));
+    }
     for (const s of splits) {
       const arr = splitsByExpense.get(s.expense_id) ?? [];
       arr.push(s);
@@ -134,13 +180,43 @@ export default async function BillsPage() {
             }));
             const paidCount = people.filter((p) => p.status === "confirmed").length;
             const settled = requested && splits.every((s) => s.user_id === payer || s.status === "confirmed");
-            const due = dueLabel(b.next_due_date);
+            // Stored portions. A valid set in a shared house means the cron
+            // sends this bill itself, so the manual request row disappears.
+            // A broken set (someone left, amount changed) or a payer who has
+            // left pauses the sends and says so on the card.
+            // paid_by is the payer; null (their account was deleted) = none.
+            const billPayer = b.paid_by;
+            const payerIsMember = !!billPayer && memberIds.includes(billPayer);
+            const isPayer = billPayer === user.id;
+            const portions = portionsByBill.get(b.id) ?? [];
+            const portioned = portions.length > 0 && memberIds.length > 1;
+            const portionsOk =
+              portioned && payerIsMember && portionsValid(portions, Number(b.amount), memberIds);
+            const portionsBroken = portioned && payerIsMember && !portionsOk;
+            // Without a due date the engine has no day to send on, and
+            // FEATURES.autoPortions can switch it off: either way the Request
+            // button stays, using the portions.
+            const portionsAuto = portionsOk && !!b.next_due_date && autoOn;
+            const portionShares = portionsOk
+              ? portionAmounts(portions, Number(b.amount), billPayer)
+              : undefined;
+            const myPortion = portionShares?.find((r) => r.user_id === user.id)?.amount ?? 0;
+            // A cycle the engine already sent that's still ahead is the one
+            // people are paying now, so the card counts down to it rather
+            // than to the next period's date (same rule as the dashboard and
+            // View details).
+            const shown = displayDue(b.next_due_date, autoDuesByBill.get(b.id) ?? [], today);
+            const pendingAutoDue = shown.pending;
+            const due = dueLabel(shown.due);
             // Whether the NEXT cycle can be requested is a separate question
             // from whether the last one settled: the rent falls due again
             // whether or not the payer got round to tapping Confirm. Gating
             // this on `settled` alone let one unconfirmed claim freeze the
-            // bill forever, with no way back.
-            const dueAgain = due.tone === "over" || due.tone === "soon";
+            // bill forever, with no way back. Judged on next_due_date (the
+            // next unrequested period), never on the displayed date, which
+            // may be a cycle that already went out.
+            const nextDueTone = dueLabel(b.next_due_date).tone;
+            const dueAgain = nextDueTone === "over" || nextDueTone === "soon";
             const canRequestNext = !requested || settled || dueAgain;
             // My still-unpaid rows for this cycle (several after a part payment).
             const myUnpaid = splits.filter((s) => s.user_id === user.id && s.status === "unpaid");
@@ -163,7 +239,11 @@ export default async function BillsPage() {
                     </div>
                     <p className="mt-0.5 text-xs text-slate-500">
                       <span className="capitalize">{b.frequency}</span> ·{" "}
-                      {formatMoney(perShare, house.currency)} each
+                      {portionsOk
+                        ? isPayer
+                          ? "your portions"
+                          : `your portion ${formatMoney(myPortion, house.currency)}`
+                        : `${formatMoney(perShare, house.currency)} each`}
                       {due.text ? (
                         <>
                           {" · "}
@@ -181,6 +261,23 @@ export default async function BillsPage() {
                         </>
                       ) : null}
                     </p>
+                    {(portioned || !payerIsMember) && (
+                      <span
+                        className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                          portionsOk
+                            ? "bg-brand-50 text-brand-700"
+                            : "bg-amber-50 text-amber-700"
+                        }`}
+                      >
+                        {!payerIsMember
+                          ? "⚠️ Needs a new payer"
+                          : portionsAuto
+                            ? "🔁 Sends portions itself"
+                            : portionsOk
+                              ? "🔁 Portions set"
+                              : "⚠️ Portions need updating"}
+                      </span>
+                    )}
                     <BillDetailsButton
                       billId={b.id}
                       title={b.title}
@@ -190,10 +287,12 @@ export default async function BillsPage() {
                       categoryName={catLookup(b.category).name}
                       frequency={b.frequency}
                       nextDue={b.next_due_date}
-                      paidByName={nameOf(b.paid_by)}
+                      pendingDue={pendingAutoDue}
+                      paidByName={payerIsMember ? nameOf(billPayer) : "Nobody yet (they left)"}
                       reminderEnabled={b.reminder_enabled}
                       memberCount={memberIds.length}
                       perShare={perShare}
+                      yourPortion={portionsOk ? myPortion : null}
                     />
                   </div>
                 </div>
@@ -277,12 +376,19 @@ export default async function BillsPage() {
                 )}
 
                 {/* Request (first time), or start the next cycle once it's
-                    settled — or once it's due again regardless. */}
-                {canRequestNext && (
+                    settled — or once it's due again regardless. A bill whose
+                    portions run it hides this: the cron does the requesting.
+                    A payer who has left can't be paid back, so no requests
+                    until the bill has a new one. */}
+                {canRequestNext && !portionsAuto && payerIsMember && !portionsBroken && (
                   <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
                     <span className="text-xs text-slate-400">
                       {!requested
-                        ? `Split ${memberIds.length} ${memberIds.length === 1 ? "way" : "ways"}`
+                        ? portionsOk
+                          ? isPayer
+                            ? "Split by your portions"
+                            : `Split by ${firstName(nameOf(billPayer))}'s portions`
+                          : `Split ${memberIds.length} ${memberIds.length === 1 ? "way" : "ways"}`
                         : settled
                           ? "All settled 🎉, ready for the next cycle"
                           : "Due again — last cycle isn't fully confirmed"}
@@ -292,8 +398,53 @@ export default async function BillsPage() {
                       memberIds={memberIds}
                       currentUserId={user.id}
                       currency={house.currency}
+                      expectedPayer={billPayer as string}
+                      portionsSeen={portions}
+                      portionShares={portionShares}
                     />
                   </div>
+                )}
+                {!payerIsMember && (
+                  <p className="mt-3 border-t border-slate-100 pt-3 text-xs leading-relaxed text-slate-500">
+                    Whoever paid this bill has left the house. Edit it to pick who pays it now.
+                  </p>
+                )}
+                {/* Broken portions pause billing for everyone: an equal split
+                    would bill the wrong amounts (the database refuses it too).
+                    The payer fixes them, or switches back to manual, below. */}
+                {portionsBroken && (
+                  <p className="mt-3 border-t border-slate-100 pt-3 text-xs leading-relaxed text-slate-500">
+                    {isPayer
+                      ? "Fix the portions below to send this bill, or switch it back to manual."
+                      : `Waiting for ${firstName(nameOf(billPayer))} to update the portions.`}
+                  </p>
+                )}
+
+                {/* The payer hands out (or fixes) the portions here; the join
+                    sheet's "Update the rent split" lands here too via
+                    ?portions=<id>. Pointless while the house is just them. */}
+                {isPayer && memberIds.length > 1 && (
+                  <PortionsEditor
+                    billId={b.id}
+                    billTitle={b.title}
+                    amount={Number(b.amount)}
+                    currency={house.currency}
+                    houseId={house.id}
+                    members={members.map((m) => ({
+                      id: m.user_id,
+                      name: m.profile?.name ?? "Housemate",
+                      color: m.profile?.avatar_color ?? null,
+                      avatarUrl: m.profile?.avatar_url ?? null,
+                    }))}
+                    currentUserId={user.id}
+                    initialSplits={portions}
+                    initialOpen={sp.portions === b.id}
+                    frequency={b.frequency}
+                    nextDue={b.next_due_date}
+                    dueDay={b.due_day}
+                    today={today}
+                    autoSends={autoOn}
+                  />
                 )}
               </li>
             );

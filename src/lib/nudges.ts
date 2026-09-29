@@ -7,8 +7,9 @@ import { getSiteUrl } from "@/lib/env";
 // no extra slot needed). Two kinds:
 // - a "marked paid" claim whose paid_at falls on the UTC day exactly
 //   CLAIM_DAYS ago -> push the person owed to confirm it;
-// - an unpaid share whose expense date falls exactly UNPAID_DAYS ago -> a
-//   PRIVATE push to the person who owes. Nobody else ever sees it.
+// - an unpaid share whose expense's own nudge day (expenses.nudge_on =
+//   date + nudge_after_days, default 7, null = never) is today -> a PRIVATE
+//   push to the person who owes. Nobody else ever sees it.
 //
 // Both triggers are CALENDAR-DAY equality, not hour arithmetic, so the run
 // time can drift (cron jitter, BST) without a cohort being double-nudged or
@@ -19,7 +20,6 @@ import { getSiteUrl } from "@/lib/env";
 // aggregate per currency, and both kinds respect the existing "payments"
 // push toggle (notify_push_paid).
 const CLAIM_DAYS = 3;
-const UNPAID_DAYS = 7;
 
 /** UTC calendar day `offset` days ago, as YYYY-MM-DD. */
 function dayUTC(offset: number): string {
@@ -35,6 +35,27 @@ type Bucket = {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+// PostgREST caps each response (1000 rows by default), so both reads page
+// through keyed on id: stable even if rows change between pages, so nobody
+// is nudged twice or skipped.
+const PAGE = 500;
+
+async function readAllPages(
+  build: (after: string | null) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
+): Promise<{ rows: any[]; error: string | null }> {
+  const rows: any[] = [];
+  let after: string | null = null;
+  for (let i = 0; i < 2000; i++) {
+    const { data, error } = await build(after);
+    if (error) return { rows, error: error.message };
+    const page = (data ?? []) as { id: string }[];
+    rows.push(...page);
+    if (page.length < PAGE) return { rows, error: null };
+    after = page[page.length - 1].id;
+  }
+  return { rows, error: "pagination limit reached" };
+}
+
 export async function runNudges(
   db: SupabaseClient,
 ): Promise<{ nudged: number; errors: string[] }> {
@@ -43,23 +64,36 @@ export async function runNudges(
 
   // Claims: status='paid' with paid_at on the target UTC day. Windowed by
   // paid_at itself (NOT the expense date: a claim can land on an old expense).
-  const { data: claimRows, error: claimErr } = await db
-    .from("expense_splits")
-    .select(
-      "user_id, amount_owed, paid_at, expenses!inner(paid_by, currency:houses(currency))",
-    )
-    .eq("status", "paid")
-    .gte("paid_at", `${dayUTC(CLAIM_DAYS)}T00:00:00Z`)
-    .lt("paid_at", `${dayUTC(CLAIM_DAYS - 1)}T00:00:00Z`);
-  if (claimErr) errors.push(`nudges claims query: ${claimErr.message}`);
+  const { rows: claimRows, error: claimErr } = await readAllPages((after) => {
+    let q = db
+      .from("expense_splits")
+      .select("id, user_id, amount_owed, paid_at, expenses!inner(paid_by, currency:houses(currency))")
+      .eq("status", "paid")
+      .gte("paid_at", `${dayUTC(CLAIM_DAYS)}T00:00:00Z`)
+      .lt("paid_at", `${dayUTC(CLAIM_DAYS - 1)}T00:00:00Z`)
+      .order("id", { ascending: true })
+      .limit(PAGE);
+    if (after) q = q.gt("id", after);
+    return q;
+  });
+  if (claimErr) errors.push(`nudges claims query: ${claimErr}`);
 
-  // Unpaid: status='unpaid' on expenses dated exactly the target day.
-  const { data: unpaidRows, error: unpaidErr } = await db
-    .from("expense_splits")
-    .select("user_id, amount_owed, expenses!inner(paid_by, date, currency:houses(currency))")
-    .eq("status", "unpaid")
-    .eq("expenses.date", dayUTC(UNPAID_DAYS));
-  if (unpaidErr) errors.push(`nudges unpaid query: ${unpaidErr.message}`);
+  // Unpaid: status='unpaid' on expenses whose own nudge day is today.
+  // expenses.nudge_on is generated in the database as date + nudge_after_days
+  // (default 7, null = never), so this asks for exactly today's rows and each
+  // expense still fires on exactly one calendar day.
+  const { rows: unpaidRows, error: unpaidErr } = await readAllPages((after) => {
+    let q = db
+      .from("expense_splits")
+      .select("id, user_id, amount_owed, expenses!inner(paid_by, nudge_on, currency:houses(currency))")
+      .eq("status", "unpaid")
+      .eq("expenses.nudge_on", dayUTC(0))
+      .order("id", { ascending: true })
+      .limit(PAGE);
+    if (after) q = q.gt("id", after);
+    return q;
+  });
+  if (unpaidErr) errors.push(`nudges unpaid query: ${unpaidErr}`);
 
   // Aggregate per (recipient, currency); confirm beats unpaid per recipient.
   const buckets = new Map<string, Bucket>();
@@ -90,7 +124,7 @@ export async function runNudges(
     hasConfirm.add(exp.paid_by as string);
     add(exp.paid_by, "confirm", amount, r.user_id as string, exp.currency?.currency ?? "GBP");
   }
-  for (const r of (unpaidRows ?? []) as any[]) {
+  for (const r of unpaidRows) {
     const exp = r.expenses;
     if (!exp?.paid_by || exp.paid_by === r.user_id) continue;
     if (hasConfirm.has(r.user_id as string)) continue; // confirm wins today
@@ -127,8 +161,8 @@ export async function runNudges(
         : {
             title: "Quiet one, just for you",
             body: one
-              ? `Your ${money} to ${other} has waited a week. Two taps and it's gone.`
-              : `Shares worth ${money} have waited a week. Two taps each and they're gone.`,
+              ? `Your ${money} to ${other} is still waiting. Two taps and it's gone.`
+              : `Shares worth ${money} are still waiting. Two taps each and they're gone.`,
             url,
             tag: "hs-nudge-unpaid",
           };

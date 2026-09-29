@@ -9,7 +9,7 @@ import { HOUSE_NAME_MAX } from "@/lib/constants";
 import { formatMoney, ordinalDay } from "@/lib/format";
 import { nextDueForDay } from "@/lib/recurrence";
 import { JoinByCode } from "@/components/house/JoinByCode";
-import { RENT_POPUP_KEY } from "@/components/house/RentSetupPopup";
+import { RENT_POPUP_KEY } from "@/lib/launchPrompts";
 import type { House } from "@/lib/types";
 
 /**

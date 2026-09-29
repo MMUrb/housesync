@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { splitEqually } from "@/lib/balances";
 import { formatMoney, currencySymbol } from "@/lib/format";
+import { NUDGE_AFTER_OPTIONS } from "@/lib/billPortions";
 import { type SplitType } from "@/lib/types";
 
 type Cat = { code: string; name: string; emoji: string; color: string };
@@ -42,6 +43,7 @@ export type ExpenseEditInit = {
   notes: string;
   receiptPath: string | null;
   originalShares: Record<string, number>;
+  nudgeAfterDays: number | null;
 };
 
 // Stable signature of a member→amount map (in pennies) for detecting real changes.
@@ -80,6 +82,9 @@ export function AddExpenseForm({
   const [splitType, setSplitType] = useState<SplitType>(edit?.splitType ?? "equal");
   const [custom, setCustom] = useState<Record<string, string>>(edit?.custom ?? {});
   const [notes, setNotes] = useState(edit?.notes ?? prefill?.notes ?? "");
+  const [nudgeAfter, setNudgeAfter] = useState<number | null>(
+    edit ? edit.nudgeAfterDays : 7,
+  );
   const [receipt, setReceipt] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -197,6 +202,7 @@ export function AddExpenseForm({
             date,
             receipt_url: receiptUrl,
             notes: notes.trim() || null,
+            nudge_after_days: nudgeAfter,
           })
           .eq("id", edit.expenseId);
         if (updErr) throw updErr;
@@ -271,6 +277,7 @@ export function AddExpenseForm({
           date,
           receipt_url: receiptUrl,
           notes: notes.trim() || null,
+          nudge_after_days: nudgeAfter,
           created_by: currentUserId,
         })
         .select()
@@ -491,6 +498,35 @@ export function AddExpenseForm({
             Changing the amount, split or who paid will reset who&apos;s marked as paid.
           </p>
         )}
+      </div>
+
+      {/* Nudge schedule: when unpaid shares get the quiet reminder. */}
+      <div className="card space-y-2.5 p-5">
+        <div>
+          <p className="text-sm font-medium text-slate-800">Nudge whoever hasn&apos;t paid</p>
+          <p className="text-xs text-slate-500">A quiet reminder only they see.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {NUDGE_AFTER_OPTIONS.map((opt) => {
+            const on = nudgeAfter === opt.value;
+            return (
+              <button
+                key={opt.label}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setNudgeAfter(opt.value)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  on
+                    ? "border-brand-300 bg-brand-50 text-brand-700"
+                    : "border-slate-200 bg-white text-slate-500 hover:text-slate-700 dark:border-white/10 dark:bg-transparent"
+                }`}
+              >
+                {on ? "✓ " : ""}
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Extras */}

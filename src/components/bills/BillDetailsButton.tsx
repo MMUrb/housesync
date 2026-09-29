@@ -16,10 +16,12 @@ export function BillDetailsButton({
   categoryName,
   frequency,
   nextDue,
+  pendingDue = null,
   paidByName,
   reminderEnabled,
   memberCount,
   perShare,
+  yourPortion = null,
 }: {
   billId: string;
   title: string;
@@ -29,10 +31,14 @@ export function BillDetailsButton({
   categoryName: string;
   frequency: string;
   nextDue: string | null;
+  /** A cycle that already went out and is still ahead (the one being paid now). */
+  pendingDue?: string | null;
   paidByName: string;
   reminderEnabled: boolean;
   memberCount: number;
   perShare: number;
+  /** The viewer's own portion when the bill is split by portions. */
+  yourPortion?: number | null;
 }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
@@ -117,11 +123,22 @@ export function BillDetailsButton({
             </div>
 
             <dl className="mt-4 space-y-2.5 border-t border-slate-100 pt-3 text-sm">
-              <Row label="Per person">
-                {formatMoney(perShare, currency)}, split {memberCount}{" "}
-                {memberCount === 1 ? "way" : "ways"}
-              </Row>
-              <Row label="Next due">
+              {yourPortion !== null ? (
+                <Row label="Your portion">{formatMoney(yourPortion, currency)}</Row>
+              ) : (
+                <Row label="Per person">
+                  {formatMoney(perShare, currency)}, split {memberCount}{" "}
+                  {memberCount === 1 ? "way" : "ways"}
+                </Row>
+              )}
+              {pendingDue && (
+                <Row label="This cycle">
+                  Due{" "}
+                  {formatDate(pendingDue, { weekday: "short", day: "numeric", month: "short", year: "numeric" })}{" "}
+                  (sent)
+                </Row>
+              )}
+              <Row label={pendingDue ? "Next one" : "Next due"}>
                 {nextDue
                   ? formatDate(nextDue, { weekday: "short", day: "numeric", month: "short", year: "numeric" })
                   : "Not scheduled"}

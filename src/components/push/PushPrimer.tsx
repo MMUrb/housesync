@@ -9,6 +9,7 @@ import {
   PUSH_PROMPT_SNOOZE_KEY,
   PUSH_PROMPT_SNOOZE_MS,
   PUSH_TEST_KEY,
+  afterRentPopup,
   afterTour,
   getUpdatePromptDecision,
   lockScroll,
@@ -50,6 +51,7 @@ export function PushPrimer({ userCreatedAt }: { userCreatedAt: string }) {
   useEffect(() => {
     let cancelled = false;
     let tour: { promise: Promise<void>; cancel: () => void } | null = null;
+    let rentPopup: { promise: Promise<void>; cancel: () => void } | null = null;
 
     const read = (k: string) => {
       try {
@@ -110,6 +112,14 @@ export function PushPrimer({ userCreatedAt }: { userCreatedAt: string }) {
         ]);
         if (cancelled || updateShowing) return;
 
+        // A fresh set-up's "Rent's set up" pop-up also outranks the ask.
+        // No timeout: it resolves when the user dismisses it, and if it's
+        // pending on a page that never shows it, the ask simply waits for
+        // the next launch rather than stacking two sheets.
+        rentPopup = afterRentPopup();
+        await rentPopup.promise;
+        if (cancelled) return;
+
         setOpen(true);
       } catch {
         /* plugin unavailable: never block the app over this */
@@ -119,6 +129,7 @@ export function PushPrimer({ userCreatedAt }: { userCreatedAt: string }) {
     return () => {
       cancelled = true;
       tour?.cancel();
+      rentPopup?.cancel();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

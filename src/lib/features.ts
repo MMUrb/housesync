@@ -10,6 +10,23 @@ export const FEATURES: {
    * original compact layout; both versions live in SettleActions.tsx.
    */
   smoothSettle: boolean;
+  /**
+   * Bills with portions bill themselves: the daily cron creates each cycle
+   * from the payer's portions and tells everyone their own amount.
+   * - true: every house.
+   * - false: off everywhere (the emergency stop). Portioned bills go back to
+   *   the Request button, which still splits by the portions.
+   * - a list of house ids: only those houses (a trial run).
+   * Portions themselves are untouched either way.
+   */
+  autoPortions: boolean | readonly string[];
 } = {
   smoothSettle: true,
+  autoPortions: true,
 };
+
+/** Whether the bill engine may create portioned cycles for this house. */
+export function autoPortionsFor(houseId: string): boolean {
+  const flag = FEATURES.autoPortions;
+  return typeof flag === "boolean" ? flag : flag.includes(houseId);
+}

@@ -38,6 +38,8 @@ export async function sendEmail({ to, toName, subject, html, text }: SendArgs) {
 async function sendViaResend(args: { to: string; subject: string; html: string; text: string }) {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
+    // Without a timeout a slow provider holds the request for minutes.
+    signal: AbortSignal.timeout(10_000),
     headers: {
       authorization: `Bearer ${RESEND_API_KEY}`,
       "content-type": "application/json",
@@ -67,6 +69,7 @@ async function sendViaBrevo(args: {
 }) {
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
+    signal: AbortSignal.timeout(10_000),
     headers: {
       "api-key": BREVO_API_KEY,
       "content-type": "application/json",

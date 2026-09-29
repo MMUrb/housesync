@@ -226,10 +226,14 @@ export async function sendPushToUsers(
         if (s.kind !== "web" || !s.endpoint || !s.p256dh || !s.auth) continue;
         const subscription = { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } };
         tasks.push(
-          webpush.sendNotification(subscription, JSON.stringify(payload)).catch((err: unknown) => {
-            const code = (err as { statusCode?: number })?.statusCode;
-            if (code === 404 || code === 410) staleIds.push(s.id);
-          }),
+          // web-push has no timeout by default: one dead endpoint could hang
+          // whatever request is sending (the daily cron included).
+          webpush
+            .sendNotification(subscription, JSON.stringify(payload), { timeout: 8000 })
+            .catch((err: unknown) => {
+              const code = (err as { statusCode?: number })?.statusCode;
+              if (code === 404 || code === 410) staleIds.push(s.id);
+            }),
         );
       }
     }
@@ -289,7 +293,12 @@ export async function sendPushToUsers(
       });
     }
 
-    await Promise.allSettled(tasks);
+    // Hard ceiling on the whole fan-out: every sender has its own timeout, but
+    // nothing a caller awaits may hang on a slow provider.
+    await Promise.race([
+      Promise.allSettled(tasks),
+      new Promise((resolve) => setTimeout(resolve, 12_000)),
+    ]);
     if (apnsFailures.length) {
       await db.from("error_logs").insert({
         source: "server",

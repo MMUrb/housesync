@@ -107,6 +107,15 @@ export interface Expense {
   created_by: string | null;
   created_at: string;
   bill_id: string | null;
+  /** Days after `date` before unpaid shares get the quiet nudge; null = never. */
+  nudge_after_days: number | null;
+  /** Generated in the database: date + nudge_after_days (read-only). */
+  nudge_on?: string | null;
+  /** The bill engine's cycle for its due date (one per bill + date). */
+  auto_cycle?: boolean;
+  /** Engine cycles only: the due date and end of the period this cycle covers (pinned). */
+  cycle_due?: string | null;
+  cycle_next?: string | null;
 }
 
 export interface ExpenseSplit {
@@ -131,9 +140,19 @@ export interface RecurringBill {
   paid_by: string | null;
   split_type: SplitType;
   reminder_enabled: boolean;
+  /** Days before the due date the bill speaks up (e.g. [3, 0]). */
+  reminder_days: number[];
   active: boolean;
   created_by: string | null;
   created_at: string;
+}
+
+/** A person's stored portion of a recurring bill, set by the bill's payer. */
+export interface BillSplit {
+  bill_id: string;
+  user_id: string;
+  share_type: "amount" | "percent";
+  value: number;
 }
 
 export interface Chore {

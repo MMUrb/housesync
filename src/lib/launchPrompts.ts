@@ -66,6 +66,49 @@ export function reportUpdatePrompt(showing: boolean): void {
 }
 
 // ---------------------------------------------------------------------------
+// The one-time "Rent's set up" pop-up joins the same one-sheet-per-launch
+// queue: it waits for the tour, and the notifications ask waits for it. The
+// sessionStorage key doubles as the pending marker (set-up writes it right
+// before navigating to the dashboard), so a waiter can tell a pop-up is
+// imminent even before RentSetupPopup's effect has run; the module flag
+// covers the window between the key being consumed and the pop-up closing.
+// ---------------------------------------------------------------------------
+export const RENT_POPUP_KEY = "hs_rent_popup";
+
+let rentPopupOpen = false;
+
+/** RentSetupPopup reports itself; reporting closed releases any waiter. */
+export function setRentPopupOpen(open: boolean): void {
+  rentPopupOpen = open;
+  if (!open) {
+    try {
+      window.dispatchEvent(new CustomEvent("hs:rent-popup-done"));
+    } catch {
+      /* nothing waiting */
+    }
+  }
+}
+
+/** Resolves once no rent pop-up is pending or showing. */
+export function afterRentPopup(): { promise: Promise<void>; cancel: () => void } {
+  let pending = rentPopupOpen;
+  if (!pending) {
+    try {
+      pending = sessionStorage.getItem(RENT_POPUP_KEY) !== null;
+    } catch {
+      pending = false;
+    }
+  }
+  if (!pending) return { promise: Promise.resolve(), cancel: () => {} };
+  let handler: () => void = () => {};
+  const promise = new Promise<void>((resolve) => {
+    handler = () => resolve();
+    window.addEventListener("hs:rent-popup-done", handler, { once: true });
+  });
+  return { promise, cancel: () => window.removeEventListener("hs:rent-popup-done", handler) };
+}
+
+// ---------------------------------------------------------------------------
 // Shared sheet plumbing
 // ---------------------------------------------------------------------------
 

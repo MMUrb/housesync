@@ -67,6 +67,7 @@ export default async function EditExpensePage({
     notes: expense.notes ?? "",
     receiptPath: expense.receipt_url ?? null,
     originalShares: Object.fromEntries(shares.map((s) => [s.user_id, s.amount])),
+    nudgeAfterDays: expense.nudge_after_days ?? null,
   };
 
   const categories = (await getHouseCategories(house.id)).map((c) => ({

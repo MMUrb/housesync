@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { formatMoney, ordinalDay } from "@/lib/format";
-
-// Written by set-up right before it lands the user on the dashboard; read
-// once and cleared, so a refresh or a later visit never replays the pop-up.
-export const RENT_POPUP_KEY = "hs_rent_popup";
+import {
+  RENT_POPUP_KEY,
+  afterTour,
+  lockScroll,
+  onHardwareBack,
+  setRentPopupOpen,
+} from "@/lib/launchPrompts";
 
 type Payload = { amount: number; day: number; currency: string };
 
@@ -13,36 +16,73 @@ type Payload = { amount: number; day: number; currency: string };
  * The one-time "Rent's set up" pop-up after creating a house with a rent
  * amount. Says exactly what happened (a monthly bill, down as the creator)
  * and what stays manual: splitting it when housemates join.
+ *
+ * Plays by the launch-prompt queue rules: it waits for the first-run tour
+ * (the key stays in sessionStorage until then, so quitting mid-tour just
+ * defers it to the next visit), and the notifications ask waits for it via
+ * afterRentPopup(). The key is read once and cleared, so a refresh or a
+ * later visit never replays it.
  */
 export function RentSetupPopup() {
   const [data, setData] = useState<Payload | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    let raw: string | null = null;
     try {
-      const raw = sessionStorage.getItem(RENT_POPUP_KEY);
-      if (!raw) return;
-      sessionStorage.removeItem(RENT_POPUP_KEY);
-      const parsed = JSON.parse(raw) as Payload;
-      if (parsed && Number(parsed.amount) > 0 && Number(parsed.day) >= 1) {
-        setData({
-          amount: Number(parsed.amount),
-          day: Number(parsed.day),
-          currency: typeof parsed.currency === "string" ? parsed.currency : "GBP",
-        });
-      }
+      raw = sessionStorage.getItem(RENT_POPUP_KEY);
     } catch {
-      // No pop-up is fine.
+      return; // No pop-up is fine.
     }
+    if (!raw) return;
+
+    const consume = () => {
+      let parsed: Payload | null = null;
+      try {
+        const p = JSON.parse(raw as string) as Payload;
+        if (p && Number(p.amount) > 0 && Number(p.day) >= 1) {
+          parsed = {
+            amount: Number(p.amount),
+            day: Number(p.day),
+            currency: typeof p.currency === "string" ? p.currency : "GBP",
+          };
+        }
+      } catch {
+        /* bad payload: nothing to show */
+      }
+      // Flag first, then clear the key: a waiter checking in between must
+      // still see the pop-up as pending.
+      if (parsed && !cancelled) setRentPopupOpen(true);
+      try {
+        sessionStorage.removeItem(RENT_POPUP_KEY);
+      } catch {
+        /* fine */
+      }
+      if (parsed && !cancelled) setData(parsed);
+      else setRentPopupOpen(false); // releases anyone waiting on the key
+    };
+
+    const tour = afterTour();
+    void tour.promise.then(() => {
+      if (!cancelled) consume();
+    });
+    return () => {
+      cancelled = true;
+      tour.cancel();
+    };
   }, []);
 
   useEffect(() => {
     if (!data) return;
+    const unlock = lockScroll();
+    const offBack = onHardwareBack(() => setData(null));
     const onKey = (ev: KeyboardEvent) => ev.key === "Escape" && setData(null);
     document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      offBack();
+      unlock();
+      setRentPopupOpen(false);
     };
   }, [data]);
 

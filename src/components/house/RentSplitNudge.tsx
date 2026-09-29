@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/Avatar";
 import { firstName, formatMoney } from "@/lib/format";
+import { lockScroll, onHardwareBack } from "@/lib/launchPrompts";
 
 type Member = { id: string; name: string; color: string | null; avatarUrl: string | null };
 
@@ -73,12 +74,14 @@ export function RentSplitNudge({
 
   useEffect(() => {
     if (!newcomers) return;
+    const unlock = lockScroll();
+    const offBack = onHardwareBack(acknowledge);
     const onKey = (ev: KeyboardEvent) => ev.key === "Escape" && acknowledge();
     document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      offBack();
+      unlock();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newcomers]);
@@ -103,7 +106,8 @@ export function RentSplitNudge({
 
   function updateSplit() {
     acknowledge();
-    router.push(`/bills#bill-${bill.id}`);
+    // Lands on the bill card with the portions editor already open.
+    router.push(`/bills?portions=${bill.id}#bill-${bill.id}`);
   }
 
   if (!newcomers || newcomers.length === 0) return null;

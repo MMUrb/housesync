@@ -73,6 +73,39 @@ export function advancePastToday(dateStr: string, frequency: string, anchorDay?:
   return next;
 }
 
+/**
+ * The first occurrence of a schedule on or after `minISO`, stepping whole
+ * periods from `dateStr` (which is returned unchanged if it already
+ * qualifies). Anchored like advanceDate, so "the 31st" survives the steps.
+ * Non-repeating frequencies return the input unchanged.
+ */
+export function firstOnOrAfter(
+  dateStr: string,
+  frequency: string,
+  minISO: string,
+  anchorDay?: number,
+): string {
+  let cur = dateStr;
+  for (let i = 0; cur < minISO && i < 1000; i++) {
+    const next = advanceDate(cur, frequency, anchorDay);
+    if (next === cur) return cur; // "once"/unknown: never moves
+    cur = next;
+  }
+  return cur;
+}
+
+/** yyyy-mm-dd shifted by whole days (UTC calendar maths). */
+export function addDaysISO(dateStr: string, days: number): string {
+  const d = parseISODate(dateStr);
+  d.setUTCDate(d.getUTCDate() + days);
+  return toISODate(d);
+}
+
+/** Whole days from `fromISO` to `toISO` (negative when `toISO` is earlier). */
+export function daysBetweenISO(fromISO: string, toISO: string): number {
+  return Math.round((parseISODate(toISO).getTime() - parseISODate(fromISO).getTime()) / 86_400_000);
+}
+
 /** A sensible default "next due" date for a brand-new bill of this frequency. */
 export function defaultNextDue(frequency: string): string {
   const today = toISODate(new Date());

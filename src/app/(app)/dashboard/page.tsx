@@ -15,6 +15,8 @@ import { NoticeBoard } from "@/components/notices/NoticeBoard";
 import { SoloInvite } from "@/components/house/SoloInvite";
 import { RentSetupPopup } from "@/components/house/RentSetupPopup";
 import { RentSplitNudge } from "@/components/house/RentSplitNudge";
+import { displayDue } from "@/lib/billEngine";
+import { todayISO } from "@/lib/recurrence";
 import { StarterTemplates } from "@/components/expenses/StarterTemplates";
 import { EXPENSE_TEMPLATES, unusedTemplates } from "@/lib/expenseTemplates";
 import { buildCatLookup } from "@/lib/categories";
@@ -126,8 +128,20 @@ export default async function DashboardPage() {
     color: c.color,
   }));
 
+  // Same due-date rule as the Bills page: a cycle that already went out and is
+  // still ahead is the one people are paying, so count down to that.
+  const billToday = todayISO();
+  const autoDuesByBill = new Map<string, string[]>();
+  for (const e of expenses) {
+    if (!e.bill_id || !e.auto_cycle || !e.cycle_due) continue;
+    const arr = autoDuesByBill.get(e.bill_id) ?? [];
+    arr.push(e.cycle_due);
+    autoDuesByBill.set(e.bill_id, arr);
+  }
   const upcomingBills = bills
     .filter((b) => b.active && b.next_due_date)
+    .map((b) => ({ ...b, shownDue: displayDue(b.next_due_date, autoDuesByBill.get(b.id) ?? [], billToday).due }))
+    .sort((a, b) => (a.shownDue ?? "9999").localeCompare(b.shownDue ?? "9999"))
     .slice(0, 3);
 
   // The house's rent bill (set-up creates one with category "rent"; a manually
@@ -135,7 +149,7 @@ export default async function DashboardPage() {
   // join-reminder sheet, because only they can bring the newcomer into it.
   const rentBill =
     bills.find((b) => b.active && (b.category === "rent" || /\brent\b/i.test(b.title))) ?? null;
-  const rentPayerId = rentBill ? rentBill.paid_by ?? rentBill.created_by : null;
+  const rentPayerId = rentBill ? rentBill.paid_by : null;
 
   const choresDue = chores
     .filter((c) => c.status === "todo")
@@ -328,9 +342,9 @@ export default async function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-slate-800">{b.title}</p>
                   <p className="text-xs text-slate-500">
-                    {b.next_due_date ? (
+                    {b.shownDue ? (
                       <>
-                        Due <RelativeDay date={b.next_due_date} />
+                        Due <RelativeDay date={b.shownDue} />
                       </>
                     ) : (
                       b.frequency
