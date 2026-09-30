@@ -315,6 +315,129 @@ export async function getSettlements(houseId: string): Promise<Settlement[]> {
   return (data ?? []) as Settlement[];
 }
 
+/** Someone the house admin removed (migration 0046). name/avatar are a
+ *  snapshot from the moment of removal: their profile stops being readable. */
+export type RemovedHousemate = {
+  userId: string;
+  /** Null when they had no name set. */
+  name: string | null;
+  color: string | null;
+  avatarUrl: string | null;
+  removedAt: string;
+  /** Set once the admin invites them back; cleared again when they rejoin. */
+  reinvitedAt: string | null;
+};
+
+/** Newest removal first. RLS shows departures only to the house admin, so
+ *  everyone else gets an empty list (as does a database without 0046). */
+export async function getRemovedHousemates(houseId: string): Promise<RemovedHousemate[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("house_departures")
+    .select("user_id, name, avatar_color, avatar_url, departed_at, reinvited_at")
+    .eq("house_id", houseId)
+    .eq("kind", "removed")
+    .order("departed_at", { ascending: false });
+  return (data ?? []).map((r) => ({
+    userId: r.user_id as string,
+    name: r.name as string | null,
+    color: r.avatar_color as string | null,
+    avatarUrl: r.avatar_url as string | null,
+    removedAt: r.departed_at as string,
+    reinvitedAt: r.reinvited_at as string | null,
+  }));
+}
+
+/** Someone who left or was removed while the house still counts them in. */
+export type DepartureReminder = {
+  userId: string;
+  /** Snapshot from when they went; null when they had no name set. */
+  name: string | null;
+  kind: "left" | "removed";
+  departedAt: string;
+  /** Active bills whose saved split still gives them a share, and who pays each. */
+  splitBills: { id: string; title: string; payerId: string | null }[];
+  /** Active bills they were the payer of. */
+  paidBills: { id: string; title: string }[];
+  /** Money still open between them and the house, in either direction. */
+  unsettled: number;
+};
+
+/**
+ * For the admin's "adjust their share" reminder: everyone who has left or been
+ * removed and is still in a bill's split, still paying a bill, or still has
+ * money open with the house. Costs one query when nobody has gone.
+ */
+export async function getDepartureReminders(
+  houseId: string,
+  memberIds: string[],
+): Promise<DepartureReminder[]> {
+  const supabase = await createClient();
+  const { data: deps } = await supabase
+    .from("house_departures")
+    .select("user_id, name, kind, departed_at")
+    .eq("house_id", houseId)
+    .order("departed_at", { ascending: false });
+  const gone = (deps ?? []).filter((d) => !memberIds.includes(d.user_id as string));
+  if (gone.length === 0) return [];
+  const goneIds = gone.map((d) => d.user_id as string);
+
+  const [{ data: bills }, { data: owes }, { data: owed }] = await Promise.all([
+    supabase
+      .from("recurring_bills")
+      .select("id, title, paid_by, bill_splits(user_id)")
+      .eq("house_id", houseId)
+      .eq("active", true),
+    // What they still owe others (not their own share of their own expense).
+    supabase
+      .from("expense_splits")
+      .select("user_id, amount_owed, expenses!inner(house_id, paid_by)")
+      .eq("expenses.house_id", houseId)
+      .in("user_id", goneIds)
+      .neq("status", "confirmed"),
+    // What others still owe them.
+    supabase
+      .from("expense_splits")
+      .select("user_id, amount_owed, expenses!inner(house_id, paid_by)")
+      .eq("expenses.house_id", houseId)
+      .in("expenses.paid_by", goneIds)
+      .neq("status", "confirmed"),
+  ]);
+
+  type BillRow = { id: string; title: string; paid_by: string | null; bill_splits: { user_id: string }[] | null };
+  type SplitRow = { user_id: string; amount_owed: number | string; expenses: { paid_by: string | null } };
+  const open = new Map<string, number>();
+  for (const s of (owes ?? []) as unknown as SplitRow[]) {
+    if (s.expenses.paid_by === s.user_id) continue;
+    open.set(s.user_id, (open.get(s.user_id) ?? 0) + Number(s.amount_owed));
+  }
+  for (const s of (owed ?? []) as unknown as SplitRow[]) {
+    const payer = s.expenses.paid_by;
+    if (!payer || s.user_id === payer) continue;
+    open.set(payer, (open.get(payer) ?? 0) + Number(s.amount_owed));
+  }
+
+  const billRows = (bills ?? []) as unknown as BillRow[];
+  return gone
+    .map((d) => {
+      const uid = d.user_id as string;
+      return {
+        userId: uid,
+        name: d.name as string | null,
+        kind: d.kind as "left" | "removed",
+        departedAt: d.departed_at as string,
+        splitBills: billRows
+          .filter((b) => (b.bill_splits ?? []).some((p) => p.user_id === uid))
+          .map((b) => ({ id: b.id, title: b.title, payerId: b.paid_by })),
+        paidBills: billRows
+          .filter((b) => b.paid_by === uid)
+          .map((b) => ({ id: b.id, title: b.title })),
+        unsettled: Math.round((open.get(uid) ?? 0) * 100) / 100,
+      };
+    })
+    .filter((r) => r.splitBills.length > 0 || r.paidBills.length > 0 || r.unsettled >= 0.01);
+}
+
 /**
  * A window of chat around one message (for "open at this message" from
  * search): up to 50 older, the message itself, up to 50 newer, oldest first.

@@ -5,6 +5,13 @@
 -- (Dashboard -> SQL Editor -> New query -> paste -> Run).
 -- It is safe to re-run: it uses IF NOT EXISTS / CREATE OR REPLACE and
 -- recreates policies each time.
+--
+-- NOTE: not every migration is folded in here. Settle up, admin transfer,
+-- part payments, bill portions and the membership lockdown with 10-minute
+-- invite links (0046) live only in supabase/migrations/. On a fresh database,
+-- run this file and then those migrations in order. Do NOT re-run this file
+-- on production: it would reset functions that later migrations changed
+-- (join_house here still accepts the old permanent invite codes).
 -- ============================================================================
 
 -- Needed for gen_random_uuid() (enabled by default on Supabase, but be safe).
@@ -345,9 +352,10 @@ drop policy if exists "houses_select" on public.houses;
 create policy "houses_select" on public.houses for select to authenticated
   using (id in (select public.user_house_ids()));
 
+-- No direct INSERT on houses (migration 0046): create_house (SECURITY DEFINER)
+-- is the only way to make one, and it picks the id. A client-chosen id let an
+-- ex-member recreate a deleted house and read its leftover receipts.
 drop policy if exists "houses_insert" on public.houses;
-create policy "houses_insert" on public.houses for insert to authenticated
-  with check (created_by = auth.uid());
 
 drop policy if exists "houses_update" on public.houses;
 create policy "houses_update" on public.houses for update to authenticated
@@ -363,13 +371,12 @@ drop policy if exists "members_select" on public.house_members;
 create policy "members_select" on public.house_members for select to authenticated
   using (house_id in (select public.user_house_ids()));
 
+-- No direct INSERT or UPDATE on house_members (migration 0046). The only way
+-- in is create_house / join_house (SECURITY DEFINER, invite checked); the only
+-- update is the role swap inside transfer_house_admin. A plain insert policy
+-- here let anyone holding a house id add themselves without an invite.
 drop policy if exists "members_insert" on public.house_members;
-create policy "members_insert" on public.house_members for insert to authenticated
-  with check (user_id = auth.uid());
-
 drop policy if exists "members_update" on public.house_members;
-create policy "members_update" on public.house_members for update to authenticated
-  using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 drop policy if exists "members_delete" on public.house_members;
 create policy "members_delete" on public.house_members for delete to authenticated
@@ -414,7 +421,11 @@ language plpgsql
 set search_path = public
 as $$
 begin
-  new.role := old.role;
+  new.house_id := old.house_id;
+  new.user_id  := old.user_id;
+  if current_setting('housesync.allow_admin_transfer', true) is distinct from 'on' then
+    new.role := old.role;
+  end if;
   return new;
 end;
 $$;
@@ -477,9 +488,10 @@ drop policy if exists "activity_select" on public.activity;
 create policy "activity_select" on public.activity for select to authenticated
   using (house_id in (select public.user_house_ids()));
 
+-- Feed lines can only be written as yourself (migration 0046).
 drop policy if exists "activity_insert" on public.activity;
 create policy "activity_insert" on public.activity for insert to authenticated
-  with check (house_id in (select public.user_house_ids()));
+  with check (house_id in (select public.user_house_ids()) and user_id = auth.uid());
 
 -- notices -------------------------------------------------------------------
 drop policy if exists "notices_all" on public.notices;

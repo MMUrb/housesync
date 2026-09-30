@@ -2,6 +2,8 @@ import Link from "next/link";
 import {
   getExpensesAndSplits,
   getHouseCategories,
+  getDepartureReminders,
+  getRemovedHousemates,
   getSettlements,
   getVisiblePaymentDetails,
   requireHouse,
@@ -15,6 +17,8 @@ import { Avatar } from "@/components/Avatar";
 import { InviteBox } from "@/components/house/InviteBox";
 import { SettleActions, type SettleVM } from "@/components/housemates/SettleActions";
 import { SimplifySettle } from "@/components/housemates/SimplifySettle";
+import { RemovedHousemates } from "@/components/housemates/RemovedHousemates";
+import { DepartureReminders } from "@/components/housemates/DepartureReminders";
 import { IconBroom, IconCart } from "@/components/icons";
 
 export const metadata = { title: "Housemates" };
@@ -25,12 +29,21 @@ const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 export default async function HousematesPage() {
   const { user, house, members } = await requireHouse();
   const simplified = house.settle_mode === "simplified";
-  const [{ expenses, splits }, payMap, settlements, houseCats] = await Promise.all([
+  // Admin powers key off houses.created_by (it moves with an admin handover).
+  const isAdmin = house.created_by === user.id;
+  const memberIds = members.map((m) => m.user_id);
+  const [{ expenses, splits }, payMap, settlements, houseCats, removed, departures] = await Promise.all([
     getExpensesAndSplits(house.id),
     getVisiblePaymentDetails(),
     simplified ? getSettlements(house.id) : Promise.resolve([]),
     getHouseCategories(house.id),
+    isAdmin ? getRemovedHousemates(house.id) : Promise.resolve([]),
+    isAdmin ? getDepartureReminders(house.id, memberIds) : Promise.resolve([]),
   ]);
+  const adminName = members.find((m) => m.user_id === house.created_by)?.profile?.name ?? null;
+  const firstNames = Object.fromEntries(
+    members.map((m) => [m.user_id, m.profile?.name?.trim().split(/\s+/)[0] || "A housemate"]),
+  );
   const balances = computeBalances(expenses, splits, user.id, settlements);
 
   const profileOf = (id: string) => members.find((m) => m.user_id === id)?.profile;
@@ -249,6 +262,18 @@ export default async function HousematesPage() {
         subtitle={`${members.length} housemate${members.length === 1 ? "" : "s"}`}
       />
 
+      {/* Admin only: someone left or was removed and the house still counts
+          them in (bill splits, bills they paid, money not settled). */}
+      {departures.length > 0 && (
+        <DepartureReminders
+          houseId={house.id}
+          viewerId={user.id}
+          currency={house.currency}
+          payerNames={firstNames}
+          reminders={departures}
+        />
+      )}
+
       {/* A one-person house doesn't work yet, so the House tab always carries
           the invite until someone joins (the dashboard card's x points here). */}
       {members.length === 1 && (
@@ -260,7 +285,7 @@ export default async function HousematesPage() {
               everything between you.
             </p>
           </div>
-          <InviteBox code={house.invite_code} houseName={house.name} />
+          <InviteBox houseId={house.id} houseName={house.name} canCreate={isAdmin} adminName={adminName} />
         </section>
       )}
 
@@ -358,11 +383,19 @@ export default async function HousematesPage() {
         </p>
       </section>
 
+      {/* Removed: admin only. The invite link alone won't let these people back. */}
+      {isAdmin && removed.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="px-1 text-sm font-semibold text-slate-900">Removed</h2>
+          <RemovedHousemates houseId={house.id} houseName={house.name} people={removed} />
+        </section>
+      )}
+
       {/* Invite */}
       <section className="space-y-2">
         <h2 className="px-1 text-sm font-semibold text-slate-900">Invite a housemate</h2>
         <div className="card p-4">
-          <InviteBox code={house.invite_code} houseName={house.name} />
+          <InviteBox houseId={house.id} houseName={house.name} canCreate={isAdmin} adminName={adminName} />
         </div>
       </section>
     </div>

@@ -1,21 +1,85 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { getSiteUrl } from "@/lib/env";
+import { createInvite, formatCountdown, inviteUrl, shareInvite, type Invite } from "@/lib/invites";
 
-export function inviteUrl(code: string) {
-  return `${getSiteUrl()}/house/join/${code}`;
-}
-
-export function InviteBox({ code, houseName }: { code: string; houseName?: string }) {
+/**
+ * Invite links are made on demand by the house admin and work for 10 minutes
+ * for anyone who taps them in that time (migration 0046). Everyone else sees
+ * who to ask. The link, QR and countdown only exist after a tap, so nothing
+ * time-based is rendered on the server.
+ */
+export function InviteBox({
+  houseId,
+  houseName,
+  canCreate,
+  adminName,
+}: {
+  houseId: string;
+  houseName?: string;
+  /** True for the house admin (houses.created_by); only they can make links. */
+  canCreate: boolean;
+  adminName?: string | null;
+}) {
+  const [invite, setInvite] = useState<Invite | null>(null);
+  const [now, setNow] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
-  const url = inviteUrl(code);
-  const message = `Join ${
-    houseName ? `"${houseName}"` : "our house"
-  } on HouseSync 🏠 We split rent, bills & chores on here. Tap to join: ${url}`;
-  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+  // Tick once a second while a link is on screen.
+  useEffect(() => {
+    if (!invite) return;
+    setNow(Date.now());
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [invite]);
+
+  if (!canCreate) {
+    return (
+      <p className="text-sm leading-relaxed text-slate-500">
+        Only {adminName?.trim() || "the house admin"} can invite people. Ask them to send a link:
+        each one works for 10 minutes.
+      </p>
+    );
+  }
+
+  async function create() {
+    setBusy(true);
+    setError(null);
+    setCopied(false);
+    setShowQr(false);
+    try {
+      setInvite(await createInvite(houseId));
+      setNow(Date.now());
+    } catch {
+      setError("Couldn't make a link just now. Try again in a moment.");
+    }
+    setBusy(false);
+  }
+
+  const live = invite !== null && invite.deadline - now > 0;
+
+  if (!invite || !live) {
+    return (
+      <div className="space-y-2">
+        {invite && <p className="text-sm font-medium text-amber-700">That link has expired.</p>}
+        <button type="button" onClick={create} disabled={busy} className="btn-primary btn-block">
+          {busy ? "Making a link…" : invite ? "Create a new link" : "Create invite link"}
+        </button>
+        <p className="text-xs leading-relaxed text-slate-400">
+          A link works for 10 minutes, for anyone you send it to. After that, make a new one.
+        </p>
+        {error && <p className="text-xs text-red-600">{error}</p>}
+      </div>
+    );
+  }
+
+  const url = inviteUrl(invite.code);
+  const lead = `Join ${houseName ? `"${houseName}"` : "our house"} on HouseSync 🏠 We split rent, bills & chores on here. This link works for 10 minutes:`;
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${lead} ${url}`)}`;
 
   async function copy() {
     try {
@@ -28,15 +92,12 @@ export function InviteBox({ code, houseName }: { code: string; houseName?: strin
   }
 
   async function share() {
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({ title: "Join my house on HouseSync", text: message, url });
-        return;
-      } catch {
-        return; /* user cancelled the share sheet */
-      }
+    if (!invite) return;
+    const how = await shareInvite(invite, { title: "Join my house on HouseSync", text: lead });
+    if (how === "copied") {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
-    copy();
   }
 
   return (
@@ -77,6 +138,14 @@ export function InviteBox({ code, houseName }: { code: string; houseName?: strin
         </span>
       </button>
 
+      <p className="text-xs text-slate-400" aria-live="polite">
+        This link works for another{" "}
+        <span className="font-semibold tabular-nums text-slate-600">
+          {formatCountdown(invite.deadline - now)}
+        </span>
+        . Anyone who taps it in time can join.
+      </p>
+
       {/* QR for scanning in person */}
       <button
         type="button"
@@ -96,7 +165,7 @@ export function InviteBox({ code, houseName }: { code: string; houseName?: strin
               Point any phone camera at this to open the invite.
             </p>
             <p className="mt-1 text-slate-400">
-              Code: <span className="font-mono font-semibold text-slate-600">{code}</span>
+              Code: <span className="font-mono font-semibold text-slate-600">{invite.code}</span>
             </p>
           </div>
         </div>

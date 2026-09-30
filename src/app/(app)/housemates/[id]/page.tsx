@@ -10,6 +10,7 @@ import { computeBalances } from "@/lib/balances";
 import { formatDate, formatMoney } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { PayLinks } from "@/components/payments/PayLinks";
+import { RemoveHousemate } from "@/components/housemates/RemoveHousemate";
 
 export const metadata = { title: "Profile" };
 export const dynamic = "force-dynamic";
@@ -37,6 +38,8 @@ export default async function HousemateProfilePage({
   const net = round2(balances.netByUser[id] ?? 0);
 
   const isMe = id === user.id;
+  // Admin powers key off houses.created_by (it moves with an admin handover).
+  const isAdmin = house.created_by === user.id;
   const name = member.profile?.name ?? "Housemate";
   const first = name.trim().split(/\s+/)[0] || "They";
   // RLS already filtered this: a row only comes back if it's mine or shared.
@@ -133,6 +136,22 @@ export default async function HousemateProfilePage({
           </p>
         )}
       </div>
+
+      {isAdmin && !isMe && (
+        <RemoveHousemate
+          houseId={house.id}
+          houseName={house.name}
+          memberId={id}
+          firstName={first}
+          balanceNote={
+            Math.abs(net) < 0.005
+              ? null
+              : net > 0
+                ? `are still owed ${formatMoney(net, house.currency)}`
+                : `still owe ${formatMoney(-net, house.currency)}`
+          }
+        />
+      )}
     </div>
   );
 }

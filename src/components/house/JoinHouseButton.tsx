@@ -17,6 +17,19 @@ export function JoinHouseButton({ code }: { code: string }) {
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc("join_house", { p_invite_code: code });
+      // 0046: the link ran out while this page was open, or the admin removed
+      // this person. Say so plainly rather than showing a database message.
+      const reasons: Record<string, string> = {
+        invite_expired: "This invite link has expired. Links only work for 10 minutes, so ask the house admin for a new one.",
+        invite_not_found: "This invite link doesn't work. Ask the house admin to send you a new one.",
+        removed_from_house: "You were removed from this house. You can join again once the house admin invites you back.",
+      };
+      const reason = error?.details ? reasons[error.details] : undefined;
+      if (reason) {
+        setError(reason);
+        setLoading(false);
+        return;
+      }
       if (error) throw error;
       const house = (Array.isArray(data) ? data[0] : data) as House;
       if (house?.id) {

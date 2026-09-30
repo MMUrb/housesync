@@ -4,6 +4,7 @@ import {
   getActivity,
   getBills,
   getChores,
+  getDepartureReminders,
   getExpensesAndSplits,
   getHouseCategories,
   getNotices,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/data";
 import { NoticeBoard } from "@/components/notices/NoticeBoard";
 import { SoloInvite } from "@/components/house/SoloInvite";
+import { DepartureReminders } from "@/components/housemates/DepartureReminders";
 import { RentSetupPopup } from "@/components/house/RentSetupPopup";
 import { RentSplitNudge } from "@/components/house/RentSplitNudge";
 import { RentDayHint } from "@/components/house/RentDayHint";
@@ -46,7 +48,9 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const { user, profile, house, members } = await requireHouse();
   const simplified = house.settle_mode === "simplified";
-  const [{ expenses, splits }, bills, chores, activity, categories, account, notices, shopping, settlements] =
+  // Admin powers key off houses.created_by (it moves with an admin handover).
+  const isAdmin = house.created_by === user.id;
+  const [{ expenses, splits }, bills, chores, activity, categories, account, notices, shopping, settlements, departures] =
     await Promise.all([
       getExpensesAndSplits(house.id),
       getBills(house.id),
@@ -57,6 +61,7 @@ export default async function DashboardPage() {
       getNotices(house.id, 200),
       getShoppingItems(house.id),
       simplified ? getSettlements(house.id) : Promise.resolve([]),
+      isAdmin ? getDepartureReminders(house.id, members.map((m) => m.user_id)) : Promise.resolve([]),
     ]);
 
   // The user's own share spent in the current calendar month (for the budget).
@@ -220,11 +225,25 @@ export default async function DashboardPage() {
         </div>
       </section>
 
+      {/* Admin only: someone left or was removed and the house still counts
+          them in (bill splits, bills they paid, money not settled). */}
+      {departures.length > 0 && (
+        <DepartureReminders
+          houseId={house.id}
+          viewerId={user.id}
+          currency={house.currency}
+          payerNames={Object.fromEntries(
+            members.map((m) => [m.user_id, m.profile?.name?.trim().split(/\s+/)[0] || "A housemate"]),
+          )}
+          reminders={departures}
+        />
+      )}
+
       {/* On your own, the invite is the one thing that makes the app work, so
           it leads the page. Its corner x hides it here; the House tab keeps
           the invite for as long as the house has one member. */}
       {members.length === 1 && (
-        <SoloInvite code={house.invite_code} houseName={house.name} />
+        <SoloInvite houseId={house.id} houseName={house.name} canCreate={isAdmin} />
       )}
 
       {/* A rent day but no rent bill: rent is neither tracked nor reminded,

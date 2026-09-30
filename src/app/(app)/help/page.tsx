@@ -16,9 +16,9 @@ const GROUPS: Group[] = [
         q: "How do I add my housemates?",
         a: (
           <>
-            Share your house&rsquo;s invite link, you&rsquo;ll find it on the{" "}
-            <strong>Housemates page</strong> (or <strong>Settings → Invite housemates</strong>).
-            When a housemate opens it and signs up, they join your house automatically.
+            The house admin makes an invite link on the <strong>House</strong> tab and sends it
+            to them. Each link works for 10 minutes, for anyone who taps it in that time, so send
+            it straight away. Not the admin? Ask them for a link.
           </>
         ),
       },

@@ -13,7 +13,16 @@ const PARK_KEY = "hs_invite_parked";
  * and points at the House tab (which always carries the invite while the
  * house has one member), with a toast so the move is never a mystery.
  */
-export function SoloInvite({ code, houseName }: { code: string; houseName: string }) {
+export function SoloInvite({
+  houseId,
+  houseName,
+  canCreate,
+}: {
+  houseId: string;
+  houseName: string;
+  /** Only the house admin can make invite links (0046). */
+  canCreate: boolean;
+}) {
   // null until mounted: localStorage isn't there during SSR.
   const [hidden, setHidden] = useState<boolean | null>(null);
   // Post-dismiss callout above the tab bar, arrow on the House tab.
@@ -100,7 +109,7 @@ export function SoloInvite({ code, houseName }: { code: string; houseName: strin
           everything between you.
         </p>
       </div>
-      <InviteBox code={code} houseName={houseName} />
+      <InviteBox houseId={houseId} houseName={houseName} canCreate={canCreate} />
     </section>
   );
 }

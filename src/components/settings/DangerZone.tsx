@@ -37,7 +37,7 @@ export function DangerZone({
     if (
       !(await confirmSheet({
         title: `Leave ${houseName}?`,
-        body: "You can re-join later with the invite link.",
+        body: "To come back later, you'll need a new invite link from the house admin.",
         confirmLabel: "Leave house",
         tone: "danger",
       }))
@@ -55,6 +55,15 @@ export function DangerZone({
       setBusy(false);
       return;
     }
+    // Tell the house admin, so they can adjust this person's share of bills
+    // and expenses (best effort). The database has already recorded the leave,
+    // which is what the server checks before sending anything.
+    void fetch("/api/house/left", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({ houseId }),
+    }).catch(() => {});
     clearActiveHouse();
     router.push("/house/create");
     router.refresh();
