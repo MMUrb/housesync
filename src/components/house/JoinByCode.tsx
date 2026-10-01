@@ -33,6 +33,7 @@ export function JoinByCode() {
         placeholder="Paste your invite link or code"
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        autoFocus
       />
       <button type="submit" className="btn-secondary shrink-0">
         Join

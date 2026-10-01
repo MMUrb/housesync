@@ -9,6 +9,7 @@ import { HOUSE_NAME_MAX } from "@/lib/constants";
 import { formatMoney, ordinalDay } from "@/lib/format";
 import { nextDueForDay } from "@/lib/recurrence";
 import { JoinByCode } from "@/components/house/JoinByCode";
+import { JoinHousePrompt } from "@/components/house/JoinHousePrompt";
 import { RENT_POPUP_KEY } from "@/lib/launchPrompts";
 import type { House } from "@/lib/types";
 
@@ -18,8 +19,11 @@ import type { House } from "@/lib/types";
  * Settings, so the house exists after one real question. If they add a rent
  * amount, it lands as a normal monthly bill paid by them: splitting it stays
  * a thing the payer does on purpose once housemates join, never automatic.
+ *
+ * joinPromptFor: the user id, when they've been in no house long enough to be
+ * asked whether they meant to join one (the page decides).
  */
-export function CreateHouseForm() {
+export function CreateHouseForm({ joinPromptFor }: { joinPromptFor?: string } = {}) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -248,6 +252,9 @@ export function CreateHouseForm() {
 
   return (
     <div>
+      {joinPromptFor && (
+        <JoinHousePrompt userId={joinPromptFor} onHaveLink={() => setShowJoin(true)} />
+      )}
       {dots}
       <h1 className="mt-8 text-[27px] font-extrabold leading-tight tracking-tight text-slate-900">
         What do you call your place?
