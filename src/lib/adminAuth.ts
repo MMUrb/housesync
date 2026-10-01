@@ -1,15 +1,17 @@
 import "server-only";
 import { createHmac, scryptSync, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
 
 // Optional second-password gate for /admin. Layered ON TOP of the ADMIN_EMAILS
 // allowlist — you must already be the signed-in allowlisted user to unlock it.
 
 export const ADMIN_COOKIE = "hs_admin";
-// Long-lived so a trusted device (e.g. the HQ app on your phone) doesn't ask
-// for the admin password on every open. Still bound to the signed-in admin
-// user and revocable any time via the admin "Lock" button / logout route.
-export const ADMIN_SESSION_MAX_AGE = 60 * 60 * 24 * 90; // 90 days, in seconds
+// Two weeks, so a trusted device (e.g. the HQ app on your phone) doesn't ask
+// for the admin password on every open. Bound to the signed-in admin AND to
+// that sign-in: signing out, or "sign out of all sessions" in Supabase, ends
+// it everywhere; the "Lock" button ends it on this device.
+export const ADMIN_SESSION_MAX_AGE = 60 * 60 * 24 * 14; // 14 days, in seconds
 
 const passwordHash = process.env.ADMIN_PASSWORD_HASH ?? "";
 const signingSecret =
@@ -34,14 +36,37 @@ export function verifyAdminPassword(password: string): boolean {
   return test.length === expected.length && timingSafeEqual(test, expected);
 }
 
-/** Create a signed session token bound to the user, valid for ADMIN_SESSION_MAX_AGE. */
-export function signAdminSession(userId: string): string {
-  const body = `${userId}:${Date.now() + ADMIN_SESSION_MAX_AGE * 1000}`;
+/**
+ * The Supabase sign-in this request belongs to: the access token's session_id
+ * claim, which survives token refreshes and changes on every new sign-in.
+ * Callers have already verified the user with getUser(), so reading the claim
+ * from that same session's token is enough.
+ */
+async function currentSessionId(): Promise<string | null> {
+  try {
+    const { data } = await (await createClient()).auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return null;
+    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString());
+    return typeof payload.session_id === "string" && payload.session_id ? payload.session_id : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A signed session token bound to the user and their current sign-in, valid
+ * for ADMIN_SESSION_MAX_AGE. null when the sign-in can't be read.
+ */
+export async function signAdminSession(userId: string): Promise<string | null> {
+  const sessionId = await currentSessionId();
+  if (!sessionId) return null;
+  const body = `${userId}:${sessionId}:${Date.now() + ADMIN_SESSION_MAX_AGE * 1000}`;
   const sig = createHmac("sha256", signingSecret).update(body).digest("hex");
   return `${Buffer.from(body).toString("base64url")}.${sig}`;
 }
 
-function verifyToken(token: string, userId: string): boolean {
+function verifyToken(token: string, userId: string, sessionId: string): boolean {
   const [b64, sig] = token.split(".");
   if (!b64 || !sig) return false;
   let body: string;
@@ -55,14 +80,19 @@ function verifyToken(token: string, userId: string): boolean {
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
 
-  const [uid, expStr] = body.split(":");
+  const [uid, sid, expStr] = body.split(":");
   const exp = Number(expStr);
-  return uid === userId && Number.isFinite(exp) && exp > Date.now();
+  return uid === userId && sid === sessionId && Number.isFinite(exp) && exp > Date.now();
 }
 
-/** True if the current request carries a valid admin-session cookie for this user. */
+/**
+ * True if the current request carries a valid admin-session cookie for this
+ * user and this sign-in.
+ */
 export async function hasAdminSession(userId: string): Promise<boolean> {
   if (!isAdminGateEnabled()) return true; // gate off → no extra step
   const token = (await cookies()).get(ADMIN_COOKIE)?.value;
-  return token ? verifyToken(token, userId) : false;
+  if (!token) return false;
+  const sessionId = await currentSessionId();
+  return sessionId ? verifyToken(token, userId, sessionId) : false;
 }

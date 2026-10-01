@@ -4,8 +4,9 @@
 // needs a fresh nonce each request so we can drop 'unsafe-inline' from
 // script-src). The static headers below are the ones that don't vary.
 const securityHeaders = [
-  // Force HTTPS for two years across all subdomains.
-  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+  // Force HTTPS for two years across all subdomains (preload marks the domain
+  // as eligible for the browsers' built-in HTTPS-only list; it does not submit it).
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   // Clickjacking: the app is never meant to be framed (the native shell loads it
   // as a top-level document, not an iframe).
@@ -21,6 +22,8 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  // No "X-Powered-By: Next.js" header advertising the framework.
+  poweredByHeader: false,
   // Which deploy a client is running, baked into the bundle at build time.
   // Error reports carry it, so the admin Errors tab can tell "bug in the live
   // code" apart from "phone still running last week's cached build".
@@ -36,14 +39,21 @@ const nextConfig = {
   experimental: {
     staleTimes: { dynamic: 30, static: 300 },
   },
-  images: {
-    remotePatterns: [
-      // Allow Supabase Storage public URLs (avatars; receipts are private).
-      { protocol: "https", hostname: "*.supabase.co" },
-    ],
-  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
+  },
+  // One origin only: on www the app would run as a second copy with its own
+  // cookies, storage and service worker, and Google sign-in started there
+  // fails on the apex callback.
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.housesync.co.uk" }],
+        destination: "https://housesync.co.uk/:path*",
+        permanent: true,
+      },
+    ];
   },
 };
 

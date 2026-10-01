@@ -1,4 +1,9 @@
 // Robust WebView sign-in via CDP: polls for elements (slow emulator network).
+const PASSWORD = process.env.HS_TEST_PASSWORD;
+if (!PASSWORD) {
+  console.error("Set HS_TEST_PASSWORD to the test accounts' password first.");
+  process.exit(1);
+}
 const targets = await fetch("http://localhost:9222/json").then((r) => r.json());
 const page = targets.find((t) => t.type === "page") || targets[0];
 const ws = new WebSocket(page.webSocketDebuggerUrl);
@@ -42,7 +47,7 @@ const fill = `(() => {
     el.dispatchEvent(new Event('input',{bubbles:true})); return 'ok';
   }
   const a=setVal('#email','alex.chattest@example.com');
-  const b=setVal('#password','ChatTest123!');
+  const b=setVal('#password',${JSON.stringify(PASSWORD)});
   const btn=document.querySelector('button[type=submit]'); if(btn) btn.click();
   return JSON.stringify({email:a,password:b,clicked:!!btn});
 })()`;

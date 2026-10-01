@@ -49,9 +49,11 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Run on all paths except static assets and image files, so the auth
-     * session cookie is refreshed on every navigation.
+     * Run on all paths except the real static files, so the auth session
+     * cookie is refreshed on every navigation. The files are named rather
+     * than matched by extension: an extension rule would also skip pages such
+     * as /house/join/<code>.png and send them without the CSP.
      */
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest.webmanifest|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-touch-icon.png|og.png|manifest.webmanifest|sw.js|avatars/|icons/).*)",
   ],
 };

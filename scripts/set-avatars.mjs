@@ -2,12 +2,17 @@
 // image to the 'avatars' bucket (tests storage RLS), and sets profiles.avatar_url.
 const URL = "https://mlmuetsclrclqlnaicmh.supabase.co";
 const ANON = "sb_publishable_Wr9PWIRCOO06odm7a4LkLw_9VdtQYXn";
+const PASSWORD = process.env.HS_TEST_PASSWORD;
+if (!PASSWORD) {
+  console.error("Set HS_TEST_PASSWORD to the test accounts' password first.");
+  process.exit(1);
+}
 
 async function login(email) {
   return fetch(URL + "/auth/v1/token?grant_type=password", {
     method: "POST",
     headers: { apikey: ANON, "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password: "ChatTest123!" }),
+    body: JSON.stringify({ email, password: PASSWORD }),
   }).then((r) => r.json());
 }
 

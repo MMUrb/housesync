@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
@@ -156,7 +157,9 @@ export async function GET(request: Request) {
       { status: 503 },
     );
   }
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+  const authGiven = Buffer.from(request.headers.get("authorization") ?? "");
+  const authWanted = Buffer.from(`Bearer ${secret}`);
+  if (authGiven.length !== authWanted.length || !timingSafeEqual(authGiven, authWanted)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

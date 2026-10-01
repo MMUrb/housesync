@@ -1,5 +1,10 @@
 // Drives the app's WebView via Chrome DevTools Protocol to sign in and open /chat.
 // Requires: adb forward tcp:9222 localabstract:webview_devtools_remote_<pid>
+const PASSWORD = process.env.HS_TEST_PASSWORD;
+if (!PASSWORD) {
+  console.error("Set HS_TEST_PASSWORD to the test accounts' password first.");
+  process.exit(1);
+}
 const targets = await fetch("http://localhost:9222/json").then((r) => r.json());
 const page = targets.find((t) => t.type === "page") || targets[0];
 console.log("target:", page.url);
@@ -45,7 +50,7 @@ const fill = `(() => {
     return 'ok';
   }
   const a=setVal('#email','alex.chattest@example.com');
-  const b=setVal('#password','ChatTest123!');
+  const b=setVal('#password',${JSON.stringify(PASSWORD)});
   const btn=document.querySelector('button[type=submit]');
   if(btn) btn.click();
   return JSON.stringify({email:a,password:b,clicked:!!btn});

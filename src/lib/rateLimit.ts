@@ -7,10 +7,17 @@ import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
  * when the caller has exceeded `max` hits within `windowSeconds`.
  *
  * Fails OPEN (allows) when the service role isn't configured or the check
- * errors — a rate-limiter outage must never lock real users out.
+ * errors — a rate-limiter outage must never lock real users out. failClosed
+ * flips that for gates where a guess must never get through unlimited (the
+ * admin password): an outage then refuses instead.
  */
-export async function rateLimit(key: string, max: number, windowSeconds: number): Promise<boolean> {
-  if (!isAdminConfigured) return true;
+export async function rateLimit(
+  key: string,
+  max: number,
+  windowSeconds: number,
+  { failClosed = false }: { failClosed?: boolean } = {},
+): Promise<boolean> {
+  if (!isAdminConfigured) return !failClosed;
   try {
     const admin = createAdminClient();
     const { data, error } = await admin.rpc("rate_limit_hit", {
@@ -18,10 +25,10 @@ export async function rateLimit(key: string, max: number, windowSeconds: number)
       p_max: max,
       p_window_seconds: windowSeconds,
     });
-    if (error) return true; // fail open
+    if (error) return !failClosed;
     return data !== false;
   } catch {
-    return true; // fail open
+    return !failClosed;
   }
 }
 

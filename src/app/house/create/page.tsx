@@ -4,6 +4,7 @@ import { joinPromptDue } from "@/lib/joinPrompt";
 import { CreateHouseForm } from "@/components/house/CreateHouseForm";
 import { HomeLogoLink } from "@/components/HomeLogoLink";
 import { BackHomeButton } from "@/components/BackHomeButton";
+import { SignOutLink } from "@/components/auth/SignOutLink";
 
 export const metadata = { title: "Create your house" };
 
@@ -58,11 +59,7 @@ export default async function CreateHousePage() {
 
       <div className="mt-10 flex flex-wrap items-center justify-center gap-1.5 text-center text-xs text-slate-400">
         <span className="truncate">Signed in as {user.email}.</span>
-        <form action="/auth/signout" method="post">
-          <button type="submit" className="font-medium text-brand-600 hover:underline">
-            Sign out / use another account
-          </button>
-        </form>
+        <SignOutLink label="Sign out / use another account" />
       </div>
     </main>
   );

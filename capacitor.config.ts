@@ -11,7 +11,10 @@ const config: CapacitorConfig = {
     // This keeps the app auto-updated on every deploy (no resubmission
     // needed for content changes) and works with the Supabase auth
     // middleware + API routes that can't be statically exported.
-    url: 'https://housesync.co.uk',
+    // The trailing slash matters: iOS treats any URL that starts with this
+    // string as in-app, and without it https://housesync.co.uk.evil.example
+    // would load inside the native shell.
+    url: 'https://housesync.co.uk/',
     androidScheme: 'https',
     // Bundled branded page shown if the main frame fails to load (offline
     // cold start) instead of the stock WebView network-error screen.

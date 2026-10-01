@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { getSiteUrl } from "@/lib/env";
 import { clearActiveHouse } from "@/lib/activeHouse";
+import { forgetThisDevice } from "@/lib/forgetDevice";
 import { DELETION_REASONS } from "@/lib/deletion";
 
 // Email verification + email change, plus (at the very bottom, deliberately
@@ -108,6 +109,7 @@ export function AccountSettingsForm({
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || "Could not delete your account.");
       }
+      await forgetThisDevice({ stillSignedIn: false });
       clearActiveHouse();
       router.push("/");
       router.refresh();

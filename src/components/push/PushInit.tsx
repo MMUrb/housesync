@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { safeNextPath } from "@/lib/safeRedirect";
 
 // Native-app only: registers FCM listeners so the device's push token is saved
 // (and refreshed on launch), and taps on a notification open the right page.
@@ -31,7 +32,9 @@ export function PushInit() {
         const tapListener = await PushNotifications.addListener(
           "pushNotificationActionPerformed",
           (action) => {
-            const url = action?.notification?.data?.url as string | undefined;
+            // In-app paths only: the native bridge must never be pointed at
+            // another site.
+            const url = safeNextPath(action?.notification?.data?.url as string | undefined, "");
             if (url) window.location.href = url;
           },
         );

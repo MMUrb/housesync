@@ -32,7 +32,10 @@ workflows:
       xcode: latest
     scripts:
       - name: Install node dependencies
-        script: npm ci
+        # --ignore-scripts: the cached signing key is already on this machine, so
+        # no package gets to run its own install code here. Nothing these steps
+        # use needs one (cap sync and Xcode are all that run).
+        script: npm ci --ignore-scripts
       - name: Sync Capacitor iOS
         script: npx cap sync ios
       - name: Initialize keychain
@@ -98,7 +101,10 @@ workflows:
       xcode: latest
     scripts:
       - name: Install node dependencies
-        script: npm ci
+        # --ignore-scripts: the cached signing key is already on this machine, so
+        # no package gets to run its own install code here. Nothing these steps
+        # use needs one (cap sync and Xcode are all that run).
+        script: npm ci --ignore-scripts
       - name: Sync Capacitor iOS
         script: npx cap sync ios
       - name: Build without signing

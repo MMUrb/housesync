@@ -20,6 +20,11 @@ for f in $(git diff --cached --name-only --diff-filter=ACM); do
       echo "         Secrets belong in .env.local (gitignored), never in the repo."
       fail=1
       ;;
+    *.jks|*.keystore|*.p8|*.p12|keystore.properties|*/keystore.properties)
+      echo "BLOCKED: staging a signing key or keystore -> $f"
+      echo "         These are binary or key files the content scan below can't read."
+      fail=1
+      ;;
   esac
 done
 
@@ -40,6 +45,8 @@ check 'xkeysib-[A-Za-z0-9]{16,}'                  'a Brevo API key'
 check '-----BEGIN [A-Z ]*PRIVATE KEY-----'         'a private key'
 check 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'      'a JWT (possible Supabase service-role key)'
 check 'AKIA[0-9A-Z]{16}'                          'an AWS access key'
+check 're_[A-Za-z0-9]{8,}_[A-Za-z0-9]{8,}'         'a Resend API key'
+check '(CRON_SECRET|SUPABASE_SERVICE_ROLE_KEY|ADMIN_SESSION_SECRET|ADMIN_PASSWORD_HASH|VAPID_PRIVATE_KEY|RESEND_API_KEY|BREVO_API_KEY)[[:space:]]*=[[:space:]]*["'"'"']?[^[:space:]"'"'"']{8,}' 'a secret env value'
 
 if [ "$fail" -ne 0 ]; then
   echo ""

@@ -2,15 +2,16 @@
 <!-- Keep the WebView profile (which holds the Supabase auth session cookies for
      housesync.co.uk) out of Google cloud backups and device-to-device
      transfers. All real state lives server-side, so nothing of value is lost —
-     a restored device simply signs in again. -->
+     a restored device simply signs in again. app_webview sits at the app's
+     data root, so the domain must be "root" ("file" means files/). -->
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="file" path="app_webview/" />
+        <exclude domain="root" path="app_webview/" />
         <exclude domain="database" path="." />
         <exclude domain="sharedpref" path="." />
     </cloud-backup>
     <device-transfer>
-        <exclude domain="file" path="app_webview/" />
+        <exclude domain="root" path="app_webview/" />
         <exclude domain="database" path="." />
         <exclude domain="sharedpref" path="." />
     </device-transfer>

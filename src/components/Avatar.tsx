@@ -1,5 +1,7 @@
 import { initials } from "@/lib/format";
 
+const PRESET_AVATAR = /^\/avatars\/preset-(10|[1-9])\.svg$/;
+
 const SIZES = {
   sm: "h-7 w-7 text-[11px]",
   md: "h-9 w-9 text-xs",
@@ -22,8 +24,10 @@ export function Avatar({
 }) {
   // Custom photo upload was removed — only the ready-made preset avatars
   // (/avatars/preset-N.svg) are honoured. Any legacy uploaded-photo URLs are
-  // ignored, so those profiles fall back to their coloured initials.
-  const isPreset = typeof avatarUrl === "string" && avatarUrl.startsWith("/avatars/preset-");
+  // ignored, so those profiles fall back to their coloured initials. Matched
+  // exactly because anyone can write their own avatar_url: a prefix match
+  // would let "/avatars/preset-/../../<page>" make every viewer load that page.
+  const isPreset = typeof avatarUrl === "string" && PRESET_AVATAR.test(avatarUrl);
   if (isPreset) {
     return (
       // eslint-disable-next-line @next/next/no-img-element

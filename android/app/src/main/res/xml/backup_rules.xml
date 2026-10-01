@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- API <= 30 equivalent of data_extraction_rules.xml: exclude the WebView
-     profile (auth session cookies) from Auto Backup. -->
+     profile (auth session cookies) from Auto Backup. app_webview sits at the
+     app's data root, so the domain must be "root" ("file" means files/). -->
 <full-backup-content>
-    <exclude domain="file" path="app_webview/" />
+    <exclude domain="root" path="app_webview/" />
     <exclude domain="database" path="." />
     <exclude domain="sharedpref" path="." />
 </full-backup-content>

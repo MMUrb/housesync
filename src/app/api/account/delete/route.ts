@@ -74,6 +74,29 @@ export async function POST(request: Request) {
     if (fbErr) console.error("deletion_feedback insert failed:", fbErr.message);
   }
 
+  // Houses this person runs pass to their longest-standing housemate first:
+  // deleting the account nulls houses.created_by, and a house with no admin
+  // can never remove anyone, be deleted, or get a new admin. Done as them
+  // (still signed in) through the normal hand-over. Best effort: the deletion
+  // goes ahead regardless.
+  const { data: owned } = await admin.from("houses").select("id").eq("created_by", user.id);
+  for (const h of owned ?? []) {
+    const { data: next } = await admin
+      .from("house_members")
+      .select("user_id")
+      .eq("house_id", h.id)
+      .neq("user_id", user.id)
+      .order("joined_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!next) continue;
+    const { error: handErr } = await supabase.rpc("transfer_house_admin", {
+      p_house_id: h.id,
+      p_new_admin: next.user_id,
+    });
+    if (handErr) console.error("admin hand-over before deletion failed:", handErr.message);
+  }
+
   const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
