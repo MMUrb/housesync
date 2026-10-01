@@ -1,4 +1,5 @@
 import "server-only";
+import { createPacer, describeProviderError, sendPaced } from "./emailPacing";
 
 // Transactional email. Prefers Resend (sends links un-wrapped, so it avoids the
 // click-tracking redirect Brevo forces — which trips SpamAssassin's URI_PHISH).
@@ -15,6 +16,13 @@ const FROM_NAME = "HouseSync";
 const REPLY_TO = process.env.EMAIL_REPLY_TO ?? process.env.REMINDER_REPLY_TO ?? "hello@housesync.co.uk";
 
 export const isEmailConfigured = Boolean(RESEND_API_KEY || BREVO_API_KEY);
+
+// Resend allows 10 requests a second for the whole account. Pacing this
+// process to 5 a second leaves headroom for sends from other instances (a
+// sign-up's welcome email landing mid-cron); anything still refused with a
+// 429 is retried by sendPaced, which can never double-send.
+const SEND_INTERVAL_MS = 200;
+const pace = createPacer(SEND_INTERVAL_MS);
 
 type SendArgs = {
   to: string;
@@ -36,26 +44,32 @@ export async function sendEmail({ to, toName, subject, html, text }: SendArgs) {
 }
 
 async function sendViaResend(args: { to: string; subject: string; html: string; text: string }) {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    // Without a timeout a slow provider holds the request for minutes.
-    signal: AbortSignal.timeout(10_000),
-    headers: {
-      authorization: `Bearer ${RESEND_API_KEY}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      from: `${FROM_NAME} <${FROM_EMAIL}>`,
-      to: [args.to],
-      reply_to: REPLY_TO,
-      subject: args.subject,
-      html: args.html,
-      text: args.text,
-    }),
+  const body = JSON.stringify({
+    from: `${FROM_NAME} <${FROM_EMAIL}>`,
+    to: [args.to],
+    reply_to: REPLY_TO,
+    subject: args.subject,
+    html: args.html,
+    text: args.text,
   });
+  const res = await sendPaced(
+    () =>
+      fetch("https://api.resend.com/emails", {
+        method: "POST",
+        // Fresh per attempt: a retry must not inherit the first try's clock.
+        // Without a timeout a slow provider holds the request for minutes.
+        signal: AbortSignal.timeout(10_000),
+        headers: {
+          authorization: `Bearer ${RESEND_API_KEY}`,
+          "content-type": "application/json",
+        },
+        body,
+      }),
+    { slot: pace },
+  );
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    throw new Error(`Resend ${res.status}: ${txt}`);
+    throw new Error(describeProviderError("Resend", res.status, txt));
   }
   return res.json();
 }
@@ -67,26 +81,31 @@ async function sendViaBrevo(args: {
   html: string;
   text: string;
 }) {
-  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    signal: AbortSignal.timeout(10_000),
-    headers: {
-      "api-key": BREVO_API_KEY,
-      "content-type": "application/json",
-      accept: "application/json",
-    },
-    body: JSON.stringify({
-      sender: { email: FROM_EMAIL, name: FROM_NAME },
-      replyTo: { email: REPLY_TO, name: FROM_NAME },
-      to: [{ email: args.to, name: args.toName }],
-      subject: args.subject,
-      htmlContent: args.html,
-      textContent: args.text,
-    }),
+  const body = JSON.stringify({
+    sender: { email: FROM_EMAIL, name: FROM_NAME },
+    replyTo: { email: REPLY_TO, name: FROM_NAME },
+    to: [{ email: args.to, name: args.toName }],
+    subject: args.subject,
+    htmlContent: args.html,
+    textContent: args.text,
   });
+  const res = await sendPaced(
+    () =>
+      fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        signal: AbortSignal.timeout(10_000),
+        headers: {
+          "api-key": BREVO_API_KEY,
+          "content-type": "application/json",
+          accept: "application/json",
+        },
+        body,
+      }),
+    { slot: pace },
+  );
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    throw new Error(`Brevo ${res.status}: ${txt}`);
+    throw new Error(describeProviderError("Brevo", res.status, txt));
   }
   return res.json();
 }

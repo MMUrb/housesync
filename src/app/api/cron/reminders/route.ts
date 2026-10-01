@@ -635,7 +635,9 @@ export async function GET(request: Request) {
                    <p><a href="${siteUrl}/bills" style="color:#5f3fe0;font-weight:bold">Open HouseSync &rarr;</a></p>`,
                 ),
               },
-              `bill email ${bill.id}`,
+              // Per recipient: a bill with several owers fails per person,
+              // and the log must say who missed out, not just which bill.
+              `bill email ${bill.id} -> ${uid}`,
               2,
             );
           });
