@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { isAdminEmail } from "@/lib/admin";
+import { isAdminUser } from "@/lib/admin";
 import { hasAdminSession } from "@/lib/adminAuth";
 import { emailLayout, isEmailConfigured, sendEmail } from "@/lib/email";
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || !isAdminEmail(user.email) || !(await hasAdminSession(user.id))) {
+  if (!user || !isAdminUser(user) || !(await hasAdminSession(user.id))) {
     return NextResponse.json({ error: "Not authorised." }, { status: 403 });
   }
   if (!isEmailConfigured) {

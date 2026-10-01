@@ -81,7 +81,15 @@ export function AdminLockScreen({ email }: { email?: string | null }) {
   );
 }
 
-export function NoAccess({ email, configured }: { email?: string | null; configured: boolean }) {
+export function NoAccess({
+  email,
+  userId,
+  configured,
+}: {
+  email?: string | null;
+  userId: string;
+  configured: boolean;
+}) {
   return (
     <AdminShell email={email} active="overview" tabs={false}>
       <div className="card mx-auto max-w-lg space-y-3 p-6 text-center">
@@ -94,8 +102,8 @@ export function NoAccess({ email, configured }: { email?: string | null; configu
         </p>
         {configured ? (
           <p className="text-xs text-slate-400">
-            Make sure <code className="rounded bg-slate-100 px-1">ADMIN_EMAILS</code> contains
-            exactly <code className="break-all rounded bg-slate-100 px-1">{email}</code>, then
+            Make sure <code className="rounded bg-slate-100 px-1">ADMIN_USER_IDS</code> contains
+            exactly <code className="break-all rounded bg-slate-100 px-1">{userId}</code>, then
             redeploy.
           </p>
         ) : (
@@ -104,8 +112,8 @@ export function NoAccess({ email, configured }: { email?: string | null; configu
             <ol className="ml-4 mt-1 list-decimal space-y-1">
               <li>
                 In Vercel, add an environment variable{" "}
-                <code className="rounded bg-slate-100 px-1">ADMIN_EMAILS</code> ={" "}
-                <code className="break-all rounded bg-slate-100 px-1">{email}</code>
+                <code className="rounded bg-slate-100 px-1">ADMIN_USER_IDS</code> ={" "}
+                <code className="break-all rounded bg-slate-100 px-1">{userId}</code>
               </li>
               <li>Redeploy, then reload this page.</li>
             </ol>

@@ -3,8 +3,9 @@ import { createHmac, scryptSync, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
-// Optional second-password gate for /admin. Layered ON TOP of the ADMIN_EMAILS
-// allowlist — you must already be the signed-in allowlisted user to unlock it.
+// Second-password gate for /admin. Layered ON TOP of the admin allowlist
+// (src/lib/admin.ts) — you must already be the signed-in allowlisted user to
+// unlock it.
 
 export const ADMIN_COOKIE = "hs_admin";
 // Two weeks, so a trusted device (e.g. the HQ app on your phone) doesn't ask
@@ -17,10 +18,15 @@ const passwordHash = process.env.ADMIN_PASSWORD_HASH ?? "";
 const signingSecret =
   process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
-/** The gate is only enforced once a password hash (and a signing secret) exist. */
+/** Whether a password hash (and a signing secret) exist to run the gate with. */
 export function isAdminGateEnabled(): boolean {
   return Boolean(passwordHash && signingSecret);
 }
+
+// Only local development may run without the admin password. A deployment
+// missing it (a preview, a mistyped or deleted env var) stays locked instead
+// of waving every allowlisted user straight in.
+export const ADMIN_GATE_REQUIRED = process.env.NODE_ENV === "production";
 
 /** Constant-time check of a password against the stored scrypt hash. */
 export function verifyAdminPassword(password: string): boolean {
@@ -90,7 +96,7 @@ function verifyToken(token: string, userId: string, sessionId: string): boolean 
  * user and this sign-in.
  */
 export async function hasAdminSession(userId: string): Promise<boolean> {
-  if (!isAdminGateEnabled()) return true; // gate off → no extra step
+  if (!isAdminGateEnabled()) return !ADMIN_GATE_REQUIRED; // dev only: no extra step
   const token = (await cookies()).get(ADMIN_COOKIE)?.value;
   if (!token) return false;
   const sessionId = await currentSessionId();

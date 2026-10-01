@@ -2,7 +2,7 @@ import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
-import { isEmailConfigured, sendEmail, emailLayout } from "@/lib/email";
+import { isEmailConfigured, sendEmail, emailLayout, escapeHtml } from "@/lib/email";
 import { computeBalances, splitEqually } from "@/lib/balances";
 import { formatDate, formatMoney, relativeDay } from "@/lib/format";
 import { getSiteUrl } from "@/lib/env";
@@ -632,8 +632,8 @@ export async function GET(request: Request) {
                 toName: r.name,
                 subject: `${bill.title} is due ${due}, your share is ${formatMoney(shares[i], currency)}`,
                 html: emailLayout(
-                  `<p>Hi ${r.name},</p>
-                   <p>Your share of <strong>${bill.title}</strong> for <strong>${houseName}</strong> is
+                  `<p>Hi ${escapeHtml(r.name)},</p>
+                   <p>Your share of <strong>${escapeHtml(bill.title)}</strong> for <strong>${escapeHtml(houseName)}</strong> is
                    <strong>${formatMoney(shares[i], currency)}</strong>, due <strong>${due}</strong>.</p>
                    <p><a href="${siteUrl}/bills" style="color:#5f3fe0;font-weight:bold">Open HouseSync &rarr;</a></p>`,
                 ),
@@ -836,9 +836,9 @@ export async function GET(request: Request) {
               toName: r.name,
               subject: `You owe ${formatMoney(owe, house.currency)} in ${house.name}`,
               html: emailLayout(
-                `<p>Hi ${r.name},</p>
+                `<p>Hi ${escapeHtml(r.name)},</p>
                  <p>A gentle weekly nudge: you currently owe <strong>${formatMoney(owe, house.currency)}</strong>
-                 across <strong>${house.name}</strong>.</p>
+                 across <strong>${escapeHtml(house.name)}</strong>.</p>
                  <p><a href="${siteUrl}/housemates" style="color:#5f3fe0;font-weight:bold">Settle up on HouseSync &rarr;</a></p>`,
               ),
             }),

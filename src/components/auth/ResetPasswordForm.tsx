@@ -33,6 +33,10 @@ export function ResetPasswordForm() {
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
+      // A reset is often because someone else got in: end every other
+      // session too, or theirs would carry on with the old sign-in. Best
+      // effort; this device stays signed in.
+      await supabase.auth.signOut({ scope: "others" }).catch(() => {});
       router.push("/dashboard");
       router.refresh();
     } catch (err) {

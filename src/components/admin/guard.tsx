@@ -2,7 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { getUser } from "@/lib/data";
-import { isAdminEmail, hasAdminAllowlist } from "@/lib/admin";
+import { isAdminUser, hasAdminAllowlist } from "@/lib/admin";
 import { hasAdminSession } from "@/lib/adminAuth";
 import { ADMIN_BASE } from "@/lib/constants";
 import { NoAccess, AdminLockScreen } from "@/components/admin/AdminUI";
@@ -21,8 +21,11 @@ export async function adminGate(): Promise<AdminGate> {
   // Come back to the admin dashboard after signing in (matters in the admin
   // app's webview, where there's no address bar to navigate back manually).
   if (!user) redirect(`/login?next=${ADMIN_BASE}`);
-  if (!isAdminEmail(user.email)) {
-    return { ok: false, node: <NoAccess email={user.email} configured={hasAdminAllowlist} /> };
+  if (!isAdminUser(user)) {
+    return {
+      ok: false,
+      node: <NoAccess email={user.email} userId={user.id} configured={hasAdminAllowlist} />,
+    };
   }
   if (!(await hasAdminSession(user.id))) {
     return { ok: false, node: <AdminLockScreen email={user.email} /> };

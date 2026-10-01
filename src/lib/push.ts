@@ -5,6 +5,7 @@ import webpush from "web-push";
 import { cert, getApp, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getMessaging } from "firebase-admin/messaging";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
+import { isPushServiceEndpoint } from "@/lib/pushEndpoint";
 
 // Unified push sender: fans a notification out to every device a set of users
 // has opted in on — browsers/PWA via Web Push (VAPID), the Android app via FCM.
@@ -224,6 +225,10 @@ export async function sendPushToUsers(
     if (webPushReady) {
       for (const s of subs) {
         if (s.kind !== "web" || !s.endpoint || !s.p256dh || !s.auth) continue;
+        // Never send to an address that isn't a real push service (rows from
+        // before subscribe checked). Skipped, not deleted, in case a genuine
+        // service ever needs adding to the list.
+        if (!isPushServiceEndpoint(s.endpoint)) continue;
         const subscription = { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } };
         tasks.push(
           // web-push has no timeout by default: one dead endpoint could hang

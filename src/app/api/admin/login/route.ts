@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { isAdminEmail } from "@/lib/admin";
+import { isAdminUser } from "@/lib/admin";
 import { rateLimit } from "@/lib/rateLimit";
 import {
   ADMIN_COOKIE,
+  ADMIN_GATE_REQUIRED,
   ADMIN_SESSION_MAX_AGE,
   isAdminGateEnabled,
   verifyAdminPassword,
@@ -20,11 +21,17 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   // Must already be the signed-in, allowlisted admin to even attempt the password.
-  if (!user || !isAdminEmail(user.email)) {
+  if (!user || !isAdminUser(user)) {
     return NextResponse.json({ error: "Not authorised." }, { status: 403 });
   }
   if (!isAdminGateEnabled()) {
-    return NextResponse.json({ ok: true }); // nothing to unlock
+    if (ADMIN_GATE_REQUIRED) {
+      return NextResponse.json(
+        { error: "The admin password isn't set up on this deployment (ADMIN_PASSWORD_HASH)." },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json({ ok: true }); // local dev: nothing to unlock
   }
 
   let password = "";

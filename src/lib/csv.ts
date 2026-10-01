@@ -49,3 +49,17 @@ export function parseCsv(text: string): string[][] {
   endRow();
   return rows;
 }
+
+// Writing: a cell starting with = + - @ (or a tab or carriage return) runs as
+// a formula when the file is opened in Excel or Google Sheets. Titles and
+// names are typed by housemates, so those get a leading apostrophe (shown as
+// plain text). Plain numbers are left alone so money columns stay numeric.
+const FORMULA_START = /^[=+\-@\t\r]/;
+const PLAIN_NUMBER = /^-?\d+(\.\d+)?$/;
+
+/** One CSV cell for a download: formula-safe, then quoted when it holds a delimiter. */
+export function csvCell(v: unknown): string {
+  let s = v == null ? "" : String(v);
+  if (FORMULA_START.test(s) && !PLAIN_NUMBER.test(s)) s = `'${s}`;
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}

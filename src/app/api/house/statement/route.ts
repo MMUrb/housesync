@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { csvCell } from "@/lib/csv";
 
 export const dynamic = "force-dynamic";
-
-// Escapes a value for CSV: wrap in quotes if it contains a comma, quote or
-// newline, doubling any internal quotes.
-function cell(v: unknown): string {
-  const s = v == null ? "" : String(v);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 // Downloadable expenses statement (CSV) for one house: one row per expense with
 // each housemate's share as its own column, plus a totals row. RLS scopes every
@@ -98,7 +92,7 @@ export async function GET(request: Request) {
   ]);
 
   // Leading BOM so Excel opens the UTF-8 file with the right encoding.
-  const csv = "﻿" + rows.map((r) => r.map(cell).join(",")).join("\r\n");
+  const csv = "﻿" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
   const slug = String(house.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "house";
   const stamp = new Date().toISOString().slice(0, 10);
 

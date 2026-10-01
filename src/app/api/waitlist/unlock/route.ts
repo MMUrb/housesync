@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { GATE_COOKIE, GATE_MAX_AGE, gateToken, getAccessCode } from "@/lib/waitlist";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
+import { clientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +12,7 @@ async function logUnlock(request: Request) {
   if (!isAdminConfigured) return;
   try {
     const h = request.headers;
-    const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || h.get("x-real-ip") || "";
+    const ip = clientIp(request);
     const ua = h.get("user-agent") ?? "";
     const day = new Date().toISOString().slice(0, 10);
     const salt = process.env.ANALYTICS_SALT ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? "housesync";

@@ -32,9 +32,4 @@ export async function rateLimit(
   }
 }
 
-/** Best-effort client IP from proxy headers (Vercel sets x-forwarded-for). */
-export function clientIp(request: Request): string {
-  const xff = request.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0]!.trim();
-  return request.headers.get("x-real-ip")?.trim() || "unknown";
-}
+export { clientIp } from "@/lib/clientIp";

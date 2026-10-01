@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
-import { emailLayout, isEmailConfigured, sendEmail } from "@/lib/email";
+import { emailLayout, escapeHtml, isEmailConfigured, sendEmail } from "@/lib/email";
 
 // Central error sink. Writes to error_logs (shown in /hq-k4p9/errors) and, for
 // server errors, emails the admins — throttled to the first error in a 15-min
@@ -28,13 +28,6 @@ function clip(v: unknown, max: number): string | null {
   if (v == null) return null;
   const s = String(v);
   return s.length > max ? s.slice(0, max) : s;
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c,
-  );
 }
 
 export async function logError(input: LogInput): Promise<void> {

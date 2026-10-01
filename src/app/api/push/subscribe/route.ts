@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
+import { isPushServiceEndpoint } from "@/lib/pushEndpoint";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Just the host, for logs (the rest of an endpoint is a device secret). */
+function safeHost(endpoint: string): string {
+  try {
+    return new URL(endpoint).host;
+  } catch {
+    return "(not a URL)";
+  }
+}
 
 // Store the current user's push target: a web subscription or a native FCM
 // token. RLS ensures a user can only write their own row.
@@ -41,6 +51,10 @@ export async function POST(request: Request) {
 
   if (body.kind === "web" && body.subscription?.endpoint) {
     const s = body.subscription;
+    if (!isPushServiceEndpoint(s.endpoint!)) {
+      console.warn("push subscribe refused, unknown push host:", safeHost(s.endpoint!));
+      return NextResponse.json({ error: "This browser's push service isn't supported." }, { status: 400 });
+    }
     await evictOtherOwners("endpoint", s.endpoint!, user.id);
     const { error } = await supabase.from("push_subscriptions").upsert(
       {
