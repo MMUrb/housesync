@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 // autosaves optimistically to its own account_settings column and reverts on
 // failure, so the panel needs no save button.
 
-type PushKey = "message" | "expense" | "bill" | "paid" | "chore" | "member";
+type PushKey = "message" | "expense" | "bill" | "paid" | "chore" | "member" | "away";
 type EmailKey = "bills" | "nudges" | "product" | "tips" | "surveys" | "offers";
 export type PushPrefs = Record<PushKey, boolean>;
 export type EmailPrefs = Record<EmailKey, boolean>;
@@ -23,6 +23,12 @@ const PUSH_TYPES: { key: PushKey; col: string; label: string; desc: string }[] =
   { key: "paid", col: "notify_push_paid", label: "Payments to you", desc: "When someone pays you back" },
   { key: "chore", col: "notify_push_chore", label: "Chores assigned to you", desc: "When a housemate gives you a chore" },
   { key: "member", col: "notify_push_member", label: "New housemates", desc: "When someone joins your house" },
+  {
+    key: "away",
+    col: "notify_push_away",
+    label: "While you're away",
+    desc: "A catch-up if you haven't opened HouseSync in a week",
+  },
 ];
 
 const EMAIL_TYPES: { key: EmailKey; col: string; label: string; desc: string }[] = [

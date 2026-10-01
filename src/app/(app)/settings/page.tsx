@@ -158,6 +158,7 @@ export default async function SettingsPage() {
               paid: account?.notify_push_paid ?? true,
               chore: account?.notify_push_chore ?? true,
               member: account?.notify_push_member ?? true,
+              away: account?.notify_push_away ?? true,
             }}
             initialEmailTypes={{
               bills: account?.notify_email_bills ?? true,

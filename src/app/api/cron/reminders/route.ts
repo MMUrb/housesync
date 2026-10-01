@@ -7,6 +7,7 @@ import { computeBalances, splitEqually } from "@/lib/balances";
 import { formatDate, formatMoney, relativeDay } from "@/lib/format";
 import { getSiteUrl } from "@/lib/env";
 import { runNudges } from "@/lib/nudges";
+import { runAwayNudges } from "@/lib/awayNudges";
 import { sendPushToUsers, type PushPayload } from "@/lib/push";
 import { logError } from "@/lib/errorLog";
 import { addDaysISO, daysBetweenISO, todayISO } from "@/lib/recurrence";
@@ -143,7 +144,8 @@ async function loadEngineBills(
  * is protected in the database). Order of work, most important first:
  * 1. money: portioned cycles created, schedules caught up (fast RPCs);
  * 2. notifications from step 1 and today's reminders, by priority;
- * 3. money-in-limbo nudges; 4. Monday's balance emails.
+ * 3. money-in-limbo nudges; 4. Monday's balance emails;
+ * 5. "while you're away" catch-ups (src/lib/awayNudges.ts).
  */
 export async function GET(request: Request) {
   // Only Vercel Cron (or someone with the secret) may run this. Fail CLOSED: if
@@ -855,12 +857,28 @@ export async function GET(request: Request) {
     }
   }
 
+  // ---- 7. "While you're away" catch-ups, last, with whatever time is left ----
+  let away: Awaited<ReturnType<typeof runAwayNudges>> = { pushed: 0, considered: 0, deferred: 0, errors: [] };
+  if (timeLeft() > 3_000) {
+    try {
+      away = await withTimeout(
+        runAwayNudges(supabase, startedAt + START_BY_MS),
+        Math.max(1_000, hardLeft() - 1_000),
+        "away nudges",
+      );
+    } catch (e) {
+      away.errors.push(`away nudges: ${e instanceof Error ? e.message : "failed"}`);
+    }
+  } else {
+    away.errors.push("away nudges: skipped, time budget used up");
+  }
+
   if (deferredHouses > 0) errors.push(`time budget reached: ${deferredHouses} house(s) not processed today`);
   if (deferredSends > 0) errors.push(`time budget reached: ${deferredSends} notification(s) not sent today`);
   if (deferredDigestEmails > 0) errors.push(`time budget reached: ${deferredDigestEmails} weekly email(s) not sent`);
   if (!isEmailConfigured) errors.push("emails skipped: no email provider configured");
 
-  const allErrors = [...errors, ...nudges.errors];
+  const allErrors = [...errors, ...nudges.errors, ...away.errors];
   // Anything that means money or reminders didn't happen goes to the admin
   // error log (and its alert email), and the run reports failure to Vercel.
   const engineDown = engineFailures > 0 || deferredHouses > 0 || deferredSends > 0;
@@ -888,6 +906,7 @@ export async function GET(request: Request) {
       pushed,
       cyclesCreated,
       nudged: nudges.nudged,
+      away: away.pushed,
       billsConsidered: engineBills.length,
       billsActionable: actionable.length,
       errors: allErrors,

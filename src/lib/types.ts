@@ -229,6 +229,8 @@ export interface AccountSettings {
   notify_push_paid: boolean;
   notify_push_chore: boolean;
   notify_push_member: boolean;
+  /** Missing until migration 0047 has run. */
+  notify_push_away?: boolean;
   notify_email_bills: boolean;
   notify_email_nudges: boolean;
   notify_email_product: boolean;

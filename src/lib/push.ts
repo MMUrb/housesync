@@ -50,7 +50,8 @@ export type PushPrefColumn =
   | "notify_push_bill"
   | "notify_push_paid"
   | "notify_push_chore"
-  | "notify_push_member";
+  | "notify_push_member"
+  | "notify_push_away";
 
 type Sub = {
   id: string;

@@ -675,7 +675,7 @@ alter table public.expenses drop constraint if exists expenses_category_check;
 alter table public.recurring_bills drop constraint if exists recurring_bills_category_check;
 
 -- account_settings: email verification (0008), monthly budget (0020), and
--- granular push (0021) + email (0025) notification preferences.
+-- granular push (0021, "while you're away" 0047) + email (0025) notification preferences.
 alter table public.account_settings
   add column if not exists email_verified_at    timestamptz,
   add column if not exists email_verify_token   text,
@@ -687,6 +687,7 @@ alter table public.account_settings
   add column if not exists notify_push_paid      boolean not null default true,
   add column if not exists notify_push_chore     boolean not null default true,
   add column if not exists notify_push_member    boolean not null default true,
+  add column if not exists notify_push_away      boolean not null default true,
   add column if not exists notify_email_bills    boolean not null default true,
   add column if not exists notify_email_nudges   boolean not null default true,
   add column if not exists notify_email_product  boolean not null default true,
