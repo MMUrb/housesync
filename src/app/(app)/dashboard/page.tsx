@@ -10,6 +10,7 @@ import {
   getNotices,
   getSettlements,
   getShoppingItems,
+  hasPushSubscription,
   requireHouse,
 } from "@/lib/data";
 import { NoticeBoard } from "@/components/notices/NoticeBoard";
@@ -18,6 +19,8 @@ import { DepartureReminders } from "@/components/housemates/DepartureReminders";
 import { RentSetupPopup } from "@/components/house/RentSetupPopup";
 import { RentSplitNudge } from "@/components/house/RentSplitNudge";
 import { RentDayHint } from "@/components/house/RentDayHint";
+import { PaymentAlertsPrompt } from "@/components/push/PaymentAlertsPrompt";
+import { describePayment, latestPaymentTo, paymentTypesOff } from "@/lib/paymentAlerts";
 import { displayDue } from "@/lib/billEngine";
 import { todayISO } from "@/lib/recurrence";
 import { StarterTemplates } from "@/components/expenses/StarterTemplates";
@@ -50,19 +53,31 @@ export default async function DashboardPage() {
   const simplified = house.settle_mode === "simplified";
   // Admin powers key off houses.created_by (it moves with an admin handover).
   const isAdmin = house.created_by === user.id;
-  const [{ expenses, splits }, bills, chores, activity, categories, account, notices, shopping, settlements, departures] =
-    await Promise.all([
-      getExpensesAndSplits(house.id),
-      getBills(house.id),
-      getChores(house.id),
-      getActivity(house.id, 8),
-      getHouseCategories(house.id),
-      getAccountSettings(),
-      getNotices(house.id, 200),
-      getShoppingItems(house.id),
-      simplified ? getSettlements(house.id) : Promise.resolve([]),
-      isAdmin ? getDepartureReminders(house.id, members.map((m) => m.user_id)) : Promise.resolve([]),
-    ]);
+  const [
+    { expenses, splits },
+    bills,
+    chores,
+    activity,
+    categories,
+    account,
+    notices,
+    shopping,
+    settlements,
+    departures,
+    pushElsewhere,
+  ] = await Promise.all([
+    getExpensesAndSplits(house.id),
+    getBills(house.id),
+    getChores(house.id),
+    getActivity(house.id, 8),
+    getHouseCategories(house.id),
+    getAccountSettings(),
+    getNotices(house.id, 200),
+    getShoppingItems(house.id),
+    simplified ? getSettlements(house.id) : Promise.resolve([]),
+    isAdmin ? getDepartureReminders(house.id, members.map((m) => m.user_id)) : Promise.resolve([]),
+    hasPushSubscription(),
+  ]);
 
   // The user's own share spent in the current calendar month (for the budget).
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
@@ -157,6 +172,13 @@ export default async function DashboardPage() {
     bills.find((b) => b.active && (b.category === "rent" || /\brent\b/i.test(b.title))) ?? null;
   const rentPayerId = rentBill ? rentBill.paid_by : null;
 
+  // The "Don't miss a payment" pop-up's reason: the latest payment someone
+  // made this person in the last fortnight, if there is one.
+  const latestPayment = latestPaymentTo(user.id, expenses, splits, settlements, Date.now());
+  const recentPayment = latestPayment
+    ? describePayment(latestPayment, (id) => memberOf(id)?.profile?.name, house.currency, new Date())
+    : null;
+
   const choresDue = chores
     .filter((c) => c.status === "todo")
     .sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999"))
@@ -172,6 +194,16 @@ export default async function DashboardPage() {
           never hands the first card a sibling margin (the page would jump). */}
       {/* One-time "Rent's set up" pop-up straight after set-up. */}
       <RentSetupPopup />
+
+      {/* Notifications off, or the payment ones are: one reason, one tap. It
+          waits for the pop-ups above and never stacks on another sheet. */}
+      <PaymentAlertsPrompt
+        userId={user.id}
+        userCreatedAt={user.created_at}
+        offTypes={paymentTypesOff(account)}
+        recent={recentPayment}
+        pushElsewhere={pushElsewhere}
+      />
 
       {/* Someone joined and the rent split doesn't include them yet: remind
           the payer once per join. Mounted even while solo so the device

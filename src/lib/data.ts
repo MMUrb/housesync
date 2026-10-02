@@ -52,6 +52,18 @@ export const getAccountSettings = cache(async (): Promise<AccountSettings | null
   return (data as AccountSettings | null) ?? null;
 });
 
+/** Whether push reaches the current user on any device (an app install or a browser). */
+export async function hasPushSubscription(): Promise<boolean> {
+  const user = await getUser();
+  if (!user) return false;
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("push_subscriptions")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+  return (count ?? 0) > 0;
+}
+
 /** All houses the current user is a member of, oldest first. */
 export const getMyHouses = cache(async (): Promise<House[]> => {
   const user = await getUser();
