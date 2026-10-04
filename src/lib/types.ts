@@ -24,7 +24,7 @@ export type MemberRole = "admin" | "member";
 export interface Profile {
   id: string;
   name: string | null;
-  /** Only the server's admin client can read this (migration 0048). */
+  /** Only the server's admin client can read this (migration 0049). */
   email?: string | null;
   avatar_color: string;
   avatar_url: string | null;

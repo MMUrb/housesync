@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getPlatform } from "@/components/push/pushClient";
+import { shareOut } from "@/lib/share";
 
 // The "Support HouseSync" trio as a 3-up tile band: one row of friendly
 // actions instead of three stacked cards. Same behaviour as the old
@@ -65,24 +66,18 @@ export function SupportTiles() {
     getPlatform().then((p) => setRateUrl(p === "ios" ? IOS_URL : PLAY_URL));
   }, []);
 
+  // The phone's own share sheet in the apps and phone browsers, HouseSync's
+  // sheet on computers (lib/share.ts). Copying is only the last resort.
   async function share() {
-    const nav = navigator as Navigator & {
-      share?: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
-    };
-    if (nav.share) {
-      try {
-        await nav.share({ title: "HouseSync", text: SHARE_TEXT, url: SHARE_URL });
-      } catch {
-        /* user cancelled the share sheet — nothing to do */
-      }
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(SHARE_URL);
+    const how = await shareOut({
+      dialogTitle: "Share HouseSync",
+      title: "HouseSync",
+      text: SHARE_TEXT,
+      url: SHARE_URL,
+    });
+    if (how === "copied") {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard blocked — ignore */
     }
   }
 

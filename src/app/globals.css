@@ -367,7 +367,16 @@
 .hs-tick path { stroke-dasharray: 26; stroke-dashoffset: 26; animation: hs-draw 0.4s 0.12s ease-out forwards; }
 .hs-toast-in { animation: hs-toast-in 0.32s cubic-bezier(0.2, 1, 0.3, 1) both; }
 .hs-bar { transform-origin: bottom; animation: hs-grow 0.45s ease-out both; }
+/* Bottom sheets (the tour, the share sheet) rise from the bottom edge on
+   phone-width screens; on wider screens they sit centred and just appear. */
+@keyframes hs-sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: none; }
+}
+@media (max-width: 639.98px) {
+  .hs-sheet-up { animation: hs-sheet-up 0.32s cubic-bezier(0.2, 1, 0.3, 1) both; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .hs-tick, .hs-tick path, .hs-toast-in, .hs-bar { animation: none; }
+  .hs-tick, .hs-tick path, .hs-toast-in, .hs-bar, .hs-sheet-up { animation: none; }
   .btn:active { transform: none; }
 }

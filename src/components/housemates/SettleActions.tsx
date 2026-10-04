@@ -1,12 +1,12 @@
 "use client";
 
+import { remindHousemate, remindToast } from "@/lib/remind";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { showToast } from "@/components/app/Toast";
 import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { formatMoney } from "@/lib/format";
-import { buildReminderMessage } from "@/lib/reminders";
 import { lockScroll, onHardwareBack } from "@/lib/launchPrompts";
 import { Avatar } from "@/components/Avatar";
 import { haptic } from "@/lib/haptics";
@@ -173,7 +173,8 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState<"" | "pay" | "confirm" | "undo" | "reject">("");
-  const [copied, setCopied] = useState(false);
+  const [reminding, setReminding] = useState(false);
+  const [reminded, setReminded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function markPaid() {
@@ -339,22 +340,29 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
     }
   }
 
-  async function copyReminder() {
-    const msg = buildReminderMessage(item.name, item.owed, currency);
-    try {
-      if (navigator.share) {
-        await navigator.share({ text: msg });
-      } else {
-        await navigator.clipboard.writeText(msg);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
-    } catch {
-      /* cancelled */
-    }
+  // A HouseSync notification to them, nothing to pass on (lib/remind.ts).
+  async function remind() {
+    if (reminding || reminded) return;
+    setReminding(true);
+    void haptic("light");
+    const result = await remindHousemate(houseId, item.userId);
+    setReminding(false);
+    if (result === "sent") setReminded(true);
+    if (result === "nothing_owed") router.refresh();
+    showToast({ message: remindToast(result, item.name) });
   }
 
-  return { loading, copied, error, markPaid, confirmReceived, undoPaid, rejectClaim, copyReminder };
+  return {
+    loading,
+    reminding,
+    reminded,
+    error,
+    markPaid,
+    confirmReceived,
+    undoPaid,
+    rejectClaim,
+    remind,
+  };
 }
 
 /**
@@ -363,7 +371,7 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
  * Everything else lives in the sheet the row opens.
  */
 function SettleRow({ item, houseId, currentUserId, currency, onOpen }: RowProps & { onOpen: () => void }) {
-  const { loading, copied, error, confirmReceived, undoPaid, copyReminder } = useSettle(
+  const { loading, reminding, reminded, error, confirmReceived, undoPaid, remind } = useSettle(
     item,
     houseId,
     currentUserId,
@@ -509,11 +517,12 @@ function SettleRow({ item, houseId, currentUserId, currency, onOpen }: RowProps 
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              void copyReminder();
+              void remind();
             }}
+            disabled={reminding || reminded}
             className="btn-secondary shrink-0 px-4 py-2"
           >
-            {copied ? "Copied!" : "Remind"}
+            {reminding ? "Sending…" : reminded ? "Reminded" : "Remind"}
           </button>
         )}
       </div>
@@ -535,7 +544,7 @@ function PersonSheet({
 }: RowProps & { onClose: () => void }) {
   const router = useRouter();
   const supabase = createClient();
-  const { loading, copied, error, confirmReceived, undoPaid, rejectClaim, copyReminder } =
+  const { loading, reminding, reminded, error, confirmReceived, undoPaid, rejectClaim, remind } =
     useSettle(item, houseId, currentUserId, currency);
   const [amount, setAmount] = useState(item.owe > 0 ? item.owe.toFixed(2) : "");
   const [payBusy, setPayBusy] = useState(false);
@@ -779,8 +788,13 @@ function PersonSheet({
           </p>
         )}
         {item.owed > 0 && (
-          <button type="button" onClick={() => void copyReminder()} className="btn-secondary btn-block mt-4">
-            {copied ? "Copied!" : "Copy a polite reminder"}
+          <button
+            type="button"
+            onClick={() => void remind()}
+            disabled={reminding || reminded}
+            className="btn-secondary btn-block mt-4"
+          >
+            {reminding ? "Sending…" : reminded ? "Reminder sent" : "Send a reminder"}
           </button>
         )}
 
@@ -792,7 +806,7 @@ function PersonSheet({
 
 /** Original compact layout, kept for instant revert via FEATURES.smoothSettle. */
 function SettleRowClassic({ item, houseId, currentUserId, currency }: RowProps) {
-  const { loading, copied, error, markPaid, confirmReceived, undoPaid, rejectClaim, copyReminder } =
+  const { loading, reminding, reminded, error, markPaid, confirmReceived, undoPaid, rejectClaim, remind } =
     useSettle(item, houseId, currentUserId, currency);
 
   return (
@@ -859,8 +873,12 @@ function SettleRowClassic({ item, houseId, currentUserId, currency }: RowProps) 
           </>
         )}
         {item.owed > 0 && (
-          <button onClick={copyReminder} className="btn-secondary px-3 py-1.5 text-xs">
-            {copied ? "Copied!" : "Send a reminder"}
+          <button
+            onClick={() => void remind()}
+            disabled={reminding || reminded}
+            className="btn-secondary px-3 py-1.5 text-xs"
+          >
+            {reminding ? "Sending…" : reminded ? "Reminder sent" : "Send a reminder"}
           </button>
         )}
       </div>

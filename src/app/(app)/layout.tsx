@@ -16,6 +16,7 @@ import { NativeShell } from "@/components/app/NativeShell";
 import { UpdatePrompt } from "@/components/app/UpdatePrompt";
 import { ConfirmHost } from "@/components/app/ConfirmSheet";
 import { ToastHost } from "@/components/app/Toast";
+import { ShareSheetHost } from "@/components/app/ShareSheet";
 import { OfflineBanner } from "@/components/app/OfflineBanner";
 import { PullToRefresh } from "@/components/app/PullToRefresh";
 import { HouseRealtime } from "@/components/app/HouseRealtime";
@@ -56,6 +57,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <UpdatePrompt />
         <ConfirmHost />
         <ToastHost />
+        <ShareSheetHost />
         <PullToRefresh />
         {children}
       </main>

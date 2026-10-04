@@ -33,7 +33,7 @@ export const getUser = cache(async () => {
 });
 
 /**
- * The profile columns signed-in users may read. From migration 0048 the email
+ * The profile columns signed-in users may read. From migration 0049 the email
  * column is readable by the server's admin client only (housemates could
  * otherwise read each other's), so profile reads name their columns: a
  * select("*") would be refused outright. A new profiles column needs adding

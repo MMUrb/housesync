@@ -1,12 +1,12 @@
 "use client";
 
+import { remindHousemate, remindToast } from "@/lib/remind";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { showToast } from "@/components/app/Toast";
 import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { formatMoney } from "@/lib/format";
-import { buildReminderMessage } from "@/lib/reminders";
 import { Avatar } from "@/components/Avatar";
 import { haptic } from "@/lib/haptics";
 import { PayLinks, type SettleVM } from "@/components/housemates/SettleActions";
@@ -72,7 +72,8 @@ export function SimplifySettle(vm: SimplifyVM) {
   const [showRaw, setShowRaw] = useState(false);
   const [partFor, setPartFor] = useState<string | null>(null);
   const [partAmount, setPartAmount] = useState("");
-  const [copied, setCopied] = useState<string | null>(null);
+  const [reminding, setReminding] = useState<string | null>(null);
+  const [reminded, setReminded] = useState<string[]>([]);
   const healed = useRef(false);
   // Idempotency key for the in-flight payment: a retry after a timed-out
   // request reuses the same id, so a payment that actually landed can never
@@ -279,19 +280,16 @@ export function SimplifySettle(vm: SimplifyVM) {
     }
   }
 
-  async function copyReminder(fromId: string, name: string, amount: number): Promise<void> {
-    const msg = buildReminderMessage(name, amount, currency);
-    try {
-      if (navigator.share) {
-        await navigator.share({ text: msg });
-      } else {
-        await navigator.clipboard.writeText(msg);
-        setCopied(fromId);
-        setTimeout(() => setCopied(null), 2000);
-      }
-    } catch {
-      /* cancelled */
-    }
+  // A HouseSync notification to them, nothing to pass on (lib/remind.ts).
+  async function remind(fromId: string, name: string): Promise<void> {
+    if (reminding || reminded.includes(fromId)) return;
+    setReminding(fromId);
+    void haptic("light");
+    const result = await remindHousemate(vm.houseId, fromId);
+    setReminding(null);
+    if (result === "sent") setReminded((r) => [...r, fromId]);
+    if (result === "nothing_owed") router.refresh();
+    showToast({ message: remindToast(result, name) });
   }
 
   const busy = loading !== "";
@@ -486,10 +484,15 @@ export function SimplifySettle(vm: SimplifyVM) {
                     {formatMoney(t.amount, currency)}
                   </p>
                   <button
-                    onClick={() => copyReminder(t.fromId, t.name, t.amount)}
+                    onClick={() => void remind(t.fromId, t.name)}
+                    disabled={reminding === t.fromId || reminded.includes(t.fromId)}
                     className="btn-ghost shrink-0 px-3 py-1.5 text-xs"
                   >
-                    {copied === t.fromId ? "Copied!" : "Remind"}
+                    {reminding === t.fromId
+                      ? "Sending…"
+                      : reminded.includes(t.fromId)
+                        ? "Reminded"
+                        : "Remind"}
                   </button>
                 </li>
               ))}

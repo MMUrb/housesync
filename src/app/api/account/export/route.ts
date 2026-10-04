@@ -20,9 +20,10 @@ export async function GET() {
   const grab = async (
     table: string,
     column: string,
+    columns = "*",
   ): Promise<Row[]> => {
     try {
-      const { data } = await supabase.from(table).select("*").eq(column, uid);
+      const { data } = await supabase.from(table).select(columns).eq(column, uid);
       return (data as Row[] | null) ?? [];
     } catch {
       return [];
@@ -54,7 +55,9 @@ export async function GET() {
     settleFrom,
     settleTo,
   ] = await Promise.all([
-    grab("profiles", "id"),
+    // Named columns: since migration 0049 a signed-in user can't select * on
+    // profiles (email is server-only; it's in account.email below).
+    grab("profiles", "id", "id, name, avatar_color, avatar_url, created_at, welcomed_at, last_active_at"),
     grab("house_members", "user_id"),
     grab("expenses", "created_by"),
     grab("expenses", "paid_by"),
