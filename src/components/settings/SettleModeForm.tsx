@@ -32,7 +32,6 @@ function friendlyError(message: string): string {
 
 export function SettleModeForm({
   houseId,
-  userId,
   isOwner,
   mode,
   planCount,
@@ -41,7 +40,6 @@ export function SettleModeForm({
   toItemisedBlocked,
 }: {
   houseId: string;
-  userId: string;
   isOwner: boolean;
   mode: SettleMode;
   planCount: number;
@@ -70,19 +68,8 @@ export function SettleModeForm({
       router.refresh();
       return;
     }
-    // Everyone's Housemates tab just changed shape, so say so in chat.
-    void supabase
-      .from("messages")
-      .insert({
-        house_id: houseId,
-        user_id: userId,
-        kind: "system",
-        body:
-          next === "simplified"
-            ? "switched the house to simplified settle up. The Housemates tab now shows the fewest payments that clear everyone."
-            : "switched the house back to itemised settle up. Every debt shows on its own again.",
-      })
-      .then(() => {});
+    // Everyone's Housemates tab just changed shape: the database says so in
+    // the chat itself (migration 0048), so the note can't be faked.
     if (next === "simplified") setShowHow(true);
     router.refresh();
   }

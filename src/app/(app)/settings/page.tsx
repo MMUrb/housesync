@@ -232,7 +232,7 @@ export default async function SettingsPage() {
           label="House settings"
           value={houseValue}
         >
-          <HouseSettingsForm bare house={house} userId={user.id} />
+          <HouseSettingsForm bare house={house} />
         </RowDisclosure>
 
         {/* Hidden until migration 0038 has run (settle_mode column exists). */}
@@ -244,7 +244,6 @@ export default async function SettingsPage() {
           >
             <SettleModeForm
               houseId={house.id}
-              userId={user.id}
               isOwner={isOwner}
               mode={house.settle_mode}
               planCount={settlePlanCount}

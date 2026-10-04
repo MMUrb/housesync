@@ -92,13 +92,11 @@ export function SimplifySettle(vm: SimplifyVM) {
     return data === true;
   }
 
+  // The chat note ("... the whole house is settled up 🎉"). Only the database
+  // may write system notes (migration 0048), and it posts this one only while
+  // the house really is settled. Best-effort, like any chat note.
   async function announceSettled(): Promise<void> {
-    await supabase.from("messages").insert({
-      house_id: vm.houseId,
-      user_id: vm.currentUserId,
-      kind: "system",
-      body: "confirmed the last payment, the whole house is settled up 🎉",
-    });
+    await supabase.rpc("announce_settled", { p_house_id: vm.houseId });
   }
 
   // Self-heal on mount: any member's device can finish an unswept square house.

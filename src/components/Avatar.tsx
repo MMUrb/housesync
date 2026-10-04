@@ -1,4 +1,5 @@
 import { initials } from "@/lib/format";
+import { safeColor } from "@/lib/color";
 
 const PRESET_AVATAR = /^\/avatars\/preset-(10|[1-9])\.svg$/;
 
@@ -41,7 +42,7 @@ export function Avatar({
   return (
     <span
       className={`inline-grid shrink-0 place-items-center rounded-full font-semibold text-white ${SIZES[size]} ${className}`}
-      style={{ backgroundColor: color }}
+      style={{ backgroundColor: safeColor(color) }}
       title={name ?? undefined}
     >
       {initials(name)}

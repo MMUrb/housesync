@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVE_HOUSE_COOKIE } from "@/lib/constants";
+import { HEX_COLOR, safeColor } from "@/lib/color";
 import type {
   AccountSettings,
   Activity,
@@ -31,12 +32,30 @@ export const getUser = cache(async () => {
   return user;
 });
 
+/**
+ * The profile columns signed-in users may read. From migration 0048 the email
+ * column is readable by the server's admin client only (housemates could
+ * otherwise read each other's), so profile reads name their columns: a
+ * select("*") would be refused outright. A new profiles column needs adding
+ * here AND granting in SQL, or it stays invisible to the app.
+ */
+const PROFILE_COLUMNS = "id, name, avatar_color, avatar_url, created_at, welcomed_at";
+
+/** Stored colours are only drawn when they're plain hex (see lib/color). */
+function cleanProfile(p: Profile): Profile {
+  return { ...p, avatar_color: safeColor(p.avatar_color) };
+}
+
 export const getProfile = cache(async (): Promise<Profile | null> => {
   const user = await getUser();
   if (!user) return null;
   const supabase = await createClient();
-  const { data } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-  return (data as Profile | null) ?? null;
+  const { data } = await supabase
+    .from("profiles")
+    .select(PROFILE_COLUMNS)
+    .eq("id", user.id)
+    .maybeSingle();
+  return data ? cleanProfile(data as Profile) : null;
 });
 
 /** Private account settings (phone + reminder opt-ins) for the current user. */
@@ -167,7 +186,7 @@ export const getHouseCategories = cache(async (houseId: string): Promise<HouseCa
     .eq("house_id", houseId)
     .eq("archived", false)
     .order("sort", { ascending: true });
-  return (data ?? []) as HouseCategory[];
+  return ((data ?? []) as HouseCategory[]).map((c) => ({ ...c, color: safeColor(c.color, "#94a3b8") }));
 });
 
 /** Members of a house, each with their profile, oldest first. */
@@ -182,8 +201,8 @@ export const getHouseMembers = cache(async (houseId: string): Promise<MemberWith
   if (!members || members.length === 0) return [];
 
   const ids = members.map((m) => m.user_id);
-  const { data: profiles } = await supabase.from("profiles").select("*").in("id", ids);
-  const byId = new Map((profiles ?? []).map((p) => [p.id, p as Profile]));
+  const { data: profiles } = await supabase.from("profiles").select(PROFILE_COLUMNS).in("id", ids);
+  const byId = new Map(((profiles ?? []) as Profile[]).map((p) => [p.id, cleanProfile(p)]));
 
   return members.map((m) => ({ ...m, profile: byId.get(m.user_id) ?? null })) as MemberWithProfile[];
 });
@@ -353,7 +372,7 @@ export async function getRemovedHousemates(houseId: string): Promise<RemovedHous
   return (data ?? []).map((r) => ({
     userId: r.user_id as string,
     name: r.name as string | null,
-    color: r.avatar_color as string | null,
+    color: typeof r.avatar_color === "string" && HEX_COLOR.test(r.avatar_color) ? r.avatar_color : null,
     avatarUrl: r.avatar_url as string | null,
     removedAt: r.departed_at as string,
     reinvitedAt: r.reinvited_at as string | null,

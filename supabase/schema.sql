@@ -7,11 +7,15 @@
 -- recreates policies each time.
 --
 -- NOTE: not every migration is folded in here. Settle up, admin transfer,
--- part payments, bill portions and the membership lockdown with 10-minute
--- invite links (0046) live only in supabase/migrations/. On a fresh database,
--- run this file and then those migrations in order. Do NOT re-run this file
--- on production: it would reset functions that later migrations changed
--- (join_house here still accepts the old permanent invite codes).
+-- part payments, bill portions, the membership lockdown with 10-minute
+-- invite links (0046) and the security audit's database fixes (0048: colour
+-- checks, notice authors, database-only system chat notes, closed avatars
+-- bucket; 0049: emails hidden from housemates) live only in
+-- supabase/migrations/. On a fresh database, run this file and then those
+-- migrations in order. Do NOT re-run this file on production: it would reset
+-- functions and policies that later migrations changed (join_house here
+-- still accepts the old permanent invite codes, and the avatars bucket and
+-- messages_insert policy below are the pre-0048 versions).
 -- ============================================================================
 
 -- Needed for gen_random_uuid() (enabled by default on Supabase, but be safe).
