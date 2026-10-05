@@ -26,6 +26,12 @@ const RULES: Rule[] = [
       "Browsers only say \"Script error.\" for code from another origin. HouseSync loads no outside scripts, so this comes from something the browser injected: usually an in-app browser (Snapchat, Instagram, TikTok) or an extension. Nothing to fix; new ones are no longer logged.",
   },
   {
+    test: /^save failed:/i,
+    what: "Someone tried to save something and it didn't go through. They saw an error on screen.",
+    cause:
+      "The message says what they were saving (e.g. \"expenses (insert)\" is a new expense) and why it failed. \"connection dropped\" means their signal went mid-save: nothing to fix, they can retry. A number like 403 or a code like 42501 means the database refused the change; anything else is worth a look as a possible bug.",
+  },
+  {
     test: /minified react error #4(18|23|25)|hydrat/i,
     what: "The page the server sent didn't match what the device drew first, so React threw it away and redrew.",
     cause:

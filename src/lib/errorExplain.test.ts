@@ -41,6 +41,18 @@ describe("explainError", () => {
     expect(e.cause).toContain("in-app browser");
   });
 
+  it("explains a failed save, even when it was the connection", () => {
+    const refused = explainError(
+      'Save failed: expenses (insert): 403 42501: new row violates row-level security policy for table "expenses"',
+      "client",
+    );
+    expect(refused.what).toContain("didn't go through");
+    // Must win over the generic connection rule, which also matches "Load failed".
+    const dropped = explainError("Save failed: chores (update): connection dropped (Load failed)", "client");
+    expect(dropped.what).toContain("didn't go through");
+    expect(dropped.cause).toContain("signal");
+  });
+
   it("recognises missing-value bugs", () => {
     const e = explainError(
       "TypeError: Cannot read properties of undefined (reading 'split')",

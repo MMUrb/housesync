@@ -9,7 +9,6 @@ import { confirmSheet } from "@/components/app/ConfirmSheet";
 import { advanceDate, todayISO } from "@/lib/recurrence";
 import { firstName } from "@/lib/format";
 import { RelativeDay, TimeAgo } from "@/components/LocalTime";
-import { reportClientError } from "@/components/ErrorReporter";
 import { Avatar } from "@/components/Avatar";
 import { IconCheck } from "@/components/icons";
 import { haptic } from "@/lib/haptics";
@@ -99,9 +98,7 @@ export function ChoreItem({
             .from("chores")
             .update({ status: "todo", completed_at: null, completed_by: null })
             .eq("id", chore.id);
-          reportClientError(`Chore next-occurrence insert failed: ${spawnErr.message}`, {
-            url: "/chores",
-          });
+          // The failed insert itself is reported centrally (lib/saveWatch).
           throw new Error("Couldn't schedule the next occurrence. Please try again.");
         }
 

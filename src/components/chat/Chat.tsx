@@ -4,7 +4,6 @@ import { Fragment, useEffect, useRef, useState, type TouchEvent as ReactTouchEve
 import { createClient } from "@/lib/supabase/client";
 import { uniqueTopic } from "@/lib/realtimeTopic";
 import { emitChatRead } from "@/lib/chatRead";
-import { reportClientError, isNetworkError } from "@/components/ErrorReporter";
 import { Avatar } from "@/components/Avatar";
 import { EmojiPicker } from "@/components/chat/EmojiPicker";
 import type { MemberWithProfile, Message } from "@/lib/types";
@@ -561,15 +560,11 @@ export function Chat({
         { user_id: currentUserId, house_id: houseId, last_read_at: lastReadAt },
         { onConflict: "user_id,house_id" },
       )
-      .then(({ error }) => {
-        // Network blips are routine here: iOS suspends the webview the moment
-        // the app is backgrounded and kills the in-flight request. The effect
-        // re-runs on the next message or reopen, so the watermark heals itself.
-        // Only genuine failures (RLS, constraint) are worth the error log.
-        if (error && !isNetworkError(error.message)) {
-          reportClientError(`Chat mark-read failed: ${error.message}`, { url: "/chat" });
-        }
-      });
+      // The .then is what sends it: Supabase queries don't run until awaited.
+      // Nothing to handle here: a database refusal is reported centrally
+      // (lib/saveWatch), and a dropped connection heals itself, since the
+      // effect re-runs on the next message or reopen.
+      .then(() => {});
     // Clear this house's badge in the switcher right away (don't wait for the
     // next server render of the layout).
     emitChatRead(houseId);

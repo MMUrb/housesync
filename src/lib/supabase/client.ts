@@ -2,10 +2,40 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/env";
+import { watchSaves } from "@/lib/saveWatch";
+import { reportClientError } from "@/components/ErrorReporter";
 
 // One shared browser client per tab (avoids duplicate auth listeners / Realtime
 // sockets; all channels share one authenticated connection).
 let client: ReturnType<typeof createBrowserClient> | undefined;
+
+// When this tab last went into the background (see saveWatch: a request that
+// spanned that moment was killed by the OS, not lost by the person).
+let lastHiddenAt = 0;
+
+/**
+ * fetch for the shared client: every save in the app passes through it, so a
+ * failed one reaches the admin Errors tab, not just the person's screen.
+ */
+function watchedFetch(): typeof fetch {
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") lastHiddenAt = Date.now();
+    });
+  }
+  return watchSaves(
+    // Called through a closure: a bare window.fetch reference invoked
+    // without its `this` throws "Illegal invocation" in Chrome.
+    (input, init) => fetch(input, init),
+    (message) => reportClientError(message),
+    {
+      isVisible: () => typeof document === "undefined" || document.visibilityState === "visible",
+      isOnline: () => typeof navigator === "undefined" || navigator.onLine !== false,
+      lastHiddenAt: () => lastHiddenAt,
+      now: () => Date.now(),
+    },
+  );
+}
 
 /**
  * Read the signed-in user's access token straight from the Supabase auth cookie,
@@ -43,7 +73,9 @@ function sessionAccessToken(): string | null {
 /** Supabase client for use in Client Components (browser). */
 export function createClient() {
   if (client) return client;
-  const supabase = createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const supabase = createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { fetch: watchedFetch() },
+  });
 
   // Make Realtime authenticate as the signed-in user.
   //
