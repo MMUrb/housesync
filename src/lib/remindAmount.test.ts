@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { owedForReminder } from "./remindAmount";
+import { owedForReminder, pendingForConfirm } from "./remindAmount";
 import type { Settlement } from "./types";
 
 const ME = "me";
@@ -60,5 +60,31 @@ describe("owedForReminder, simplified", () => {
     const e = [{ id: "e1", paid_by: SAM }];
     const splits = [split("e1", SAM, 10, "confirmed"), split("e1", ME, 10)];
     expect(owedForReminder("simplified", ME, SAM, e, splits, [])).toBe(0);
+  });
+});
+
+describe("pendingForConfirm", () => {
+  const sett = (over: Partial<Settlement>): Settlement => ({
+    id: "s", house_id: "h", from_user: ME, to_user: SAM, amount: 10, status: "pending", absorbed: false,
+    created_at: "", confirmed_at: null, ...over,
+  });
+
+  it("itemised: my shares marked paid on what they paid for", () => {
+    const splits = [split("e3", ME, 12.25, "paid"), split("e3", ME, 5, "unpaid"), split("e3", ME, 3, "confirmed")];
+    expect(pendingForConfirm("itemised", ME, SAM, expenses, splits, [])).toBe(12.25);
+  });
+
+  it("itemised: ignores other people's claims and other payees", () => {
+    const splits = [split("e3", PRIYA, 9, "paid"), split("e1", ME, 9, "paid")];
+    expect(pendingForConfirm("itemised", ME, SAM, expenses, splits, [])).toBe(0);
+  });
+
+  it("simplified: my pending payments to them, not confirmed or absorbed ones", () => {
+    const list = [sett({}), sett({ amount: 4.5 }), sett({ status: "confirmed" }), sett({ absorbed: true }), sett({ to_user: PRIYA })];
+    expect(pendingForConfirm("simplified", ME, SAM, [], [], list)).toBe(14.5);
+  });
+
+  it("is 0 for yourself", () => {
+    expect(pendingForConfirm("simplified", ME, ME, [], [], [sett({ to_user: ME })])).toBe(0);
   });
 });

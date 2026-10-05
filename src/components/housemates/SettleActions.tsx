@@ -175,6 +175,8 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
   const [loading, setLoading] = useState<"" | "pay" | "confirm" | "undo" | "reject">("");
   const [reminding, setReminding] = useState(false);
   const [reminded, setReminded] = useState(false);
+  const [nudging, setNudging] = useState(false);
+  const [nudged, setNudged] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function markPaid() {
@@ -352,16 +354,32 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
     showToast({ message: remindToast(result, item.name) });
   }
 
+  // You marked a payment to them as paid and they haven't confirmed it: a
+  // HouseSync notification asking them to (lib/remind.ts, kind "confirm").
+  async function remindToConfirm() {
+    if (nudging || nudged) return;
+    setNudging(true);
+    void haptic("light");
+    const result = await remindHousemate(houseId, item.userId, "confirm");
+    setNudging(false);
+    if (result === "sent") setNudged(true);
+    if (result === "nothing_pending") router.refresh();
+    showToast({ message: remindToast(result, item.name) });
+  }
+
   return {
     loading,
     reminding,
     reminded,
+    nudging,
+    nudged,
     error,
     markPaid,
     confirmReceived,
     undoPaid,
     rejectClaim,
     remind,
+    remindToConfirm,
   };
 }
 
@@ -371,12 +389,18 @@ function useSettle(item: SettleVM, houseId: string, currentUserId: string, curre
  * Everything else lives in the sheet the row opens.
  */
 function SettleRow({ item, houseId, currentUserId, currency, onOpen }: RowProps & { onOpen: () => void }) {
-  const { loading, reminding, reminded, error, confirmReceived, undoPaid, remind } = useSettle(
-    item,
-    houseId,
-    currentUserId,
-    currency,
-  );
+  const {
+    loading,
+    reminding,
+    reminded,
+    nudging,
+    nudged,
+    error,
+    confirmReceived,
+    undoPaid,
+    remind,
+    remindToConfirm,
+  } = useSettle(item, houseId, currentUserId, currency);
   // After a successful confirm the button becomes a drawn tick until the
   // refreshed data replaces the row (usually as a "Settled today" line).
   const [ticked, setTicked] = useState(false);
@@ -445,24 +469,36 @@ function SettleRow({ item, houseId, currentUserId, currency, onOpen }: RowProps 
           )}
 
           {item.owePending > 0 && (
-            <p className="text-xs text-amber-700">
-              ⏳ {formatMoney(item.owePending, currency)} waiting
-              {(item.pendingWaitingDays ?? 0) >= 1
-                ? ` ${item.pendingWaitingDays} day${item.pendingWaitingDays === 1 ? "" : "s"}`
-                : ""}{" "}
-              for their confirm ·{" "}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void undoPaid();
-                }}
-                disabled={loading !== ""}
-                className="font-semibold underline decoration-amber-400 underline-offset-2 disabled:opacity-50"
-              >
-                {loading === "undo" ? "…" : "Undo"}
-              </button>
-            </p>
+            <>
+              <p className="text-xs text-amber-700">
+                ⏳ {formatMoney(item.owePending, currency)} waiting
+                {(item.pendingWaitingDays ?? 0) >= 1
+                  ? ` ${item.pendingWaitingDays} day${item.pendingWaitingDays === 1 ? "" : "s"}`
+                  : ""}{" "}
+                for their confirm
+              </p>
+              <div className="mt-1.5 flex items-center gap-3">
+                <ConfirmNudge
+                  sending={nudging}
+                  sent={nudged}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void remindToConfirm();
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void undoPaid();
+                  }}
+                  disabled={loading !== ""}
+                  className="text-xs font-semibold text-amber-700 underline decoration-amber-400 underline-offset-2 disabled:opacity-50"
+                >
+                  {loading === "undo" ? "…" : "Undo"}
+                </button>
+              </div>
+            </>
           )}
           {error && <p className="mt-0.5 text-xs text-red-600">{error}</p>}
         </div>
@@ -544,7 +580,7 @@ function PersonSheet({
 }: RowProps & { onClose: () => void }) {
   const router = useRouter();
   const supabase = createClient();
-  const { loading, reminding, reminded, error, confirmReceived, undoPaid, rejectClaim, remind } =
+  const { loading, reminding, reminded, nudging, nudged, error, confirmReceived, undoPaid, rejectClaim, remind, remindToConfirm } =
     useSettle(item, houseId, currentUserId, currency);
   const [amount, setAmount] = useState(item.owe > 0 ? item.owe.toFixed(2) : "");
   const [payBusy, setPayBusy] = useState(false);
@@ -671,22 +707,25 @@ function PersonSheet({
         </div>
 
         {item.owePending > 0 && (
-          <p className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-            <span>
+          <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2.5 text-xs font-medium text-amber-700">
+            <p>
               {formatMoney(item.owePending, currency)} marked paid, waiting for {item.name} to
               confirm.
-            </span>
-            {item.undoIds.length > 0 && (
-              <button
-                type="button"
-                onClick={() => void undoPaid()}
-                disabled={loading !== ""}
-                className="shrink-0 font-semibold underline decoration-amber-400 underline-offset-2 disabled:opacity-50"
-              >
-                {loading === "undo" ? "…" : "Undo"}
-              </button>
-            )}
-          </p>
+            </p>
+            <div className="mt-2 flex items-center gap-3">
+              <ConfirmNudge sending={nudging} sent={nudged} onClick={() => void remindToConfirm()} />
+              {item.undoIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void undoPaid()}
+                  disabled={loading !== ""}
+                  className="font-semibold underline decoration-amber-400 underline-offset-2 disabled:opacity-50"
+                >
+                  {loading === "undo" ? "…" : "Undo"}
+                </button>
+              )}
+            </div>
+          </div>
         )}
 
         {shown.length > 0 && (
@@ -806,7 +845,20 @@ function PersonSheet({
 
 /** Original compact layout, kept for instant revert via FEATURES.smoothSettle. */
 function SettleRowClassic({ item, houseId, currentUserId, currency }: RowProps) {
-  const { loading, reminding, reminded, error, markPaid, confirmReceived, undoPaid, rejectClaim, remind } =
+  const {
+    loading,
+    reminding,
+    reminded,
+    nudging,
+    nudged,
+    error,
+    markPaid,
+    confirmReceived,
+    undoPaid,
+    rejectClaim,
+    remind,
+    remindToConfirm,
+  } =
     useSettle(item, houseId, currentUserId, currency);
 
   return (
@@ -844,6 +896,9 @@ function SettleRowClassic({ item, houseId, currentUserId, currency }: RowProps) 
           <button onClick={markPaid} disabled={loading !== ""} className="btn-secondary px-3 py-1.5 text-xs">
             {loading === "pay" ? "…" : "Mark as paid"}
           </button>
+        )}
+        {item.owePending > 0 && (
+          <ConfirmNudge sending={nudging} sent={nudged} onClick={() => void remindToConfirm()} />
         )}
         {item.owePending > 0 && item.undoIds.length > 0 && (
           <button
@@ -885,6 +940,41 @@ function SettleRowClassic({ item, houseId, currentUserId, currency }: RowProps) 
 
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
     </li>
+  );
+}
+
+/** The little bell button on a payment waiting for their confirm: asks them to confirm it. */
+function ConfirmNudge({
+  sending,
+  sent,
+  onClick,
+}: {
+  sending: boolean;
+  sent: boolean;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={sending || sent}
+      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 transition hover:border-amber-400 disabled:opacity-60 dark:border-amber-400/40"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className="h-3.5 w-3.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8" />
+        <path d="M13.7 20a2 2 0 0 1-3.4 0" />
+      </svg>
+      {sending ? "Sending…" : sent ? "Reminded" : "Remind"}
+    </button>
   );
 }
 

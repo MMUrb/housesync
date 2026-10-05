@@ -31,3 +31,36 @@ export function owedForReminder(
   }
   return Math.round(owed * 100) / 100;
 }
+
+/**
+ * What `payer` has marked as paid to `payee` that `payee` hasn't confirmed
+ * yet, for the "remind them to confirm" notification:
+ * - itemised: the payer's shares marked paid on expenses the payee paid for;
+ * - simplified: the payer's pending settle-up payments to the payee.
+ */
+export function pendingForConfirm(
+  mode: "itemised" | "simplified",
+  payer: string,
+  payee: string,
+  expenses: Pick<Expense, "id" | "paid_by">[],
+  splits: Pick<ExpenseSplit, "expense_id" | "user_id" | "amount_owed" | "status">[],
+  settlements: Pick<Settlement, "from_user" | "to_user" | "amount" | "status" | "absorbed">[],
+): number {
+  if (payer === payee) return 0;
+  let total = 0;
+  if (mode === "simplified") {
+    for (const p of settlements) {
+      if (p.from_user === payer && p.to_user === payee && p.status === "pending" && !p.absorbed) {
+        total += Number(p.amount);
+      }
+    }
+  } else {
+    const payerOf = new Map(expenses.map((e) => [e.id, e.paid_by]));
+    for (const s of splits) {
+      if (s.status !== "paid" || s.user_id !== payer) continue;
+      if (payerOf.get(s.expense_id) !== payee) continue;
+      total += Number(s.amount_owed);
+    }
+  }
+  return Math.round(total * 100) / 100;
+}

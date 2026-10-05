@@ -225,6 +225,7 @@ export default async function HousematesPage() {
           .filter((s) => s.from_user === me)
           .map((s) => ({
             id: s.id,
+            toId: s.to_user,
             name: profileOf(s.to_user)?.name ?? "Housemate",
             amount: Number(s.amount),
           })),

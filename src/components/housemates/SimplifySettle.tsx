@@ -40,7 +40,7 @@ export interface SimplifyVM {
   /** Plan transfers coming my way (what others still owe me). */
   myIn: { fromId: string; name: string; color: string; amount: number }[];
   /** My pending settlements awaiting the recipient's confirm (undoable). */
-  pendingOut: { id: string; name: string; amount: number }[];
+  pendingOut: { id: string; toId: string; name: string; amount: number }[];
   /** Pending settlements to me awaiting MY confirm. */
   pendingIn: { id: string; name: string; amount: number }[];
   /** Raw per-person debts (the itemised view), for the disclosure. */
@@ -74,6 +74,8 @@ export function SimplifySettle(vm: SimplifyVM) {
   const [partAmount, setPartAmount] = useState("");
   const [reminding, setReminding] = useState<string | null>(null);
   const [reminded, setReminded] = useState<string[]>([]);
+  const [nudging, setNudging] = useState<string | null>(null);
+  const [nudged, setNudged] = useState<string[]>([]);
   const healed = useRef(false);
   // Idempotency key for the in-flight payment: a retry after a timed-out
   // request reuses the same id, so a payment that actually landed can never
@@ -292,6 +294,19 @@ export function SimplifySettle(vm: SimplifyVM) {
     showToast({ message: remindToast(result, name) });
   }
 
+  // Your payment to them is waiting on their confirm: a HouseSync
+  // notification asking them to (lib/remind.ts, kind "confirm").
+  async function remindToConfirm(toId: string, name: string): Promise<void> {
+    if (nudging || nudged.includes(toId)) return;
+    setNudging(toId);
+    void haptic("light");
+    const result = await remindHousemate(vm.houseId, toId, "confirm");
+    setNudging(null);
+    if (result === "sent") setNudged((r) => [...r, toId]);
+    if (result === "nothing_pending") router.refresh();
+    showToast({ message: remindToast(result, name) });
+  }
+
   const busy = loading !== "";
   const nothingForMe =
     vm.myOut.length === 0 && vm.myIn.length === 0 && vm.pendingOut.length === 0 && vm.pendingIn.length === 0;
@@ -423,13 +438,36 @@ export function SimplifySettle(vm: SimplifyVM) {
                     {formatMoney(p.amount, currency)} on its way to {p.name}, waiting for them to
                     confirm.
                   </span>
-                  <button
-                    onClick={() => undo(p.id, p.name, p.amount)}
-                    disabled={busy}
-                    className="shrink-0 font-bold underline underline-offset-2 disabled:opacity-50"
-                  >
-                    {loading === `undo:${p.id}` ? "…" : "Undo"}
-                  </button>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => void remindToConfirm(p.toId, p.name)}
+                      disabled={nudging === p.toId || nudged.includes(p.toId)}
+                      className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 font-semibold text-white ring-1 ring-white/30 transition hover:bg-white/25 disabled:opacity-60"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-3.5 w-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8" />
+                        <path d="M13.7 20a2 2 0 0 1-3.4 0" />
+                      </svg>
+                      {nudging === p.toId ? "Sending…" : nudged.includes(p.toId) ? "Reminded" : "Remind"}
+                    </button>
+                    <button
+                      onClick={() => undo(p.id, p.name, p.amount)}
+                      disabled={busy}
+                      className="font-bold underline underline-offset-2 disabled:opacity-50"
+                    >
+                      {loading === `undo:${p.id}` ? "…" : "Undo"}
+                    </button>
+                  </div>
                 </div>
               ))}
 

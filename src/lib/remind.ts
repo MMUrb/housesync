@@ -3,19 +3,34 @@ import { firstName } from "@/lib/format";
 // The Remind button, on every device: a HouseSync notification to the
 // housemate (api/push/remind), not a message to pass on.
 
-export type RemindResult = "sent" | "nothing_owed" | "notifications_off" | "too_soon" | "error";
+export type RemindResult =
+  | "sent"
+  | "nothing_owed"
+  | "nothing_pending"
+  | "notifications_off"
+  | "too_soon"
+  | "error";
 
-export async function remindHousemate(houseId: string, toUserId: string): Promise<RemindResult> {
+/** "owed": they owe you. "confirm": your payment to them is waiting on their confirm. */
+export type RemindKind = "owed" | "confirm";
+
+export async function remindHousemate(
+  houseId: string,
+  toUserId: string,
+  kind: RemindKind = "owed",
+): Promise<RemindResult> {
   try {
     const res = await fetch("/api/push/remind", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ houseId, toUserId }),
+      body: JSON.stringify({ houseId, toUserId, kind }),
     });
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; reason?: string };
     if (res.ok && data.ok) return "sent";
     const r = data.reason;
-    return r === "nothing_owed" || r === "notifications_off" || r === "too_soon" ? r : "error";
+    return r === "nothing_owed" || r === "nothing_pending" || r === "notifications_off" || r === "too_soon"
+      ? r
+      : "error";
   } catch {
     return "error";
   }
@@ -33,6 +48,8 @@ export function remindToast(result: RemindResult, name: string): string {
       return `Not sent: ${who} has notifications off`;
     case "nothing_owed":
       return `${who} doesn't owe you anything right now`;
+    case "nothing_pending":
+      return `Nothing's waiting on ${who} any more`;
     default:
       return "Couldn't send that. Try again.";
   }
