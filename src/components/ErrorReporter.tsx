@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { isOpaqueScriptError } from "@/lib/errorNoise";
 
 // Lightweight client error capture. Dedupes by message and caps per session so
 // a loop can't flood the log, then posts to /api/log-error. Also exported as a
@@ -82,6 +83,9 @@ export function ErrorReporter() {
   useEffect(() => {
     const onError = (e: ErrorEvent) => {
       if (!e?.message) return;
+      // Another origin's code (an in-app browser's injected scripts, an
+      // extension): the browser hides every detail, so there's nothing to act on.
+      if (isOpaqueScriptError(e.message, e.error?.stack)) return;
       if (isChunkError(e.message, e.error?.name) && healStaleDeploy()) return;
       if (isNetworkError(e.message)) return; // connectivity noise, not a bug
       reportClientError(e.message, {

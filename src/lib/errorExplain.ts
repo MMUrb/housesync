@@ -20,6 +20,12 @@ const RULES: Rule[] = [
       "That store's numbers and reviews on Acquisition stop updating until it works again. The message names the store and its reason; once fixed, Sync now on Acquisition catches up every missed day.",
   },
   {
+    test: /^script error\.?$/i,
+    what: "Code that isn't HouseSync's failed, and the browser hid the details on purpose.",
+    cause:
+      "Browsers only say \"Script error.\" for code from another origin. HouseSync loads no outside scripts, so this comes from something the browser injected: usually an in-app browser (Snapchat, Instagram, TikTok) or an extension. Nothing to fix; new ones are no longer logged.",
+  },
+  {
     test: /minified react error #4(18|23|25)|hydrat/i,
     what: "The page the server sent didn't match what the device drew first, so React threw it away and redrew.",
     cause:

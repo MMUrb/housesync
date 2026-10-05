@@ -35,6 +35,12 @@ describe("explainError", () => {
     expect(e.what).toContain("couldn't get data");
   });
 
+  it("explains the opaque Script error from in-app browsers", () => {
+    const e = explainError("Script error.", "client");
+    expect(e.what).toContain("isn't HouseSync's");
+    expect(e.cause).toContain("in-app browser");
+  });
+
   it("recognises missing-value bugs", () => {
     const e = explainError(
       "TypeError: Cannot read properties of undefined (reading 'split')",

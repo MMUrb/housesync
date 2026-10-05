@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { logError } from "@/lib/errorLog";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { isOpaqueScriptError } from "@/lib/errorNoise";
+import { stampBuild } from "@/lib/buildStamp";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,20 +18,25 @@ export async function POST(request: Request) {
     const b = await request.json();
     const message = typeof b?.message === "string" ? b.message.trim() : "";
     if (!message) return NextResponse.json({ ok: false }, { status: 400 });
+    const stack = typeof b?.stack === "string" ? b.stack : null;
+    // Also dropped here, not just in the browser, so devices still running
+    // an older bundle stop filling the log the moment this deploys.
+    if (isOpaqueScriptError(message, stack)) return NextResponse.json({ ok: true });
     await logError({
       source: "client",
       message,
-      stack: typeof b?.stack === "string" ? b.stack : null,
+      stack,
       url: typeof b?.url === "string" ? b.url : null,
       userAgent: request.headers.get("user-agent"),
       // The digest column doubles as the app-build stamp for client errors
-      // (they never set a digest of their own): "build:<sha>" says which
-      // deploy the reporting device was actually running.
+      // (they never set a digest of their own): the deploy the device ran,
+      // and the deploy that received the report, so the Errors tab can tell
+      // a stale cached copy from the code that was live at the time.
       digest:
         typeof b?.digest === "string"
           ? b.digest
           : typeof b?.build === "string" && b.build
-            ? `build:${b.build.slice(0, 12)}`
+            ? stampBuild(b.build, process.env.NEXT_PUBLIC_BUILD || "dev")
             : null,
     });
   } catch {

@@ -5,6 +5,7 @@ import { AdminShell, Section, Grid, StatCard } from "@/components/admin/AdminUI"
 import { ResolveAllButton } from "@/components/admin/ErrorActions";
 import { ErrorsTable, type ErrorRowView } from "@/components/admin/ErrorsTable";
 import { explainError } from "@/lib/errorExplain";
+import { describeBuild } from "@/lib/buildStamp";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Errors", robots: { index: false, follow: false } };
@@ -65,11 +66,10 @@ export default async function ErrorsAdminPage() {
   const liveBuild = process.env.NEXT_PUBLIC_BUILD || "dev";
   const rowViews: ErrorRowView[] = rows.map((r) => {
     const explanation = explainError(r.message, r.source);
-    // Client reports stamp the deploy they were running into the digest slot
-    // ("build:<sha>"). Shown against the live build, that one line separates
-    // "bug in the current code" from "phone still on last week's build".
-    const build = r.digest?.startsWith("build:") ? r.digest.slice(6) : null;
-    const sameBuild = build ? build.startsWith(liveBuild) || liveBuild === "dev" : false;
+    // Client reports stamp the deploy the device ran (and, since 05/10/2026,
+    // the deploy that received it) into the digest slot. That one line
+    // separates "bug in the code that was live" from "phone on an old copy".
+    const buildLabel = describeBuild(r.digest, liveBuild);
     return {
       id: r.id,
       whenLabel: fmt(r.created_at),
@@ -81,12 +81,8 @@ export default async function ErrorsAdminPage() {
       user_id: r.user_id,
       user_agent: r.user_agent,
       stack: r.stack,
-      digest: build ? null : r.digest,
-      buildLabel: build
-        ? sameBuild
-          ? `${build} · the live build`
-          : `${build} · OLDER than live (${liveBuild})`
-        : null,
+      digest: buildLabel ? null : r.digest,
+      buildLabel,
       resolved: r.resolved_at != null,
       resolvedLabel: r.resolved_at ? fmt(r.resolved_at) : null,
     };
