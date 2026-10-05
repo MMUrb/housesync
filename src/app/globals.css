@@ -132,6 +132,15 @@
 .native-app .app-shell {
   padding-bottom: calc(3.75rem + env(safe-area-inset-bottom));
 }
+/* Toasts float just above the bottom bar instead of over it, at the same lift
+   as the SoloInvite callout. With the keyboard up the bar is hidden (below),
+   so they drop back to the bottom edge. */
+.native-app [data-toast-host] {
+  bottom: calc(4.25rem + env(safe-area-inset-bottom));
+}
+.native-app.kb-open [data-toast-host] {
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+}
 /* The quick-add menu opens upward from the bottom bar instead of downward. */
 .native-app [data-quickadd] {
   top: auto;

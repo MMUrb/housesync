@@ -61,6 +61,7 @@ export function ToastHost() {
 
   return (
     <div
+      data-toast-host
       className="pointer-events-none fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[95] flex justify-center"
       role="status"
       aria-live="polite"
