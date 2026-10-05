@@ -1,6 +1,7 @@
 import "server-only";
 import { createSign, sign as cryptoSign, createHash } from "crypto";
 import { describeAppleError } from "./storeErrors";
+import { runPool } from "./pool";
 import { gunzipSync } from "zlib";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseCsv } from "@/lib/csv";
@@ -189,6 +190,8 @@ export async function fetchAscDay(day: string): Promise<DailyRow | null> {
   });
   const res = await fetch(`https://api.appstoreconnect.apple.com/v1/salesReports?${qs}`, {
     headers: { authorization: `Bearer ${ascToken(cfg)}`, accept: "application/a-gzip" },
+    // One stuck report must not hold the whole run until Vercel kills it.
+    signal: AbortSignal.timeout(15_000),
   });
   if (res.status === 404) return null; // not published yet, or a zero-activity day
   if (!res.ok) throw new Error(describeAppleError(res.status, await res.text()));
@@ -339,6 +342,12 @@ export const LAUNCH_DAY = "2026-07-25";
 
 const dayString = (msAgo: number) => new Date(Date.now() - msAgo).toISOString().slice(0, 10);
 
+// iOS reports in flight at once (five measured fine against Apple, 9.7s for
+// 72 days), and how long into a run new ones may still start: the routes'
+// maxDuration is 60s, and saving plus the reviews sync must fit after.
+const ASC_CONCURRENCY = 5;
+const IOS_START_BUDGET_MS = 40_000;
+
 export type SyncResult = {
   since: string;
   android:
@@ -372,6 +381,7 @@ async function upsertReviews(admin: SupabaseClient, rows: ReviewRow[]): Promise<
  * admin "Sync now" button; each store fails independently.
  */
 export async function runStoreSync(admin: SupabaseClient, daysWanted: number): Promise<SyncResult> {
+  const startedAt = Date.now();
   const days = Math.min(Math.max(Number.isFinite(daysWanted) ? daysWanted : 5, 1), 400);
   let since = dayString(days * 86_400_000);
   if (since < LAUNCH_DAY) since = LAUNCH_DAY;
@@ -413,32 +423,44 @@ export async function runStoreSync(admin: SupabaseClient, daysWanted: number): P
   // fine, the next run picks it up.
   if (ascConfig()) {
     const ios: Extract<SyncResult["ios"], { configured: true }> = { configured: true };
-    let upserted = 0;
-    let missing = 0;
-    try {
-      for (let i = 1; i <= days; i++) {
-        const day = dayString(i * 86_400_000);
-        if (day < LAUNCH_DAY) break;
-        const row = await fetchAscDay(day);
-        if (!row) {
-          missing++;
-          continue;
-        }
-        const { error } = await admin
-          .from("store_daily")
-          .upsert(
-            { ...row, platform: "ios", synced_at: new Date().toISOString() },
-            { onConflict: "day,platform" },
-          );
-        if (error) throw new Error(error.message);
-        upserted++;
-      }
-      ios.upserted = upserted;
-      ios.notPublishedYet = missing;
-    } catch (e) {
-      ios.upserted = upserted;
-      ios.error = e instanceof Error ? e.message : String(e);
+    const dayList: string[] = [];
+    for (let i = 1; i <= days; i++) {
+      const day = dayString(i * 86_400_000);
+      if (day < LAUNCH_DAY) break;
+      dayList.push(day);
     }
+    // Apple builds each daily report on request, ~0.6s apiece (measured
+    // 05/10/2026), so one at a time the full history took 50s of the
+    // function's 60 and grew by a day every day. Five at a time it took 10s.
+    // Newest first; the first error stops the rest (a refusal like an expired
+    // agreement fails every day identically), and nothing new starts past the
+    // budget, so there is always time to save what came back.
+    const run = await runPool(dayList, ASC_CONCURRENCY, fetchAscDay, {
+      deadline: startedAt + IOS_START_BUDGET_MS,
+    });
+    const rows = run.results.filter((r): r is DailyRow => r != null);
+    // null = Apple has no report for that day: not published yet, or no activity.
+    ios.notPublishedYet = run.results.filter((r) => r === null).length;
+    ios.upserted = 0;
+    let problem: string | null =
+      run.error === undefined
+        ? null
+        : run.error instanceof Error
+          ? run.error.message
+          : String(run.error);
+    if (rows.length) {
+      const now = new Date().toISOString();
+      const { error } = await admin.from("store_daily").upsert(
+        rows.map((r) => ({ ...r, platform: "ios", synced_at: now })),
+        { onConflict: "day,platform" },
+      );
+      if (error) problem = problem ?? error.message;
+      else ios.upserted = rows.length;
+    }
+    if (!problem && run.outOfTime) {
+      problem = `Time limit: synced the newest ${run.started} of ${dayList.length} days`;
+    }
+    if (problem) ios.error = problem;
     // Reviews fail independently of the daily numbers.
     try {
       const reviews = await fetchAscReviews();
