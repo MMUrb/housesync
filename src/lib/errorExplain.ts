@@ -8,6 +8,18 @@ type Rule = ErrorExplanation & { test: RegExp };
 
 const RULES: Rule[] = [
   {
+    test: /required.agreements|updated agreement/i,
+    what: "Apple is refusing the App Store data sync until an updated agreement is accepted.",
+    cause:
+      "Apple changed one of its developer agreements. Sign in as the Account Holder at developer.apple.com/account and accept it (App Store Connect > Business shows agreement status too). Nothing in the code is broken; the next sync catches the missed days up. Until it's accepted, Apple also blocks new build uploads.",
+  },
+  {
+    test: /^store sync:/i,
+    what: "The nightly download and review sync couldn't get data from one of the stores.",
+    cause:
+      "That store's numbers and reviews on Acquisition stop updating until it works again. The message names the store and its reason; once fixed, Sync now on Acquisition catches up every missed day.",
+  },
+  {
     test: /minified react error #4(18|23|25)|hydrat/i,
     what: "The page the server sent didn't match what the device drew first, so React threw it away and redrew.",
     cause:

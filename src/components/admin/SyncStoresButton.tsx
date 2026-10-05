@@ -13,7 +13,12 @@ type StoreOutcome = {
 
 function label(name: string, o?: StoreOutcome): string {
   if (!o || !o.configured) return `${name}: not configured`;
-  if (o.error) return `${name}: failed (${o.error.slice(0, 80)}…)`;
+  if (o.error) {
+    // Errors arrive already summarised (storeErrors), so show the whole
+    // reason; cutting at 80 used to hide Apple's actual code.
+    const why = o.error.length > 160 ? `${o.error.slice(0, 157)}…` : o.error;
+    return `${name}: failed (${why})`;
+  }
   const days = `${o.upserted ?? 0} day${(o.upserted ?? 0) === 1 ? "" : "s"}`;
   const reviews =
     typeof o.reviews === "number"

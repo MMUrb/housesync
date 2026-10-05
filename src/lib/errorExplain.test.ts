@@ -21,6 +21,20 @@ describe("explainError", () => {
     expect(e.what).toContain("database refused");
   });
 
+  it("explains a store sync stopped by an unaccepted Apple agreement", () => {
+    const e = explainError(
+      "Store sync: iOS: Apple needs the Account Holder to accept an updated agreement at developer.apple.com/account",
+      "server",
+    );
+    expect(e.what).toContain("updated agreement");
+    expect(e.cause).toContain("developer.apple.com/account");
+  });
+
+  it("explains any other store sync failure", () => {
+    const e = explainError("Store sync: Android: Play CSV 202610: 403 Forbidden", "server");
+    expect(e.what).toContain("couldn't get data");
+  });
+
   it("recognises missing-value bugs", () => {
     const e = explainError(
       "TypeError: Cannot read properties of undefined (reading 'split')",

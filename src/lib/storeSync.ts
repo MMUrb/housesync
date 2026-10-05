@@ -1,5 +1,6 @@
 import "server-only";
 import { createSign, sign as cryptoSign, createHash } from "crypto";
+import { describeAppleError } from "./storeErrors";
 import { gunzipSync } from "zlib";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseCsv } from "@/lib/csv";
@@ -190,7 +191,7 @@ export async function fetchAscDay(day: string): Promise<DailyRow | null> {
     headers: { authorization: `Bearer ${ascToken(cfg)}`, accept: "application/a-gzip" },
   });
   if (res.status === 404) return null; // not published yet, or a zero-activity day
-  if (!res.ok) throw new Error(`ASC ${day}: ${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(describeAppleError(res.status, await res.text()));
 
   const tsv = gunzipSync(Buffer.from(await res.arrayBuffer())).toString("utf8");
   const lines = tsv.split(/\r?\n/).filter((l) => l.trim());
@@ -245,7 +246,7 @@ export async function fetchAscReviews(cap = 400): Promise<ReviewRow[]> {
     `https://api.appstoreconnect.apple.com/v1/apps/${ASC_APP_ID}/customerReviews?limit=200&sort=-createdDate`;
   while (url && out.length < cap) {
     const res = await fetch(url, { headers: { authorization: `Bearer ${ascToken(cfg)}` } });
-    if (!res.ok) throw new Error(`ASC reviews: ${res.status} ${await res.text()}`);
+    if (!res.ok) throw new Error(`Reviews: ${describeAppleError(res.status, await res.text())}`);
     const j = (await res.json()) as {
       data?: { id: string; attributes?: Record<string, unknown> }[];
       links?: { next?: string };

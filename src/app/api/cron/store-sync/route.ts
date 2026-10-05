@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { runStoreSync } from "@/lib/storeSync";
+import { logError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,5 +26,24 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const days = Number.parseInt(url.searchParams.get("days") ?? "5", 10);
   const result = await runStoreSync(createAdminClient(), days);
-  return NextResponse.json({ ok: true, ...result });
+
+  // A store that fails must reach the Errors tab (and its alert email):
+  // this used to answer ok:true regardless, so an expired Apple agreement
+  // froze the iOS numbers for days without a word.
+  const failures = [
+    result.ios.configured && result.ios.error ? `iOS: ${result.ios.error}` : null,
+    result.android.configured && result.android.error ? `Android: ${result.android.error}` : null,
+  ].filter((f): f is string => f !== null);
+  if (failures.length > 0) {
+    await logError({
+      source: "server",
+      url: "/api/cron/store-sync",
+      message: `Store sync: ${failures.join(" | ")}`,
+      digest: "cron-store-sync",
+    });
+  }
+  return NextResponse.json(
+    { ok: failures.length === 0, ...result },
+    { status: failures.length > 0 ? 500 : 200 },
+  );
 }
