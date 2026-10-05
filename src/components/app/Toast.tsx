@@ -68,7 +68,9 @@ export function ToastHost() {
     >
       <div
         key={item.id}
-        className="hs-toast-in pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-full bg-[#0f172a] px-4 py-3 text-sm font-medium text-white shadow-lg ring-1 ring-white/10"
+        // Dark mode lifts the pill to a raised surface: near-black on a
+        // near-black page was hard to see.
+        className="hs-toast-in pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-full bg-[#0f172a] px-4 py-3 text-sm font-medium text-white shadow-lg ring-1 ring-white/10 dark:bg-[#2c2c4a] dark:ring-white/15"
       >
         <span className="min-w-0 truncate">{item.message}</span>
         {item.actionLabel && item.onAction && (
