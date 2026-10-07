@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { getSiteUrl } from "@/lib/env";
+import { reportClientError } from "@/components/ErrorReporter";
+import { isUnexpectedAuthFailure } from "@/lib/authFailure";
 
 export function ForgotPasswordForm() {
   const supabase = createClient();
@@ -24,7 +26,13 @@ export function ForgotPasswordForm() {
       if (error) throw error;
       setSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't send the reset link.");
+      const msg = err instanceof Error ? err.message : "Couldn't send the reset link.";
+      setError(msg);
+      // A reset email that can't be sent locks the person out, and only we
+      // can fix it; their own mistakes and rate limits aren't reported.
+      if (isUnexpectedAuthFailure(err)) {
+        reportClientError(`Auth reset-request failed: ${msg}`, { url: "/forgot-password" });
+      }
     } finally {
       setBusy(false);
     }

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { reportClientError } from "@/components/ErrorReporter";
+import { isUnexpectedAuthFailure } from "@/lib/authFailure";
 
 export function ResetPasswordForm() {
   const router = useRouter();
@@ -40,8 +42,14 @@ export function ResetPasswordForm() {
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't update your password.");
+      const msg = err instanceof Error ? err.message : "Couldn't update your password.";
+      setError(msg);
       setBusy(false);
+      // Only server faults; a reused or weak password, or an expired link,
+      // is the person's to fix and isn't reported.
+      if (isUnexpectedAuthFailure(err)) {
+        reportClientError(`Auth password-update failed: ${msg}`, { url: "/reset-password" });
+      }
     }
   }
 

@@ -32,6 +32,12 @@ const RULES: Rule[] = [
       "These are behind-the-scenes jobs: recording when someone was last active, chat read receipts, settle-up finishing off a settled house, and saving a phone's notification token at launch. Dropped connections on them are ignored because they retry by themselves, so an entry here means the server really said no, which points at a bug worth a look.",
   },
   {
+    test: /^auth [\w-]+ failed:/i,
+    what: "Signing in, signing up or resetting a password failed on our side, not because of a wrong password.",
+    cause:
+      "It names the step. People can't get in until it's fixed, so it's worth a look straight away. \"Error sending recovery email\" means the reset email couldn't be sent: check Supabase's email (SMTP) settings.",
+  },
+  {
     test: /^action failed:/i,
     what: "Something someone tried to do didn't go through. They saw an error.",
     cause:

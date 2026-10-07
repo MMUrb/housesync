@@ -53,6 +53,15 @@ describe("explainError", () => {
     expect(dropped.cause).toContain("signal");
   });
 
+  it("explains a sign-in or password-reset failure on our side", () => {
+    const e = explainError("Auth reset-request failed: Error sending recovery email", "client");
+    expect(e.what).toContain("not because of a wrong password");
+    expect(e.cause).toContain("SMTP");
+    expect(explainError("Auth signup failed: Database error saving new user", "client").what).toContain(
+      "on our side",
+    );
+  });
+
   it("explains a failed action through our own server", () => {
     const e = explainError("Action failed: deleting their account: 500 Couldn't delete the account.", "client");
     expect(e.what).toContain("didn't go through");
