@@ -11,7 +11,7 @@ import { Avatar } from "@/components/Avatar";
 import { haptic } from "@/lib/haptics";
 import { PayLinks, type SettleVM } from "@/components/housemates/SettleActions";
 import { SettleExplainer } from "@/components/housemates/SettleExplainer";
-import { reportClientError } from "@/components/ErrorReporter";
+import { backgroundSignal } from "@/lib/saveWatch";
 
 // Simplified settle up (house.settle_mode === "simplified"). Payments are
 // settlement rows, not split-status flips, so one transfer can clear debts to
@@ -89,8 +89,13 @@ export function SimplifySettle(vm: SimplifyVM) {
    * idempotent (settle_sweep in migration 0039); returns true only for the
    * caller whose call actually swept, which is who posts the chat note.
    */
+  // Background in both callers: nobody waits on it (after a confirm, the
+  // confirm itself has already succeeded), and the mount-time self-heal
+  // retries it on the next visit, so only a refusal is worth reporting.
   async function sweep(): Promise<boolean> {
-    const { data, error } = await supabase.rpc("settle_sweep", { p_house_id: vm.houseId });
+    const { data, error } = await supabase
+      .rpc("settle_sweep", { p_house_id: vm.houseId })
+      .abortSignal(backgroundSignal());
     if (error) throw error;
     return data === true;
   }
@@ -99,7 +104,9 @@ export function SimplifySettle(vm: SimplifyVM) {
   // may write system notes (migration 0048), and it posts this one only while
   // the house really is settled. Best-effort, like any chat note.
   async function announceSettled(): Promise<void> {
-    await supabase.rpc("announce_settled", { p_house_id: vm.houseId });
+    await supabase
+      .rpc("announce_settled", { p_house_id: vm.houseId })
+      .abortSignal(backgroundSignal());
   }
 
   // Self-heal on mount: any member's device can finish an unswept square house.
@@ -111,7 +118,9 @@ export function SimplifySettle(vm: SimplifyVM) {
         if (swept) await announceSettled();
         router.refresh();
       })
-      .catch((e) => reportClientError(`settle sweep self-heal: ${e instanceof Error ? e.message : e}`));
+      // A refusal is reported centrally (lib/saveWatch); a dropped connection
+      // just means the next visit heals it.
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vm.sweepDue]);
 
@@ -230,10 +239,10 @@ export function SimplifySettle(vm: SimplifyVM) {
       });
       try {
         if (await sweep()) await announceSettled();
-      } catch (e) {
+      } catch {
         // The confirm itself succeeded; the mount-time self-heal retries the
-        // sweep on the next load of this page, by any housemate.
-        reportClientError(`settle sweep: ${e instanceof Error ? e.message : e}`);
+        // sweep on the next load of this page, by any housemate. A refusal is
+        // reported centrally (lib/saveWatch).
       }
       router.refresh();
     } catch (err) {

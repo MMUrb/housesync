@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { backgroundSignal } from "@/lib/saveWatch";
 import { uniqueTopic } from "@/lib/realtimeTopic";
 import { emitChatRead } from "@/lib/chatRead";
 import { Avatar } from "@/components/Avatar";
@@ -560,10 +561,9 @@ export function Chat({
         { user_id: currentUserId, house_id: houseId, last_read_at: lastReadAt },
         { onConflict: "user_id,house_id" },
       )
-      // The .then is what sends it: Supabase queries don't run until awaited.
-      // Nothing to handle here: a database refusal is reported centrally
-      // (lib/saveWatch), and a dropped connection heals itself, since the
-      // effect re-runs on the next message or reopen.
+      // Background: a refusal is still reported (lib/saveWatch), a dropped
+      // connection isn't, since the effect re-runs on the next message or reopen.
+      .abortSignal(backgroundSignal())
       .then(() => {});
     // Clear this house's badge in the switcher right away (don't wait for the
     // next server render of the layout).

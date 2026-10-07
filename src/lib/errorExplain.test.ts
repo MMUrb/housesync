@@ -46,11 +46,17 @@ describe("explainError", () => {
       'Save failed: expenses (insert): 403 42501: new row violates row-level security policy for table "expenses"',
       "client",
     );
-    expect(refused.what).toContain("didn't go through");
+    expect(refused.what).toContain("didn't save");
     // Must win over the generic connection rule, which also matches "Load failed".
     const dropped = explainError("Save failed: chores (update): connection dropped (Load failed)", "client");
-    expect(dropped.what).toContain("didn't go through");
+    expect(dropped.what).toContain("didn't save");
     expect(dropped.cause).toContain("signal");
+  });
+
+  it("explains a refused background save as something nobody saw", () => {
+    const e = explainError("Background save failed: profiles (update): 403 42501: rls", "client");
+    expect(e.what).toContain("Nobody saw anything");
+    expect(e.cause).toContain("last active");
   });
 
   it("recognises missing-value bugs", () => {

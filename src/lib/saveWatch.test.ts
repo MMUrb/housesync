@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { describeSave, summariseRefusal, watchSaves, type SaveWatchEnv } from "./saveWatch";
+import {
+  backgroundSignal,
+  describeSave,
+  summariseRefusal,
+  watchSaves,
+  type SaveWatchEnv,
+} from "./saveWatch";
 
 const BASE = "https://abc.supabase.co";
 
@@ -151,18 +157,51 @@ describe("watchSaves", () => {
     expect([...offline.reports, ...aborted.reports]).toEqual([]);
   });
 
-  it("treats the chat read watermark as background: drops ignored, refusals reported", async () => {
-    const dropped = setup({
+  it("ignores a dropped connection on a background write (the 06-07/10/2026 last-seen noise)", async () => {
+    // Exactly the three entries that showed up: the last-seen recorder, on
+    // /dashboard, failing as the app opened. Marked background, it's silent.
+    const { fetchFn, reports } = setup({
       respond: () => {
         throw new TypeError("Load failed");
       },
     });
-    await expect(dropped.fetchFn(`${BASE}/rest/v1/message_reads`, { method: "POST" })).rejects.toThrow();
-    const refused = setup({ respond: () => refusal(403, { code: "42501", message: "rls" }) });
-    await refused.fetchFn(`${BASE}/rest/v1/message_reads`, { method: "POST" });
+    await expect(
+      fetchFn(`${BASE}/rest/v1/profiles?id=eq.u1`, { method: "PATCH", signal: backgroundSignal() }),
+    ).rejects.toThrow("Load failed");
+    expect(reports).toEqual([]);
+  });
+
+  it("still reports a background write the database refused, labelled as background", async () => {
+    const { fetchFn, reports } = setup({ respond: () => refusal(403, { code: "42501", message: "rls" }) });
+    await fetchFn(`${BASE}/rest/v1/message_reads`, { method: "POST", signal: backgroundSignal() });
     await settle();
-    expect(dropped.reports).toEqual([]);
-    expect(refused.reports).toEqual(["Save failed: message_reads (insert): 403 42501: rls"]);
+    expect(reports).toEqual(["Background save failed: message_reads (insert): 403 42501: rls"]);
+  });
+
+  it("keeps reporting the same table when a person saves it (a profile edit)", async () => {
+    const { fetchFn, reports } = setup({
+      respond: () => {
+        throw new TypeError("Load failed");
+      },
+    });
+    await expect(fetchFn(`${BASE}/rest/v1/profiles?id=eq.u1`, { method: "PATCH" })).rejects.toThrow();
+    expect(reports).toEqual(["Save failed: profiles (update): connection dropped (Load failed)"]);
+  });
+
+  it("hands the background mark to the network untouched, so it never changes the request", async () => {
+    const signal = backgroundSignal();
+    let seen: AbortSignal | null | undefined;
+    const fetchFn = watchSaves(
+      async (_input, init) => {
+        seen = init?.signal;
+        return new Response("[]", { status: 200 });
+      },
+      () => {},
+      { isVisible: () => true, isOnline: () => true, lastHiddenAt: () => 0, now: () => 0 },
+    );
+    await fetchFn(`${BASE}/rest/v1/profiles?id=eq.u1`, { method: "PATCH", signal });
+    expect(seen).toBe(signal);
+    expect(signal.aborted).toBe(false);
   });
 
   it("never lets a failing reporter break the save", async () => {

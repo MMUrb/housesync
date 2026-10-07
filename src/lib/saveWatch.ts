@@ -27,12 +27,25 @@ const VERBS: Record<string, string> = {
 const STORAGE_READS = new Set(["sign", "list", "info", "public", "authenticated"]);
 
 /**
- * Background writes that heal themselves and that nobody watches happen. The
- * chat read watermark is retried on the next message or reopen, and iOS kills
- * it constantly when the app is backgrounded, so a dropped connection on it is
- * not someone getting stuck. A database refusal on it is still reported.
+ * Writes the app makes on its own, with nobody waiting on them: the last-seen
+ * recorder, chat read receipts, settle-up's sweep and its "all settled" note.
+ * They retry by themselves, and they tend to run at the worst moment (the
+ * second the app opens, before the phone's connection is ready), so a dropped
+ * connection on one is not someone getting stuck. A database refusal on one
+ * is still reported, labelled as background.
+ *
+ * The call site marks the request with .abortSignal(backgroundSignal()). The
+ * signal is never aborted; supabase-js hands it to fetch untouched, which is
+ * how the mark reaches watchSaves. (Setting db.timeout on the client would
+ * swap in a fresh signal and drop the mark, so don't.)
  */
-const BACKGROUND = new Set(["message_reads (insert)"]);
+const BACKGROUND_SIGNALS = new WeakSet<AbortSignal>();
+
+export function backgroundSignal(): AbortSignal {
+  const signal = new AbortController().signal;
+  BACKGROUND_SIGNALS.add(signal);
+  return signal;
+}
 
 /**
  * What a request saves: "expenses (insert)", "rpc pay_itemised",
@@ -99,6 +112,8 @@ export function watchSaves(
       init?.method ?? (typeof input === "object" && "method" in input ? input.method : "GET");
     const what = describeSave(url, method);
     if (!what) return baseFetch(input, init);
+    const background = !!init?.signal && BACKGROUND_SIGNALS.has(init.signal);
+    const label = background ? "Background save failed" : "Save failed";
 
     const startedAt = env.now();
     const startedVisible = env.isVisible();
@@ -114,9 +129,9 @@ export function watchSaves(
       // report couldn't be delivered anyway.
       const stayedInView =
         startedVisible && env.isVisible() && env.lastHiddenAt() < startedAt;
-      if (!cancelledOnPurpose && !BACKGROUND.has(what) && stayedInView && env.isOnline()) {
+      if (!cancelledOnPurpose && !background && stayedInView && env.isOnline()) {
         const why = e instanceof Error ? e.message : String(e);
-        safeReport(`Save failed: ${what}: connection dropped (${clip(why, 80)})`);
+        safeReport(`${label}: ${what}: connection dropped (${clip(why, 80)})`);
       }
       throw e;
     }
@@ -133,9 +148,9 @@ export function watchSaves(
             // Already exists: a retry or double tap whose first attempt
             // landed. Nobody is stuck (SimplifySettle relies on exactly this).
             if (status === 409 && reason.startsWith("23505")) return;
-            safeReport(`Save failed: ${what}: ${status} ${reason}`);
+            safeReport(`${label}: ${what}: ${status} ${reason}`);
           },
-          () => safeReport(`Save failed: ${what}: ${status}`),
+          () => safeReport(`${label}: ${what}: ${status}`),
         );
     }
     return res;

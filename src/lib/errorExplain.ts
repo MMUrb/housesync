@@ -26,10 +26,16 @@ const RULES: Rule[] = [
       "Browsers only say \"Script error.\" for code from another origin. HouseSync loads no outside scripts, so this comes from something the browser injected: usually an in-app browser (Snapchat, Instagram, TikTok) or an extension. Nothing to fix; new ones are no longer logged.",
   },
   {
-    test: /^save failed:/i,
-    what: "Someone tried to save something and it didn't go through. They saw an error on screen.",
+    test: /^background save failed:/i,
+    what: "Something the app saves on its own was refused by the database. Nobody saw anything.",
     cause:
-      "The message says what they were saving (e.g. \"expenses (insert)\" is a new expense) and why it failed. \"connection dropped\" means their signal went mid-save: nothing to fix, they can retry. A number like 403 or a code like 42501 means the database refused the change; anything else is worth a look as a possible bug.",
+      "These are behind-the-scenes saves: when someone was last active, chat read receipts, and settle-up finishing off a settled house. Dropped connections on them are ignored because they retry by themselves, so an entry here means the database really said no, which points at a bug worth a look.",
+  },
+  {
+    test: /^save failed:/i,
+    what: "Something someone did in the app didn't save.",
+    cause:
+      "The message says what (e.g. \"expenses (insert)\" is a new expense) and why. If it was the thing they were doing, they saw an error and can try again. \"connection dropped\" means their signal went mid-save: nothing to fix. A number like 403 or a code like 42501 means the database refused the change; anything else is worth a look as a possible bug.",
   },
   {
     test: /minified react error #4(18|23|25)|hydrat/i,
