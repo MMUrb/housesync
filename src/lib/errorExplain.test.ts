@@ -53,6 +53,14 @@ describe("explainError", () => {
     expect(dropped.cause).toContain("signal");
   });
 
+  it("explains a failed action through our own server", () => {
+    const e = explainError("Action failed: deleting their account: 500 Couldn't delete the account.", "client");
+    expect(e.what).toContain("didn't go through");
+    expect(e.cause).toContain("deleting their account");
+    const bg = explainError("Background action failed: turning on notifications: 500 Couldn't save.", "client");
+    expect(bg.what).toContain("Nobody saw anything");
+  });
+
   it("explains a refused background save as something nobody saw", () => {
     const e = explainError("Background save failed: profiles (update): 403 42501: rls", "client");
     expect(e.what).toContain("Nobody saw anything");

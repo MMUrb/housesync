@@ -3,6 +3,7 @@
 // -> Web Push (service worker + VAPID).
 
 import { PUSH_OPTOUT_KEY } from "@/lib/launchPrompts";
+import { actionFetch } from "@/lib/actionFetch";
 
 const VAPID_PUBLIC = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "").replace(
   /^[\s﻿​]+|[\s﻿​]+$/g,
@@ -103,7 +104,7 @@ export async function enablePush(): Promise<{ ok: boolean; reason?: string; deni
       }
       throw err;
     }
-    const res = await fetch("/api/push/subscribe", {
+    const res = await actionFetch("/api/push/subscribe", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ kind: "web", subscription: sub.toJSON() }),

@@ -8,6 +8,7 @@ import { getSiteUrl } from "@/lib/env";
 import { clearActiveHouse } from "@/lib/activeHouse";
 import { forgetThisDevice } from "@/lib/forgetDevice";
 import { DELETION_REASONS } from "@/lib/deletion";
+import { actionFetch } from "@/lib/actionFetch";
 
 // Email verification + email change, plus (at the very bottom, deliberately
 // quiet) account deletion — an account-wide action that used to be misfiled
@@ -44,7 +45,7 @@ export function AccountSettingsForm({
     setError(null);
     setVerifying(true);
     try {
-      const res = await fetch("/api/email/verify-send", { method: "POST" });
+      const res = await actionFetch("/api/email/verify-send", { method: "POST" });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || "Could not send the verification email.");
@@ -100,7 +101,7 @@ export function AccountSettingsForm({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/account/delete", {
+      const res = await actionFetch("/api/account/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason, comment: comment.trim() || null }),

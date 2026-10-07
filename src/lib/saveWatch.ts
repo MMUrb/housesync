@@ -73,6 +73,31 @@ export function describeSave(url: string, method: string): string | null {
   return null;
 }
 
+/**
+ * Things a person does that go through our own API routes rather than the
+ * database client, so the save watch on that client never sees them fail.
+ * Only person-triggered calls belong here; background calls (pushes,
+ * analytics, sign-out tidying) stay on plain fetch.
+ */
+const ACTIONS: Record<string, string> = {
+  "/api/account/delete": "deleting their account",
+  "/api/email/verify-send": "sending the verify-email link",
+  "/api/push/remind": "sending a reminder",
+  "/api/push/subscribe": "turning on notifications",
+};
+
+/** The action a call to our own API performs, or null when it isn't one we watch. */
+export function describeAction(url: string, method: string): string | null {
+  if (!VERBS[method.toUpperCase()]) return null;
+  let path: string;
+  try {
+    path = new URL(url, "https://app.invalid").pathname;
+  } catch {
+    return null;
+  }
+  return ACTIONS[path] ?? null;
+}
+
 function clip(s: string, max = 200): string {
   return s.length > max ? `${s.slice(0, max - 3)}...` : s;
 }
@@ -80,8 +105,20 @@ function clip(s: string, max = 200): string {
 /** "42501: new row violates row-level security policy ..." from an error body. */
 export function summariseRefusal(body: string): string {
   try {
-    const j = JSON.parse(body) as { code?: unknown; error?: unknown; message?: unknown };
-    const code = typeof j.code === "string" ? j.code : typeof j.error === "string" ? j.error : "";
+    const j = JSON.parse(body) as {
+      code?: unknown;
+      error?: unknown;
+      reason?: unknown;
+      message?: unknown;
+    };
+    const code =
+      typeof j.code === "string"
+        ? j.code
+        : typeof j.error === "string"
+          ? j.error
+          : typeof j.reason === "string"
+            ? j.reason
+            : "";
     const message = typeof j.message === "string" ? j.message : "";
     const s = [code, message].filter(Boolean).join(": ");
     if (s) return clip(s);
@@ -91,12 +128,19 @@ export function summariseRefusal(body: string): string {
   return clip(body.trim()) || "no details";
 }
 
-/** Wraps fetch so failed saves are reported. The request itself is untouched. */
+/**
+ * Wraps fetch so failed saves are reported. The request itself is untouched.
+ * kind "save" (the default) watches database writes; kind "action" watches
+ * person-triggered calls to our own API routes (describeAction).
+ */
 export function watchSaves(
   baseFetch: typeof fetch,
   report: (message: string) => void,
   env: SaveWatchEnv,
+  opts: { describe?: (url: string, method: string) => string | null; kind?: "save" | "action" } = {},
 ): typeof fetch {
+  const describe = opts.describe ?? describeSave;
+  const noun = opts.kind === "action" ? "action" : "save";
   const safeReport = (message: string) => {
     try {
       report(message);
@@ -110,10 +154,12 @@ export function watchSaves(
       typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const method =
       init?.method ?? (typeof input === "object" && "method" in input ? input.method : "GET");
-    const what = describeSave(url, method);
+    const what = describe(url, method);
     if (!what) return baseFetch(input, init);
     const background = !!init?.signal && BACKGROUND_SIGNALS.has(init.signal);
-    const label = background ? "Background save failed" : "Save failed";
+    const label = background
+      ? `Background ${noun} failed`
+      : `${noun === "action" ? "Action" : "Save"} failed`;
 
     const startedAt = env.now();
     const startedVisible = env.isVisible();
@@ -148,6 +194,10 @@ export function watchSaves(
             // Already exists: a retry or double tap whose first attempt
             // landed. Nobody is stuck (SimplifySettle relies on exactly this).
             if (status === 409 && reason.startsWith("23505")) return;
+            // Our own routes answer 409 and 429 for deliberate no's: nothing
+            // owed, notifications off, a reminder or email sent too recently.
+            // Those are answers, not failures.
+            if (noun === "action" && (status === 409 || status === 429)) return;
             safeReport(`${label}: ${what}: ${status} ${reason}`);
           },
           () => safeReport(`${label}: ${what}: ${status}`),

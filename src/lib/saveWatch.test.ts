@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   backgroundSignal,
+  describeAction,
   describeSave,
   summariseRefusal,
   watchSaves,
@@ -214,5 +215,81 @@ describe("watchSaves", () => {
     const res = await fetchFn(`${BASE}/rest/v1/expenses`, { method: "POST" });
     await settle();
     expect(res.status).toBe(403);
+  });
+});
+
+describe("actions through our own API routes", () => {
+  const actionSetup = (respond: () => Response | Promise<Response>) => {
+    const reports: string[] = [];
+    const fetchFn = watchSaves(
+      async () => respond(),
+      (m) => reports.push(m),
+      { isVisible: () => true, isOnline: () => true, lastHiddenAt: () => 0, now: () => 1_000 },
+      { describe: describeAction, kind: "action" },
+    );
+    return { fetchFn, reports };
+  };
+
+  it("names the four person-triggered actions, and nothing else", () => {
+    expect(describeAction("/api/account/delete", "POST")).toBe("deleting their account");
+    expect(describeAction("/api/email/verify-send", "POST")).toBe("sending the verify-email link");
+    expect(describeAction("/api/push/remind", "POST")).toBe("sending a reminder");
+    expect(describeAction("/api/push/subscribe", "POST")).toBe("turning on notifications");
+    // Background extras and reads stay on plain fetch, unwatched.
+    expect(describeAction("/api/push/notify", "POST")).toBeNull();
+    expect(describeAction("/api/track", "POST")).toBeNull();
+    expect(describeAction("/api/search?q=x", "GET")).toBeNull();
+  });
+
+  it("reports a failed action with our route's own reason", async () => {
+    const { fetchFn, reports } = actionSetup(() => refusal(500, { error: "Couldn't delete the account." }));
+    const res = await fetchFn("/api/account/delete", { method: "POST" });
+    expect(res.status).toBe(500);
+    await settle();
+    expect(reports).toEqual(["Action failed: deleting their account: 500 Couldn't delete the account."]);
+  });
+
+  it("reads the reminder route's reason field", async () => {
+    const { fetchFn, reports } = actionSetup(() => refusal(503, { ok: false, reason: "error" }));
+    await fetchFn("/api/push/remind", { method: "POST" });
+    await settle();
+    expect(reports).toEqual(["Action failed: sending a reminder: 503 error"]);
+  });
+
+  it("stays quiet on deliberate no's: nothing owed, notifications off, too soon", async () => {
+    const owed = actionSetup(() => refusal(409, { ok: false, reason: "nothing_owed" }));
+    await owed.fetchFn("/api/push/remind", { method: "POST" });
+    const off = actionSetup(() => refusal(409, { ok: false, reason: "notifications_off" }));
+    await off.fetchFn("/api/push/remind", { method: "POST" });
+    const soon = actionSetup(() => refusal(429, { ok: false, reason: "too_soon" }));
+    await soon.fetchFn("/api/push/remind", { method: "POST" });
+    const wait = actionSetup(() =>
+      refusal(429, { error: "Please wait a few minutes before requesting another email." }),
+    );
+    await wait.fetchFn("/api/email/verify-send", { method: "POST" });
+    await settle();
+    expect([...owed.reports, ...off.reports, ...soon.reports, ...wait.reports]).toEqual([]);
+  });
+
+  it("reports a dropped connection during an action the person started", async () => {
+    const { fetchFn, reports } = actionSetup(() => {
+      throw new TypeError("Load failed");
+    });
+    await expect(fetchFn("/api/account/delete", { method: "POST" })).rejects.toThrow();
+    expect(reports).toEqual(["Action failed: deleting their account: connection dropped (Load failed)"]);
+  });
+
+  it("treats the launch-time token save as background: drops ignored, refusals labelled", async () => {
+    const dropped = actionSetup(() => {
+      throw new TypeError("Load failed");
+    });
+    await expect(
+      dropped.fetchFn("/api/push/subscribe", { method: "POST", signal: backgroundSignal() }),
+    ).rejects.toThrow();
+    const refused = actionSetup(() => refusal(500, { error: "Couldn't save." }));
+    await refused.fetchFn("/api/push/subscribe", { method: "POST", signal: backgroundSignal() });
+    await settle();
+    expect(dropped.reports).toEqual([]);
+    expect(refused.reports).toEqual(["Background action failed: turning on notifications: 500 Couldn't save."]);
   });
 });

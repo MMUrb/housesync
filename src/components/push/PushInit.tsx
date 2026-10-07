@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import { safeNextPath } from "@/lib/safeRedirect";
+import { actionFetch } from "@/lib/actionFetch";
+import { backgroundSignal } from "@/lib/saveWatch";
 
 // Native-app only: registers FCM listeners so the device's push token is saved
 // (and refreshed on launch), and taps on a notification open the right page.
@@ -18,10 +20,13 @@ export function PushInit() {
         const regListener = await PushNotifications.addListener("registration", async (token) => {
           (window as unknown as { __hsPushToken?: string }).__hsPushToken = token.value;
           try {
-            await fetch("/api/push/subscribe", {
+            await actionFetch("/api/push/subscribe", {
               method: "POST",
               headers: { "content-type": "application/json" },
               keepalive: true,
+              // Background: runs on every launch with nobody waiting, so only a
+              // refusal is reported (lib/saveWatch), not a dropped connection.
+              signal: backgroundSignal(),
               body: JSON.stringify({ kind: "native", token: token.value, platform: Capacitor.getPlatform() }),
             });
           } catch {

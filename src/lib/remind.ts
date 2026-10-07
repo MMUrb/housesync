@@ -1,4 +1,5 @@
 import { firstName } from "@/lib/format";
+import { actionFetch } from "@/lib/actionFetch";
 
 // The Remind button, on every device: a HouseSync notification to the
 // housemate (api/push/remind), not a message to pass on.
@@ -20,7 +21,7 @@ export async function remindHousemate(
   kind: RemindKind = "owed",
 ): Promise<RemindResult> {
   try {
-    const res = await fetch("/api/push/remind", {
+    const res = await actionFetch("/api/push/remind", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ houseId, toUserId, kind }),

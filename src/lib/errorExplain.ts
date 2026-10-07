@@ -26,10 +26,16 @@ const RULES: Rule[] = [
       "Browsers only say \"Script error.\" for code from another origin. HouseSync loads no outside scripts, so this comes from something the browser injected: usually an in-app browser (Snapchat, Instagram, TikTok) or an extension. Nothing to fix; new ones are no longer logged.",
   },
   {
-    test: /^background save failed:/i,
-    what: "Something the app saves on its own was refused by the database. Nobody saw anything.",
+    test: /^background (save|action) failed:/i,
+    what: "Something the app does on its own was refused. Nobody saw anything.",
     cause:
-      "These are behind-the-scenes saves: when someone was last active, chat read receipts, and settle-up finishing off a settled house. Dropped connections on them are ignored because they retry by themselves, so an entry here means the database really said no, which points at a bug worth a look.",
+      "These are behind-the-scenes jobs: recording when someone was last active, chat read receipts, settle-up finishing off a settled house, and saving a phone's notification token at launch. Dropped connections on them are ignored because they retry by themselves, so an entry here means the server really said no, which points at a bug worth a look.",
+  },
+  {
+    test: /^action failed:/i,
+    what: "Something someone tried to do didn't go through. They saw an error.",
+    cause:
+      "It names the action (deleting their account, turning on notifications, sending a reminder or the verify-email link) and the reason. \"connection dropped\" means their signal went: nothing to fix. A number like 500 means our own server failed, which is worth a look. Deliberate no's like \"too soon\" aren't reported.",
   },
   {
     test: /^save failed:/i,
