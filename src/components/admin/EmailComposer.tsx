@@ -61,6 +61,7 @@ export function EmailComposer({
   // stays fixed (it only shrinks visually), so the scale can't feed back into
   // the height it was worked out from.
   const box = useRef<HTMLDivElement>(null);
+  const historyCard = useRef<HTMLElement>(null);
   const [fit, setFit] = useState({ scale: 1, height: 0 });
   useEffect(() => {
     const el = box.current;
@@ -68,13 +69,18 @@ export function EmailComposer({
     const update = () => {
       const natural = el.offsetHeight; // layout height, before the transform
       // Room left once the card's label, padding and the note below are in.
-      const available = Math.max(320, window.innerHeight - 130);
+      // On wide screens the pinned column also holds the history card, so
+      // the preview gets what is left after it (and the gap between).
+      const wide = window.matchMedia("(min-width: 1024px)").matches;
+      const below = wide && historyCard.current ? historyCard.current.offsetHeight + 24 : 0;
+      const available = Math.max(150, window.innerHeight - 130 - below);
       const scale = Math.min(1, Math.max(0.4, available / natural));
       setFit({ scale, height: natural * scale });
     };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
+    if (historyCard.current) ro.observe(historyCard.current);
     window.addEventListener("resize", update);
     return () => {
       ro.disconnect();
@@ -438,8 +444,10 @@ export function EmailComposer({
         )}
       </div>
 
-      <div className="space-y-6">
-        <section className="card p-5 lg:sticky lg:top-4">
+      {/* The whole column is pinned on wide screens, preview and history
+          together, so neither can slide under the other while scrolling. */}
+      <div className="space-y-6 lg:sticky lg:top-4 lg:self-start">
+        <section className="card p-5">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Preview</p>
           {/* Shrunk to fit the screen: the outer box takes the scaled height so
               nothing below it overlaps or leaves a gap. */}
@@ -496,7 +504,7 @@ export function EmailComposer({
           </p>
         </section>
 
-        <section className="card p-5">
+        <section ref={historyCard} className="card p-5">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Sent before</p>
           {historyMissing ? (
             <p className="text-sm text-amber-600">
@@ -505,7 +513,7 @@ export function EmailComposer({
           ) : history.length === 0 ? (
             <p className="text-sm text-slate-400">Nothing sent yet.</p>
           ) : (
-            <ul className="divide-y divide-slate-100 text-sm">
+            <ul className="max-h-40 divide-y divide-slate-100 overflow-y-auto pr-1 text-sm">
               {history.map((h) => (
                 <li key={h.id} className="flex items-baseline justify-between gap-3 py-2">
                   <span className="min-w-0">
