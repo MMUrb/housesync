@@ -163,10 +163,7 @@ export default async function SettingsPage() {
             initialEmailTypes={{
               bills: account?.notify_email_bills ?? true,
               nudges: account?.notify_email_nudges ?? true,
-              product: account?.notify_email_product ?? true,
-              tips: account?.notify_email_tips ?? true,
-              surveys: account?.notify_email_surveys ?? true,
-              offers: account?.notify_email_offers ?? true,
+              news: account?.notify_email_news ?? true,
             }}
           />
         </RowDisclosure>

@@ -12,7 +12,7 @@ import { createClient } from "@/lib/supabase/client";
 // failure, so the panel needs no save button.
 
 type PushKey = "message" | "expense" | "bill" | "paid" | "chore" | "member" | "away";
-type EmailKey = "bills" | "nudges" | "product" | "tips" | "surveys" | "offers";
+type EmailKey = "bills" | "nudges" | "news";
 export type PushPrefs = Record<PushKey, boolean>;
 export type EmailPrefs = Record<EmailKey, boolean>;
 
@@ -34,10 +34,9 @@ const PUSH_TYPES: { key: PushKey; col: string; label: string; desc: string }[] =
 const EMAIL_TYPES: { key: EmailKey; col: string; label: string; desc: string }[] = [
   { key: "bills", col: "notify_email_bills", label: "Bill reminders", desc: "When a recurring bill is due soon" },
   { key: "nudges", col: "notify_email_nudges", label: "Payment reminders", desc: "A weekly nudge when you owe money" },
-  { key: "product", col: "notify_email_product", label: "Product updates", desc: "New features and improvements" },
-  { key: "tips", col: "notify_email_tips", label: "Tips and guides", desc: "Getting the most out of HouseSync" },
-  { key: "surveys", col: "notify_email_surveys", label: "Surveys and feedback", desc: "Occasional requests for your input" },
-  { key: "offers", col: "notify_email_offers", label: "Special offers", desc: "Deals and promotions" },
+  // One switch for everything sent from the admin Email tab (0051 merged
+  // product updates, tips and surveys into it).
+  { key: "news", col: "notify_email_news", label: "News from HouseSync", desc: "New features, tips and the odd quick survey" },
 ];
 
 function Switch({

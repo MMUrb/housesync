@@ -238,6 +238,7 @@ export interface AccountSettings {
   notify_email_tips: boolean;
   notify_email_surveys: boolean;
   notify_email_offers: boolean;
+  notify_email_news: boolean;
 }
 
 export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string; emoji: string }[] = [

@@ -94,6 +94,11 @@ export default function PrivacyPage() {
                 show balances, and power the house chat.
               </li>
               <li>To send you transactional emails and the reminders you opt in to.</li>
+              <li>
+                To send occasional news from HouseSync (new features, tips and the odd quick
+                survey). You can turn this off in Settings, or with the unsubscribe link in any of
+                these emails.
+              </li>
               <li>To keep the service secure and working, and to respond to your support requests.</li>
             </ul>
           </Section>

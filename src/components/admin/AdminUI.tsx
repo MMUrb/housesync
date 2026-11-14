@@ -15,7 +15,8 @@ export type AdminTab =
   | "engagement"
   | "directory"
   | "churn"
-  | "errors";
+  | "errors"
+  | "email";
 
 export function AdminShell({
   email,
@@ -65,6 +66,7 @@ export function AdminShell({
             <Tab href={`${ADMIN_BASE}/directory`} label="Directory" k="directory" />
             <Tab href={`${ADMIN_BASE}/churn`} label="Churn" k="churn" />
             <Tab href={`${ADMIN_BASE}/errors`} label="Errors" k="errors" />
+            <Tab href={`${ADMIN_BASE}/email`} label="Email" k="email" />
           </div>
         )}
       </header>

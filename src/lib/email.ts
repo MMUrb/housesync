@@ -30,20 +30,28 @@ type SendArgs = {
   subject: string;
   html: string;
   text?: string;
+  /** Extra headers, e.g. List-Unsubscribe on news emails. */
+  headers?: Record<string, string>;
 };
 
-export async function sendEmail({ to, toName, subject, html, text }: SendArgs) {
+export async function sendEmail({ to, toName, subject, html, text, headers }: SendArgs) {
   if (!isEmailConfigured) {
     throw new Error("No email provider configured (set RESEND_API_KEY)");
   }
   // A matching plain-text part improves deliverability (spam filters penalise
   // HTML-only mail).
   const textContent = text ?? htmlToText(html);
-  if (RESEND_API_KEY) return sendViaResend({ to, subject, html, text: textContent });
-  return sendViaBrevo({ to, toName, subject, html, text: textContent });
+  if (RESEND_API_KEY) return sendViaResend({ to, subject, html, text: textContent, headers });
+  return sendViaBrevo({ to, toName, subject, html, text: textContent, headers });
 }
 
-async function sendViaResend(args: { to: string; subject: string; html: string; text: string }) {
+async function sendViaResend(args: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  headers?: Record<string, string>;
+}) {
   const body = JSON.stringify({
     from: `${FROM_NAME} <${FROM_EMAIL}>`,
     to: [args.to],
@@ -51,6 +59,7 @@ async function sendViaResend(args: { to: string; subject: string; html: string; 
     subject: args.subject,
     html: args.html,
     text: args.text,
+    ...(args.headers ? { headers: args.headers } : {}),
   });
   const res = await sendPaced(
     () =>
@@ -80,6 +89,7 @@ async function sendViaBrevo(args: {
   subject: string;
   html: string;
   text: string;
+  headers?: Record<string, string>;
 }) {
   const body = JSON.stringify({
     sender: { email: FROM_EMAIL, name: FROM_NAME },
@@ -88,6 +98,7 @@ async function sendViaBrevo(args: {
     subject: args.subject,
     htmlContent: args.html,
     textContent: args.text,
+    ...(args.headers ? { headers: args.headers } : {}),
   });
   const res = await sendPaced(
     () =>

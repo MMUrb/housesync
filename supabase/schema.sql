@@ -697,7 +697,24 @@ alter table public.account_settings
   add column if not exists notify_email_product  boolean not null default true,
   add column if not exists notify_email_tips     boolean not null default true,
   add column if not exists notify_email_surveys  boolean not null default true,
-  add column if not exists notify_email_offers   boolean not null default true;
+  add column if not exists notify_email_offers   boolean not null default true,
+  -- 0051: product/tips/surveys merged into one News switch; offers retired.
+  add column if not exists notify_email_news     boolean not null default true;
+
+-- --- Admin email log (0051): service role only, RLS on with no policies.
+create table if not exists public.email_broadcasts (
+  id          uuid primary key default gen_random_uuid(),
+  created_at  timestamptz not null default now(),
+  kind        text not null check (kind in ('news', 'service')),
+  subject     text not null,
+  body        text not null,
+  recipients  int not null default 0,
+  sent        int not null default 0,
+  failed      int not null default 0,
+  sent_by     uuid
+);
+alter table public.email_broadcasts enable row level security;
+create index if not exists idx_email_broadcasts_created on public.email_broadcasts (created_at desc);
 
 -- --- Payment details (0012): per-user, with a share-with-house consent switch
 create table if not exists public.payment_details (
