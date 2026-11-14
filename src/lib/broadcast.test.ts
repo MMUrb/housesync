@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { bodyToHtml, canReceive, firstNameOf, personalise, pickRecipients, type Person } from "./broadcast";
+import {
+  bodyToHtml,
+  canReceive,
+  firstNameOf,
+  personalise,
+  pickRecipients,
+  renderBody,
+  sanitizeEmailHtml,
+  type Person,
+} from "./broadcast";
 
 const person = (over: Partial<Person> & { id: string }): Person => ({
   email: `${over.id}@example.com`,
@@ -37,6 +46,33 @@ describe("who gets an email", () => {
 
   it("never emails someone with no address", () => {
     expect(canReceive(people[3], "service")).toBe(false);
+  });
+});
+
+describe("HTML emails", () => {
+  it("keeps your layout, images and links", () => {
+    const html = '<img src="https://housesync.co.uk/og.png" alt="x" width="100%"><p>Hi <b>{first name}</b></p><a href="https://housesync.co.uk">Go</a>';
+    const out = renderBody(html, "html", "Genevieve");
+    expect(out).toContain('<img src="https://housesync.co.uk/og.png"');
+    expect(out).toContain("<p>Hi <b>Genevieve</b></p>");
+    expect(out).toContain('<a href="https://housesync.co.uk">Go</a>');
+  });
+
+  it("strips anything that could run or embed something", () => {
+    const out = sanitizeEmailHtml(
+      '<p onclick="steal()">Hi</p><script>alert(1)</script><iframe src="https://x"></iframe>' +
+        '<img src=x onerror=alert(1)><a href="javascript:alert(1)">x</a><form action="https://x"><input></form>',
+    );
+    expect(out).not.toMatch(/script|iframe|onclick|onerror|javascript:|<form/i);
+    expect(out).toContain("<p>Hi</p>");
+  });
+
+  it("escapes the name it fills in, so a name can't inject markup", () => {
+    expect(renderBody("<p>Hi {first name}</p>", "html", "<b>Bob</b>")).toBe("<p>Hi &lt;b&gt;Bob&lt;/b&gt;</p>");
+  });
+
+  it("still lays out plain text the old way", () => {
+    expect(renderBody("Hi {first name}", "text", "Genevieve")).toBe('<p style="margin:0 0 14px">Hi Genevieve</p>');
   });
 });
 

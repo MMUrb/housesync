@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   MAX_BODY,
+  MAX_BODY_HTML,
   MAX_SUBJECT,
-  bodyToHtml,
   canReceive,
   firstNameOf,
   personalise,
+  renderBody,
+  type BodyFormat,
   type BroadcastKind,
   type Person,
 } from "@/lib/broadcast";
@@ -51,6 +53,9 @@ export function EmailComposer({
   const [kind, setKind] = useState<BroadcastKind>("news");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("Hi {first name},\n\n");
+  const [format, setFormat] = useState<BodyFormat>("text");
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [frameHeight, setFrameHeight] = useState(420);
   const [mode, setMode] = useState<"all" | "choose">("all");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -93,6 +98,7 @@ export function EmailComposer({
           kind,
           subject,
           body,
+          format,
           ids: mode === "choose" ? [...picked] : null,
           test,
         }),
@@ -151,6 +157,36 @@ export function EmailComposer({
             </div>
             <p className="mt-1.5 text-xs text-slate-500">{KINDS.find((k) => k.key === kind)?.hint}</p>
           </div>
+          <div>
+            <p className="mb-1.5 text-sm font-medium text-slate-700">Format</p>
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-0.5 text-sm font-semibold dark:bg-white/[0.06]">
+              {(
+                [
+                  ["text", "Plain text"],
+                  ["html", "HTML"],
+                ] as const
+              ).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => edit(setFormat)(k)}
+                  className={`rounded-md px-3 py-1.5 transition ${
+                    format === k
+                      ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.12]"
+                      : "text-slate-500"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {format === "html" && (
+              <p className="mt-1.5 text-xs text-slate-500">
+                Paste your own HTML. Images need a public https address. The HouseSync header and the
+                unsubscribe footer are added around it, and scripts are removed.
+              </p>
+            )}
+          </div>
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-slate-700">Subject</span>
             <input
@@ -162,17 +198,20 @@ export function EmailComposer({
             />
           </label>
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-slate-700">Message</span>
+            <span className="mb-1.5 block text-sm font-medium text-slate-700">
+              {format === "html" ? "HTML" : "Message"}
+            </span>
             <textarea
-              className="input min-h-[200px] leading-relaxed"
+              className={`input min-h-[200px] leading-relaxed ${format === "html" ? "font-mono text-xs" : ""}`}
               value={body}
-              maxLength={MAX_BODY}
+              spellCheck={format !== "html"}
+              maxLength={format === "html" ? MAX_BODY_HTML : MAX_BODY}
               onChange={(e) => edit(setBody)(e.target.value)}
             />
           </label>
           <p className="text-xs text-slate-500">
-            {"{first name}"} is filled in for each person. A blank line starts a new paragraph, and
-            web addresses become links.
+            {"{first name}"} is filled in for each person.
+            {format === "text" && " A blank line starts a new paragraph, and web addresses become links."}
             {kind === "news" && " The unsubscribe link is added automatically."}
           </p>
         </section>
@@ -282,7 +321,25 @@ export function EmailComposer({
             <p className="mb-3 text-[17px] font-bold">
               House<span className="text-[#5f3fe0]">Sync</span>
             </p>
-            <div dangerouslySetInnerHTML={{ __html: bodyToHtml(personalise(body, previewFirst)) }} />
+            {format === "text" ? (
+              <div dangerouslySetInnerHTML={{ __html: renderBody(body, "text", previewFirst) }} />
+            ) : (
+              // Pasted HTML is shown in a sandbox with scripts off, so nothing
+              // in it can run inside the admin. allow-same-origin (without
+              // allow-scripts) only lets us measure its height to fit it.
+              <iframe
+                ref={frame}
+                title="Email preview"
+                sandbox="allow-same-origin"
+                className="w-full border-0 bg-transparent"
+                style={{ height: frameHeight }}
+                srcDoc={`<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>body{margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#15151c;background:#f6f7fb}img{max-width:100%;height:auto}</style></head><body>${renderBody(body, "html", previewFirst)}</body></html>`}
+                onLoad={() => {
+                  const h = frame.current?.contentDocument?.documentElement.scrollHeight;
+                  if (h) setFrameHeight(Math.min(Math.max(h + 4, 120), 2000));
+                }}
+              />
+            )}
             <p className="mt-4 border-t border-[#e5e7eb] pt-3 text-[11.5px] text-[#94a3b8]">
               {kind === "news" ? (
                 <>

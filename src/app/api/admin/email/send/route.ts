@@ -10,11 +10,13 @@ import { unsubscribeLinks } from "@/lib/unsubscribe";
 import { runPool } from "@/lib/pool";
 import {
   MAX_BODY,
+  MAX_BODY_HTML,
   MAX_SUBJECT,
-  bodyToHtml,
   firstNameOf,
   personalise,
   pickRecipients,
+  renderBody,
+  type BodyFormat,
   type BroadcastKind,
   type Person,
 } from "@/lib/broadcast";
@@ -33,9 +35,18 @@ export const maxDuration = 60;
 // reported rather than silently dropped.
 const START_BUDGET_MS = 45_000;
 
-function buildEmail(p: Person, kind: BroadcastKind, subject: string, body: string, siteUrl: string) {
+function buildEmail(
+  p: Person,
+  kind: BroadcastKind,
+  subject: string,
+  body: string,
+  format: BodyFormat,
+  siteUrl: string,
+) {
   const first = firstNameOf(p);
-  const html = bodyToHtml(personalise(body, first));
+  // Either format still goes inside emailLayout: the header, and for news the
+  // unsubscribe footer, can never be left out by whatever HTML is pasted.
+  const html = renderBody(body, format, first);
   if (kind === "service") {
     return {
       subject: personalise(subject, first),
@@ -78,19 +89,25 @@ export async function POST(request: Request) {
     kind?: unknown;
     subject?: unknown;
     body?: unknown;
+    format?: unknown;
     ids?: unknown;
     test?: unknown;
   } | null;
   const kind = b?.kind === "service" ? "service" : b?.kind === "news" ? "news" : null;
   const subject = typeof b?.subject === "string" ? b.subject.trim() : "";
   const body = typeof b?.body === "string" ? b.body.trim() : "";
+  const format: BodyFormat = b?.format === "html" ? "html" : "text";
   const ids = Array.isArray(b?.ids) ? b.ids.filter((x): x is string => typeof x === "string") : null;
   if (!kind) return NextResponse.json({ error: "Pick what kind of email it is." }, { status: 400 });
   if (!subject || subject.length > MAX_SUBJECT) {
     return NextResponse.json({ error: `Add a subject (up to ${MAX_SUBJECT} characters).` }, { status: 400 });
   }
-  if (!body || body.length > MAX_BODY) {
-    return NextResponse.json({ error: "Add a message (up to 10,000 characters)." }, { status: 400 });
+  const maxBody = format === "html" ? MAX_BODY_HTML : MAX_BODY;
+  if (!body || body.length > maxBody) {
+    return NextResponse.json(
+      { error: `Add a message (up to ${maxBody.toLocaleString("en-GB")} characters).` },
+      { status: 400 },
+    );
   }
 
   const admin = createAdminClient();
@@ -113,7 +130,7 @@ export async function POST(request: Request) {
       newsOn: true,
     };
     if (!me.email) return NextResponse.json({ error: "Your account has no email." }, { status: 400 });
-    const mail = buildEmail(me, kind, subject, body, siteUrl);
+    const mail = buildEmail(me, kind, subject, body, format, siteUrl);
     try {
       await sendEmail({ to: me.email, toName: me.name ?? undefined, ...mail, subject: `[Test] ${mail.subject}` });
     } catch (e) {
@@ -135,7 +152,7 @@ export async function POST(request: Request) {
     4,
     async (p) => {
       try {
-        await sendEmail({ to: p.email as string, toName: p.name ?? undefined, ...buildEmail(p, kind, subject, body, siteUrl) });
+        await sendEmail({ to: p.email as string, toName: p.name ?? undefined, ...buildEmail(p, kind, subject, body, format, siteUrl) });
         return true;
       } catch {
         // One bad address mustn't stop everyone else's email.

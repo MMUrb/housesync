@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { buildCsp } from "@/lib/csp";
+import { ADMIN_BASE } from "@/lib/constants";
 import {
   GATE_COOKIE,
   hasValidGateCookie,
@@ -13,7 +14,9 @@ export async function middleware(request: NextRequest) {
   // Next.js applies the nonce to its own inline scripts during render, then set
   // the CSP on the response so the browser enforces it.
   const nonce = btoa(crypto.randomUUID());
-  const csp = buildCsp(nonce);
+  const csp = buildCsp(nonce, {
+    anyHttpsImages: request.nextUrl.pathname.startsWith(`${ADMIN_BASE}/email`),
+  });
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("content-security-policy", csp);

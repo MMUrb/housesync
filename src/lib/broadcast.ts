@@ -75,5 +75,31 @@ export function pickRecipients(
   return people.filter((p) => canReceive(p, kind) && (!chosen || chosen.has(p.id)));
 }
 
+/** "text": typed message, escaped and laid out for you. "html": your own HTML. */
+export type BodyFormat = "text" | "html";
+
+/**
+ * Removes anything in pasted HTML that could run or embed something: scripts,
+ * frames, objects, forms, event-handler attributes and javascript: links.
+ * Email apps block these anyway; this keeps them out of the email entirely.
+ * Only the admin can write these emails, so it's belt and braces, not the
+ * only line of defence (the composer's preview is also a sealed frame).
+ */
+export function sanitizeEmailHtml(html: string): string {
+  return html
+    .replace(/<(script|iframe|object|embed|form)\b[\s\S]*?<\/\1\s*>/gi, "")
+    .replace(/<(script|iframe|object|embed|form|base|meta|link)\b[^>]*\/?>/gi, "")
+    .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/(href|src)\s*=\s*(["']?)\s*javascript:[^"'\s>]*\2/gi, '$1="#"');
+}
+
+/** The finished body for one person, in either format. */
+export function renderBody(body: string, format: BodyFormat, firstName: string): string {
+  if (format === "html") return sanitizeEmailHtml(personalise(body, escapeHtml(firstName)));
+  return bodyToHtml(personalise(body, firstName));
+}
+
 export const MAX_SUBJECT = 150;
 export const MAX_BODY = 10_000;
+/** Pasted HTML runs longer (inline styles); still far under any email size limit. */
+export const MAX_BODY_HTML = 100_000;

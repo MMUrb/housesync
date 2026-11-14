@@ -28,12 +28,18 @@ const SUPABASE_ORIGIN = (() => {
 })();
 const SUPABASE_WS = SUPABASE_ORIGIN.replace(/^https:/, "wss:");
 
-export function buildCsp(nonce: string): string {
+/**
+ * `anyHttpsImages`: the admin Email tab previews emails whose images live
+ * anywhere on the web (that's how email images work), so its pages allow
+ * images from any https address. Images can't run code; scripts stay locked
+ * down there exactly as everywhere else.
+ */
+export function buildCsp(nonce: string, { anyHttpsImages = false }: { anyHttpsImages?: boolean } = {}): string {
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'${DEV_EVAL}`,
     "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' data: blob: ${SUPABASE_ORIGIN}`,
+    `img-src 'self' data: blob: ${SUPABASE_ORIGIN}${anyHttpsImages ? " https:" : ""}`,
     "font-src 'self' data:",
     `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_WS}`,
     "worker-src 'self'",
