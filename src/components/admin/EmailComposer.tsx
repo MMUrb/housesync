@@ -62,7 +62,9 @@ export function EmailComposer({
   // the height it was worked out from.
   const box = useRef<HTMLDivElement>(null);
   const historyCard = useRef<HTMLElement>(null);
-  const [fit, setFit] = useState({ scale: 1, height: 0 });
+  // height: the shrunk email; view: the box it shows in (smaller than
+  // height only when the email is too long to read shrunk, and it scrolls).
+  const [fit, setFit] = useState({ scale: 1, height: 0, view: 0 });
   useEffect(() => {
     const el = box.current;
     if (!el) return;
@@ -74,8 +76,12 @@ export function EmailComposer({
       const wide = window.matchMedia("(min-width: 1024px)").matches;
       const below = wide && historyCard.current ? historyCard.current.offsetHeight + 24 : 0;
       const available = Math.max(150, window.innerHeight - 130 - below);
-      const scale = Math.min(1, Math.max(0.4, available / natural));
-      setFit({ scale, height: natural * scale });
+      // Below half size text stops being readable: stop shrinking and let the
+      // preview scroll in its card instead. Either way the pinned column
+      // never outgrows the screen, so the history card below stays in view.
+      const scale = Math.min(1, Math.max(0.5, available / natural));
+      const height = natural * scale;
+      setFit({ scale, height, view: Math.min(height, available) });
     };
     update();
     const ro = new ResizeObserver(update);
@@ -451,6 +457,7 @@ export function EmailComposer({
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Preview</p>
           {/* Shrunk to fit the screen: the outer box takes the scaled height so
               nothing below it overlaps or leaves a gap. */}
+          <div className="overflow-y-auto overflow-x-hidden" style={{ height: fit.view || undefined }}>
           <div className="overflow-hidden" style={{ height: fit.height || undefined }}>
           {/* Always light: it's what lands in an inbox, not part of the admin. */}
           <div
@@ -498,9 +505,11 @@ export function EmailComposer({
             </p>
           </div>
           </div>
+          </div>
           <p className="mt-2 text-xs text-slate-400">
             Shown as {previewFirst} would see it
-            {fit.scale < 0.99 ? `, shrunk to ${Math.round(fit.scale * 100)}% to fit your screen` : ""}.
+            {fit.scale < 0.99 ? `, shrunk to ${Math.round(fit.scale * 100)}%` : ""}
+            {fit.view > 0 && fit.view < fit.height - 1 ? ". Scroll the preview to see the rest" : ""}.
           </p>
         </section>
 
