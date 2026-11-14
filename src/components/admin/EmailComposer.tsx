@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   MAX_BODY,
@@ -56,6 +56,30 @@ export function EmailComposer({
   const [format, setFormat] = useState<BodyFormat>("text");
   const frame = useRef<HTMLIFrameElement>(null);
   const [frameHeight, setFrameHeight] = useState(420);
+  // Scale the preview down so the whole email fits on screen at once. Width
+  // stays fixed (it only shrinks visually), so the scale can't feed back into
+  // the height it was worked out from.
+  const box = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ scale: 1, height: 0 });
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const update = () => {
+      const natural = el.offsetHeight; // layout height, before the transform
+      // Room left once the card's label, padding and the note below are in.
+      const available = Math.max(320, window.innerHeight - 130);
+      const scale = Math.min(1, Math.max(0.4, available / natural));
+      setFit({ scale, height: natural * scale });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
   const [mode, setMode] = useState<"all" | "choose">("all");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -309,10 +333,17 @@ export function EmailComposer({
       </div>
 
       <div className="space-y-6">
-        <section className="card p-5">
+        <section className="card p-5 lg:sticky lg:top-4">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Preview</p>
+          {/* Shrunk to fit the screen: the outer box takes the scaled height so
+              nothing below it overlaps or leaves a gap. */}
+          <div className="overflow-hidden" style={{ height: fit.height || undefined }}>
           {/* Always light: it's what lands in an inbox, not part of the admin. */}
-          <div className="rounded-xl bg-[#f6f7fb] p-5 font-[Arial,Helvetica,sans-serif] text-[14px] leading-relaxed text-[#15151c]">
+          <div
+            ref={box}
+            className="rounded-xl bg-[#f6f7fb] p-5 font-[Arial,Helvetica,sans-serif] text-[14px] leading-relaxed text-[#15151c]"
+            style={{ transform: `scale(${fit.scale})`, transformOrigin: "top center" }}
+          >
             <p className="mb-3 border-b border-[#e2e8f0] pb-2.5 text-xs text-[#64748b]">
               <b className="text-[#15151c]">HouseSync</b> &lt;hello@housesync.co.uk&gt;
               <br />
@@ -352,7 +383,11 @@ export function EmailComposer({
               )}
             </p>
           </div>
-          <p className="mt-2 text-xs text-slate-400">Shown as {previewFirst} would see it.</p>
+          </div>
+          <p className="mt-2 text-xs text-slate-400">
+            Shown as {previewFirst} would see it
+            {fit.scale < 0.99 ? `, shrunk to ${Math.round(fit.scale * 100)}% to fit your screen` : ""}.
+          </p>
         </section>
 
         <section className="card p-5">
