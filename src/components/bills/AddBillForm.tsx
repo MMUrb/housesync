@@ -9,6 +9,7 @@ import { BILL_FREQUENCIES, type BillFrequency, type MemberWithProfile } from "@/
 import { REMINDER_DAY_OPTIONS } from "@/lib/billPortions";
 import { CategoryPicker } from "@/components/categories/CategoryPicker";
 import { Select } from "@/components/Select";
+import { AMOUNT_TOO_LARGE, isAmountTooLarge } from "@/lib/amounts";
 
 type Cat = { code: string; name: string; emoji: string; color: string };
 
@@ -152,6 +153,7 @@ export function AddBillForm({
     e.preventDefault();
     setError(null);
     if (amountNum <= 0) return setError("Enter an amount greater than zero.");
+    if (isAmountTooLarge(amountNum)) return setError(AMOUNT_TOO_LARGE);
     // A bill nobody pays can't be requested or sent: a real pick is required
     // (this is also how a bill whose payer left gets a new one).
     if (!members.some((m) => m.user_id === paidBy)) return setError("Pick who pays this bill.");

@@ -24,6 +24,7 @@ import type { MemberWithProfile } from "@/lib/types";
 import { Avatar } from "@/components/Avatar";
 import { CategoryPicker } from "@/components/categories/CategoryPicker";
 import { Select } from "@/components/Select";
+import { AMOUNT_TOO_LARGE, isAmountTooLarge } from "@/lib/amounts";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -163,6 +164,7 @@ export function AddExpenseForm({
     setError(null);
 
     if (amountNum <= 0) return setError("Enter an amount greater than zero.");
+    if (isAmountTooLarge(amountNum)) return setError(AMOUNT_TOO_LARGE);
     if (selectedIds.length === 0) return setError("Pick at least one person to split with.");
     if (!splitValid) {
       return setError(

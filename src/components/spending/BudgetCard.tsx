@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { currencySymbol, formatConverted, formatMoney } from "@/lib/format";
+import { isAmountTooLarge } from "@/lib/amounts";
 
 export function BudgetCard({
   userId,
@@ -39,7 +40,7 @@ export function BudgetCard({
 
   function onSave() {
     const v = Number(draft);
-    if (!Number.isFinite(v) || v <= 0) return;
+    if (!Number.isFinite(v) || v <= 0 || isAmountTooLarge(v)) return;
     void save(Math.round(v * 100) / 100);
   }
 
