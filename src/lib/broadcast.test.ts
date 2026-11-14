@@ -6,6 +6,7 @@ import {
   personalise,
   pickRecipients,
   renderBody,
+  hasEmbeddedImages,
   sanitizeEmailHtml,
   type Person,
 } from "./broadcast";
@@ -65,6 +66,16 @@ describe("HTML emails", () => {
     );
     expect(out).not.toMatch(/script|iframe|onclick|onerror|javascript:|<form/i);
     expect(out).toContain("<p>Hi</p>");
+  });
+
+  it("never touches ordinary words that look like attributes (14/11/2026 bug)", () => {
+    const out = sanitizeEmailHtml('<p>Pay online = easy. Click onward=now.</p><a href="https://x.co" onclick="y()">Go</a>');
+    expect(out).toBe('<p>Pay online = easy. Click onward=now.</p><a href="https://x.co">Go</a>');
+  });
+
+  it("finds images pasted into the HTML itself", () => {
+    expect(hasEmbeddedImages('<img src="data:image/png;base64,AAAA">')).toBe(true);
+    expect(hasEmbeddedImages('<img src="https://housesync.co.uk/og.png">')).toBe(false);
   });
 
   it("escapes the name it fills in, so a name can't inject markup", () => {

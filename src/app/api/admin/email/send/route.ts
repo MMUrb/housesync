@@ -8,6 +8,7 @@ import { getSiteUrl } from "@/lib/env";
 import { loadEmailAudience } from "@/lib/emailAudience";
 import { unsubscribeLinks } from "@/lib/unsubscribe";
 import { runPool } from "@/lib/pool";
+import { logError } from "@/lib/errorLog";
 import {
   MAX_BODY,
   MAX_BODY_HTML,
@@ -134,7 +135,15 @@ export async function POST(request: Request) {
     try {
       await sendEmail({ to: me.email, toName: me.name ?? undefined, ...mail, subject: `[Test] ${mail.subject}` });
     } catch (e) {
-      return NextResponse.json({ error: e instanceof Error ? e.message : "The test didn't send." }, { status: 502 });
+      const why = e instanceof Error ? e.message : "The test didn't send.";
+      // Recorded as well as shown: the reason is what diagnoses a failing format.
+      await logError({
+        source: "server",
+        url: "/api/admin/email/send",
+        message: `Admin email test (${format}) failed: ${why}`,
+        digest: "admin-email",
+      });
+      return NextResponse.json({ error: why }, { status: 502 });
     }
     return NextResponse.json({ test: true, sentTo: me.email });
   }
@@ -146,6 +155,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Nobody to send to: no one picked has this kind of email switched on." }, { status: 400 });
   }
 
+  let firstFailure: string | null = null;
   const startedAt = Date.now();
   const run = await runPool(
     recipients,
@@ -154,8 +164,9 @@ export async function POST(request: Request) {
       try {
         await sendEmail({ to: p.email as string, toName: p.name ?? undefined, ...buildEmail(p, kind, subject, body, format, siteUrl) });
         return true;
-      } catch {
+      } catch (e) {
         // One bad address mustn't stop everyone else's email.
+        firstFailure ??= e instanceof Error ? e.message : String(e);
         return false;
       }
     },
@@ -164,6 +175,15 @@ export async function POST(request: Request) {
   const sent = run.results.filter((r) => r === true).length;
   const failed = run.results.filter((r) => r === false).length;
   const notReached = recipients.length - run.started;
+
+  if (failed > 0) {
+    await logError({
+      source: "server",
+      url: "/api/admin/email/send",
+      message: `Admin email (${format}) "${subject}": ${failed} of ${recipients.length} failed. First reason: ${firstFailure}`,
+      digest: "admin-email",
+    });
+  }
 
   await admin.from("email_broadcasts").insert({
     kind,

@@ -9,6 +9,7 @@ import {
   canReceive,
   firstNameOf,
   personalise,
+  hasEmbeddedImages,
   renderBody,
   type BodyFormat,
   type BroadcastKind,
@@ -100,6 +101,16 @@ export function EmailComposer({
   const previewPerson = recipients[0] ?? eligible[0] ?? { name: adminName };
   const previewFirst = firstNameOf({ name: previewPerson.name ?? null });
   const ready = subject.trim().length > 0 && body.trim().length > 0;
+  // Caught here, before sending, with the reason: embedded images bloat the
+  // email and Gmail/Outlook block them; over the limit the server refuses.
+  const htmlProblem =
+    format !== "html"
+      ? null
+      : hasEmbeddedImages(body)
+        ? "This HTML has images pasted into it (data:image). Gmail and Outlook block those, and they make the email too big. Put each image online and use <img src=\"https://...\"> instead."
+        : body.length > MAX_BODY_HTML
+          ? `This HTML is ${body.length.toLocaleString("en-GB")} characters; the limit is ${MAX_BODY_HTML.toLocaleString("en-GB")}. Trim it, or check for images pasted into it.`
+          : null;
 
   // Set after a real send. While set, the button reads "Sent" and can't fire
   // again; any change below makes it a new email and clears it.
@@ -135,6 +146,7 @@ export function EmailComposer({
 
   async function send(test: boolean) {
     if (!ready) return setResult({ ok: false, text: "Add a subject and a message first." });
+    if (htmlProblem) return setResult({ ok: false, text: htmlProblem });
     if (!test && sent) return;
     if (!test && !confirming) return setConfirming(true);
     setBusy(true);
@@ -262,7 +274,9 @@ export function EmailComposer({
               className={`input min-h-[200px] leading-relaxed ${format === "html" ? "font-mono text-xs" : ""}`}
               value={body}
               spellCheck={format !== "html"}
-              maxLength={format === "html" ? MAX_BODY_HTML : MAX_BODY}
+              // HTML is checked below rather than cut off: silently chopping a
+              // pasted template mid-tag breaks it without saying why.
+              maxLength={format === "html" ? undefined : MAX_BODY}
               onChange={(e) => edit(setBody)(e.target.value)}
             />
           </label>
@@ -271,6 +285,11 @@ export function EmailComposer({
             {format === "text" && " A blank line starts a new paragraph, and web addresses become links."}
             {kind === "news" && " The unsubscribe link is added automatically."}
           </p>
+          {htmlProblem && (
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/15 dark:text-amber-200">
+              {htmlProblem}
+            </p>
+          )}
         </section>
 
         <section className="card space-y-3 p-5">

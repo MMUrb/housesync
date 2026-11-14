@@ -86,11 +86,27 @@ export type BodyFormat = "text" | "html";
  * only line of defence (the composer's preview is also a sealed frame).
  */
 export function sanitizeEmailHtml(html: string): string {
-  return html
-    .replace(/<(script|iframe|object|embed|form)\b[\s\S]*?<\/\1\s*>/gi, "")
-    .replace(/<(script|iframe|object|embed|form|base|meta|link)\b[^>]*\/?>/gi, "")
-    .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/(href|src)\s*=\s*(["']?)\s*javascript:[^"'\s>]*\2/gi, '$1="#"');
+  return (
+    html
+      .replace(/<(script|iframe|object|embed|form)\b[\s\S]*?<\/\1\s*>/gi, "")
+      .replace(/<(script|iframe|object|embed|form|base|meta|link)\b[^>]*\/?>/gi, "")
+      // Attributes are only cleaned INSIDE tags: run over the whole text, the
+      // event-handler rule ate ordinary words ("Pay online = easy" -> "Pay").
+      .replace(/<[a-zA-Z][^>]*>/g, (tag) =>
+        tag
+          .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+          .replace(/(href|src)\s*=\s*(["']?)\s*javascript:[^"'\s>]*\2/gi, '$1="#"'),
+      )
+  );
+}
+
+/**
+ * Images pasted INTO the HTML (data: URIs) rather than linked. They bloat the
+ * email past the size limit and Gmail and Outlook block them anyway; the
+ * composer says so and asks for https links instead.
+ */
+export function hasEmbeddedImages(html: string): boolean {
+  return /\bsrc\s*=\s*["']?\s*data:image\//i.test(html) || /url\(\s*["']?data:image\//i.test(html);
 }
 
 /** The finished body for one person, in either format. */
