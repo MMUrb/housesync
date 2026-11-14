@@ -101,16 +101,41 @@ export function EmailComposer({
   const previewFirst = firstNameOf({ name: previewPerson.name ?? null });
   const ready = subject.trim().length > 0 && body.trim().length > 0;
 
+  // Set after a real send. While set, the button reads "Sent" and can't fire
+  // again; any change below makes it a new email and clears it.
+  const [sent, setSent] = useState<{
+    sent: number;
+    recipients: number;
+    failed: number;
+    notReached: number;
+    at: string;
+    subject: string;
+  } | null>(null);
+
   function edit<T>(set: (v: T) => void) {
     return (v: T) => {
       set(v);
       setConfirming(false);
       setResult(null);
+      setSent(null);
     };
+  }
+
+  function startOver() {
+    setSubject("");
+    setBody("Hi {first name},\n\n");
+    setPicked(new Set());
+    setMode("all");
+    setQuery("");
+    setConfirming(false);
+    setResult(null);
+    setSent(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function send(test: boolean) {
     if (!ready) return setResult({ ok: false, text: "Add a subject and a message first." });
+    if (!test && sent) return;
     if (!test && !confirming) return setConfirming(true);
     setBusy(true);
     setResult(null);
@@ -132,10 +157,18 @@ export function EmailComposer({
       if (test) {
         setResult({ ok: true, text: `Test sent to ${j.sentTo}. Check your inbox.` });
       } else {
-        const bits = [`Sent to ${j.sent} of ${j.recipients}`];
-        if (j.failed) bits.push(`${j.failed} failed`);
-        if (j.notReached) bits.push(`${j.notReached} not reached (time limit), send again to those people`);
-        setResult({ ok: !j.failed && !j.notReached, text: bits.join(" · ") });
+        setSent({
+          sent: j.sent ?? 0,
+          recipients: j.recipients ?? 0,
+          failed: j.failed ?? 0,
+          notReached: j.notReached ?? 0,
+          at: new Date().toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: "Europe/London",
+          }),
+          subject: personalise(subject, previewFirst),
+        });
         setConfirming(false);
         router.refresh();
       }
@@ -308,19 +341,73 @@ export function EmailComposer({
           <button type="button" className="btn-secondary" disabled={busy} onClick={() => void send(true)}>
             Send a test to me
           </button>
-          <button
-            type="button"
-            className="btn-primary ml-auto"
-            disabled={busy || recipients.length === 0}
-            onClick={() => void send(false)}
-          >
-            {busy
-              ? "Sending…"
-              : confirming
-                ? `Tap again to send to ${recipients.length}`
-                : `Send to ${recipients.length} ${recipients.length === 1 ? "person" : "people"}`}
-          </button>
+          {sent ? (
+            <button
+              type="button"
+              disabled
+              className="ml-auto rounded-xl border border-emerald-600/40 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/15 dark:text-emerald-300"
+            >
+              ✓ Sent
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn-primary ml-auto"
+              disabled={busy || recipients.length === 0}
+              onClick={() => void send(false)}
+            >
+              {busy
+                ? "Sending…"
+                : confirming
+                  ? `Tap again to send to ${recipients.length}`
+                  : `Send to ${recipients.length} ${recipients.length === 1 ? "person" : "people"}`}
+            </button>
+          )}
         </div>
+        {sent &&
+          (() => {
+            const clean = sent.failed === 0 && sent.notReached === 0;
+            const n = (k: number) => `${k} ${k === 1 ? "person" : "people"}`;
+            return (
+              <div
+                className={`flex gap-3 rounded-2xl border p-4 ${
+                  clean
+                    ? "border-emerald-600/30 bg-emerald-50 dark:border-emerald-400/30 dark:bg-emerald-500/15"
+                    : "border-amber-500/40 bg-amber-50 dark:border-amber-400/30 dark:bg-amber-500/15"
+                }`}
+              >
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-bold text-white ${
+                    clean ? "bg-emerald-600" : "bg-amber-500"
+                  }`}
+                >
+                  {clean ? "✓" : "!"}
+                </span>
+                <div className="min-w-0 text-sm">
+                  <p
+                    className={`font-semibold ${clean ? "text-emerald-800 dark:text-emerald-200" : "text-amber-800 dark:text-amber-200"}`}
+                  >
+                    {clean
+                      ? `Sent to ${n(sent.sent)} at ${sent.at}`
+                      : `Sent to ${sent.sent} of ${n(sent.recipients)} at ${sent.at}`}
+                  </p>
+                  <p className={clean ? "text-emerald-700 dark:text-emerald-300/90" : "text-amber-700 dark:text-amber-300/90"}>
+                    &ldquo;{sent.subject}&rdquo; is on its way. It&rsquo;s now listed under Sent before.
+                    {sent.failed > 0 && ` ${n(sent.failed)} couldn't be emailed (a bad address, usually).`}
+                    {sent.notReached > 0 &&
+                      ` ${n(sent.notReached)} weren't reached in time: choose them and send again.`}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={startOver}
+                    className="mt-1.5 font-semibold text-brand-600 hover:underline"
+                  >
+                    Write a new email →
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         {result && (
           <p
             className={`rounded-xl px-3 py-2 text-sm ${
