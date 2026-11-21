@@ -76,10 +76,12 @@ export function EmailComposer({
       const wide = window.matchMedia("(min-width: 1024px)").matches;
       const below = wide && historyCard.current ? historyCard.current.offsetHeight + 24 : 0;
       const available = Math.max(150, window.innerHeight - 130 - below);
-      // Below half size text stops being readable: stop shrinking and let the
-      // preview scroll in its card instead. Either way the pinned column
-      // never outgrows the screen, so the history card below stays in view.
-      const scale = Math.min(1, Math.max(0.5, available / natural));
+      // Shrink a little to show the whole email at once, but no further than
+      // 75%: past that the text gets hard to read, so a longer email is shown
+      // at a comfortable 85% and scrolls in its card instead. Either way the
+      // pinned column never outgrows the screen and the history stays in view.
+      const fits = available / natural;
+      const scale = fits >= 0.75 ? Math.min(1, fits) : 0.85;
       const height = natural * scale;
       setFit({ scale, height, view: Math.min(height, available) });
     };
@@ -487,7 +489,10 @@ export function EmailComposer({
                 style={{ height: frameHeight }}
                 srcDoc={`<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>body{margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#15151c;background:#f6f7fb}img{max-width:100%;height:auto}</style></head><body>${renderBody(body, "html", previewFirst)}</body></html>`}
                 onLoad={() => {
-                  const h = frame.current?.contentDocument?.documentElement.scrollHeight;
+                  // The body's own height: the document's scrollHeight is never
+                  // less than the frame itself, so a short email could never
+                  // shrink the frame and the preview filled with blank space.
+                  const h = frame.current?.contentDocument?.body.scrollHeight;
                   if (h) setFrameHeight(Math.min(Math.max(h + 4, 120), 2000));
                 }}
               />
